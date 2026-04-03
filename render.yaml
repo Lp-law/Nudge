@@ -22,12 +22,30 @@ services:
         value: 2024-02-29-preview
       - key: NUDGE_BACKEND_API_KEY
         sync: false
+      - key: NUDGE_AUTH_MODE
+        value: token_or_api_key
+      - key: NUDGE_TOKEN_SIGNING_KEY
+        sync: false
+      - key: NUDGE_TOKEN_ISSUER
+        value: nudge
+      - key: NUDGE_TOKEN_AUDIENCE
+        value: nudge-client
+      - key: NUDGE_REQUIRED_SCOPE
+        value: nudge.api
+      - key: NUDGE_ALLOW_LEGACY_API_KEY
+        value: "true"
+      - key: NUDGE_REVOKED_TOKEN_JTIS
+        value: ""
       - key: RATE_LIMIT_WINDOW_SECONDS
         value: "60"
       - key: RATE_LIMIT_ACTION_REQUESTS
         value: "30"
       - key: RATE_LIMIT_OCR_REQUESTS
         value: "10"
+      - key: RATE_LIMIT_BACKEND
+        value: memory
+      - key: REDIS_URL
+        sync: false
       - key: MAX_REQUEST_BODY_BYTES
         value: "10485760"
       - key: PYTHON_VERSION

@@ -48,10 +48,19 @@ Edit `.env` with your real Azure values.
 - `AZURE_DOC_INTELLIGENCE_ENDPOINT` (example: `https://<resource>.cognitiveservices.azure.com`)
 - `AZURE_DOC_INTELLIGENCE_API_KEY`
 - `AZURE_DOC_INTELLIGENCE_API_VERSION` (optional override; default in app is `2024-02-29-preview`)
-- `NUDGE_BACKEND_API_KEY` (shared API key for protected backend endpoints)
+- `NUDGE_AUTH_MODE` (`token`, `api_key`, or `token_or_api_key`)
+- `NUDGE_TOKEN_SIGNING_KEY` (required for `token` mode; recommended for `token_or_api_key`)
+- `NUDGE_TOKEN_ISSUER` (default `nudge`)
+- `NUDGE_TOKEN_AUDIENCE` (default `nudge-client`)
+- `NUDGE_REQUIRED_SCOPE` (default `nudge.api`)
+- `NUDGE_ALLOW_LEGACY_API_KEY` (default `true`, set `false` in production rollout)
+- `NUDGE_REVOKED_TOKEN_JTIS` (comma-separated token `jti` values)
+- `NUDGE_BACKEND_API_KEY` (legacy fallback key; avoid as final production model)
 - `RATE_LIMIT_WINDOW_SECONDS` (default `60`)
 - `RATE_LIMIT_ACTION_REQUESTS` (default `30`)
 - `RATE_LIMIT_OCR_REQUESTS` (default `10`)
+- `RATE_LIMIT_BACKEND` (`memory` or `redis`)
+- `REDIS_URL` (required when `RATE_LIMIT_BACKEND=redis`)
 - `MAX_REQUEST_BODY_BYTES` (default `10485760`, 10MB)
 - `PORT` (optional locally, default app behavior is `8000`)
 
@@ -84,9 +93,13 @@ Optional backend override:
 
 ```powershell
 $env:NUDGE_BACKEND_BASE_URL="http://127.0.0.1:8000"
+$env:NUDGE_BACKEND_ACCESS_TOKEN="replace_with_short_lived_access_token"
 $env:NUDGE_BACKEND_API_KEY="replace_with_shared_backend_api_key"
 $env:NUDGE_ACCESSIBILITY_MODE="1"
 ```
+
+`NUDGE_BACKEND_ACCESS_TOKEN` is the preferred auth path (`Authorization: Bearer ...`).  
+`NUDGE_BACKEND_API_KEY` remains for controlled dev/internal compatibility only.
 
 `NUDGE_ACCESSIBILITY_MODE` is optional. When enabled, popup focuses itself for full keyboard navigation (Tab/Shift+Tab, Enter/Space, Escape).  
 You can also toggle accessibility mode from the tray menu (`מצב נגישות`).
@@ -98,6 +111,8 @@ From `client/` (with venv active):
 ```powershell
 python -m app.main
 ```
+
+Client includes a single-instance guard: if Nudge is already running in the same user session, a second launch exits immediately.
 
 ## Exact run order (local end-to-end)
 
@@ -114,7 +129,7 @@ python -m app.main
 ```powershell
 curl -X POST "http://127.0.0.1:8000/ai/action" `
   -H "Content-Type: application/json" `
-  -H "X-Nudge-API-Key: replace_with_shared_backend_api_key" `
+  -H "Authorization: Bearer replace_with_short_lived_access_token" `
   -d "{\"text\":\"This is a long sample paragraph for testing summarize behavior.\",\"action\":\"summarize\"}"
 ```
 
@@ -179,9 +194,11 @@ After each click:
 
 ## Security and request control notes
 
-- `POST /ai/action` and `POST /ai/ocr` require header `X-Nudge-API-Key`.
+- `POST /ai/action` and `POST /ai/ocr` require auth: preferred `Authorization: Bearer <token>`.
+- Legacy fallback `X-Nudge-API-Key` is supported only when `NUDGE_ALLOW_LEGACY_API_KEY=true`.
 - `/health` remains public.
-- Backend enforces per-IP in-memory rate limits for action/OCR routes.
+- Auth checks happen before protected request body processing for `/ai/action` and `/ai/ocr`.
+- Backend supports configurable rate-limit backend (`memory` or `redis`).
 - Backend enforces request body size limits at middleware level (plus model validation).
 - Each request gets `X-Request-ID` in response headers for operational tracing.
 - Client adds a lightweight sensitive-content guard before cloud actions.

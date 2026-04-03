@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import (
 
 
 CONTENT_PATH = Path(__file__).with_name("user_guide_content.json")
+logger = logging.getLogger(__name__)
 FALLBACK_GUIDES: dict[str, dict[str, str]] = {
     "he": {
         "label": "עברית",
@@ -31,6 +33,7 @@ def _load_guides() -> dict[str, dict[str, str]]:
     try:
         raw = json.loads(CONTENT_PATH.read_text(encoding="utf-8"))
     except Exception:
+        logger.warning("Failed to load user guide content from %s", CONTENT_PATH)
         return FALLBACK_GUIDES
 
     guides: dict[str, dict[str, str]] = {}
@@ -50,6 +53,7 @@ def _load_guides() -> dict[str, dict[str, str]]:
         }
 
     if "he" not in guides:
+        logger.warning("User guide content missing required 'he' locale")
         return FALLBACK_GUIDES
     return guides
 
@@ -72,7 +76,11 @@ class UserGuideDialog(QDialog):
         top_row.addWidget(QLabel("Language / שפה"))
 
         self.language_combo = QComboBox()
-        for language_key in ("he", "en", "ar", "ru"):
+        preferred_order = ("he", "en", "ar", "ru")
+        ordered_keys = [key for key in preferred_order if key in GUIDES] + [
+            key for key in GUIDES if key not in preferred_order
+        ]
+        for language_key in ordered_keys:
             if language_key in GUIDES:
                 self.language_combo.addItem(GUIDES[language_key]["label"], language_key)
         self.language_combo.currentIndexChanged.connect(self._render_selected_language)

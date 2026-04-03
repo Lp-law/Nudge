@@ -10,6 +10,7 @@ from app.core.security import (
     REQUEST_ID_CTX,
     REQUEST_ID_HEADER,
     RequestIdLogFilter,
+    authenticate_request,
 )
 from app.routes.ai import router as ai_router
 
@@ -35,7 +36,6 @@ async def validate_startup_config() -> None:
         "AZURE_OPENAI_DEPLOYMENT": settings.azure_openai_deployment,
         "AZURE_DOC_INTELLIGENCE_ENDPOINT": settings.azure_doc_intel_endpoint,
         "AZURE_DOC_INTELLIGENCE_API_KEY": settings.azure_doc_intel_api_key,
-        "NUDGE_BACKEND_API_KEY": settings.nudge_backend_api_key,
     }
     missing = [name for name, value in required.items() if not (value and str(value).strip())]
     if missing:
@@ -47,6 +47,35 @@ async def validate_startup_config() -> None:
             "Missing required Azure AI environment variables. "
             "Check server configuration."
         )
+
+    auth_mode = (settings.nudge_auth_mode or "token_or_api_key").strip().lower()
+    allowed_modes = {"token", "api_key", "token_or_api_key"}
+    if auth_mode not in allowed_modes:
+        raise RuntimeError("Invalid NUDGE_AUTH_MODE. Use token, api_key, or token_or_api_key.")
+    if auth_mode == "token" and not (
+        settings.nudge_token_signing_key and settings.nudge_token_signing_key.strip()
+    ):
+        raise RuntimeError("NUDGE_TOKEN_SIGNING_KEY is required for token auth modes.")
+    if auth_mode == "api_key" and not (
+        settings.nudge_backend_api_key and settings.nudge_backend_api_key.strip()
+    ):
+        raise RuntimeError("NUDGE_BACKEND_API_KEY is required when NUDGE_AUTH_MODE=api_key.")
+    if auth_mode == "token_or_api_key":
+        has_token = bool(settings.nudge_token_signing_key and settings.nudge_token_signing_key.strip())
+        has_legacy = bool(
+            settings.nudge_allow_legacy_api_key
+            and settings.nudge_backend_api_key
+            and settings.nudge_backend_api_key.strip()
+        )
+        if not (has_token or has_legacy):
+            raise RuntimeError(
+                "token_or_api_key mode requires either NUDGE_TOKEN_SIGNING_KEY "
+                "or legacy API key fallback."
+            )
+
+    if (settings.rate_limit_backend or "memory").strip().lower() == "redis":
+        if not (settings.redis_url and settings.redis_url.strip()):
+            raise RuntimeError("REDIS_URL is required when RATE_LIMIT_BACKEND=redis.")
 
 
 @app.middleware("http")
@@ -77,6 +106,20 @@ async def request_body_limit_middleware(request: Request, call_next):
     request.state.request_id = request_id
     token = REQUEST_ID_CTX.set(request_id)
     try:
+        auth_context = authenticate_request(request, settings)
+        if auth_context is None:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={
+                    "detail": {
+                        "message": "Unauthorized request.",
+                        "request_id": request_id,
+                    }
+                },
+                headers={REQUEST_ID_HEADER: request_id},
+            )
+        request.state.auth_context = auth_context
+
         content_length = request.headers.get("content-length")
         if content_length and content_length.isdigit():
             if int(content_length) > settings.max_request_body_bytes:

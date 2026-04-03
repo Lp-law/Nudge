@@ -1,7 +1,7 @@
 from pathlib import Path
 import hashlib
 
-from PySide6.QtCore import QByteArray, QBuffer, QIODevice
+from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QSettings
 from PySide6.QtGui import QClipboard, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QStyle, QSystemTrayIcon
 
@@ -40,7 +40,17 @@ class TrayApp:
         validate_action_contract()
         self.app = app
         self.settings = get_settings()
-        self._accessibility_mode = self.settings.accessibility_mode
+        self._preferences = QSettings("Nudge", "NudgeClient")
+        persisted_accessibility = self._preferences.value("accessibility_mode", None)
+        if persisted_accessibility is None:
+            self._accessibility_mode = self.settings.accessibility_mode
+        else:
+            self._accessibility_mode = str(persisted_accessibility).strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
         self.app.setQuitOnLastWindowClosed(False)
         self.app.aboutToQuit.connect(self._on_app_shutdown)
         self._request_in_flight = False
@@ -114,7 +124,7 @@ class TrayApp:
             on_error=self._handle_error,
         )
         if request_id < 0:
-            self._clear_active_request_state()
+            self._clear_active_request_state(clear_image=False)
             self.popup.set_error(ERROR_GENERIC)
             return
         self._active_request_id = request_id
@@ -147,7 +157,7 @@ class TrayApp:
             on_error=self._handle_error,
         )
         if request_id < 0:
-            self._clear_active_request_state()
+            self._clear_active_request_state(clear_image=False)
             self.popup.set_error(ERROR_GENERIC)
             return
         self._active_request_id = request_id
@@ -176,11 +186,11 @@ class TrayApp:
         if self._is_shutting_down or self._active_request_id != request_id:
             return
         if self._clipboard_signature() != self._active_request_clipboard_signature:
-            self._clear_active_request_state()
+            self._clear_active_request_state(clear_image=True)
             self.popup.set_error(ERROR_CANCELLED)
             return
 
-        self._clear_active_request_state()
+        self._clear_active_request_state(clear_image=True)
         self.monitor.suppress_next_change()
         self.clipboard.setText(result, mode=QClipboard.Clipboard)
         self.popup.set_success()
@@ -188,7 +198,7 @@ class TrayApp:
     def _handle_error(self, request_id: int, message: str) -> None:
         if self._is_shutting_down or self._active_request_id != request_id:
             return
-        self._clear_active_request_state()
+        self._clear_active_request_state(clear_image=False)
         display_message = STATUS_TEXT_BY_ERROR.get(message, message or ERROR_GENERIC)
         self.popup.set_error(display_message)
 
@@ -225,18 +235,20 @@ class TrayApp:
 
     def _on_accessibility_toggled(self, enabled: bool) -> None:
         self._accessibility_mode = enabled
+        self._preferences.setValue("accessibility_mode", enabled)
         self.popup.set_accessibility_mode(enabled)
 
     def _on_app_shutdown(self) -> None:
         self._is_shutting_down = True
-        self._clear_active_request_state()
+        self._clear_active_request_state(clear_image=True)
         self.api_client.cancel_all_requests()
 
-    def _clear_active_request_state(self) -> None:
+    def _clear_active_request_state(self, *, clear_image: bool) -> None:
         self._request_in_flight = False
         self._active_request_id = None
         self._active_request_clipboard_signature = ""
-        self._current_image_png = None
+        if clear_image:
+            self._current_image_png = None
 
     def _clipboard_signature(self) -> str:
         mime_data = self.clipboard.mimeData(mode=QClipboard.Clipboard)

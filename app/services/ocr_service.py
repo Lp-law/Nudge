@@ -71,7 +71,14 @@ class AzureOCRService:
                     retries=MAX_POLL_RETRIES,
                     stage="poll",
                 )
-                data = poll_response.json()
+                try:
+                    data = poll_response.json()
+                except Exception as exc:
+                    raise UpstreamServiceError(
+                        "invalid_response",
+                        "OCR service returned invalid JSON.",
+                        retryable=False,
+                    ) from exc
                 status = str(data.get("status", "")).lower()
 
                 if status == "succeeded":

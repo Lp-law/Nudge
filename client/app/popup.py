@@ -25,7 +25,6 @@ from .action_contract import (
 class ActionPopup(QWidget):
     action_selected = Signal(str)
     IDLE_STATUS_TEXT = "בחר פעולה"
-    HELPER_TEXT = "בחר פעולה אחת להדבקה מהירה"
     ICON_SIZE = 18
     IDLE_AUTO_HIDE_MS = 5250
     SUCCESS_AUTO_HIDE_MS = 675
@@ -156,11 +155,13 @@ class ActionPopup(QWidget):
         self.status_label = QLabel(self.IDLE_STATUS_TEXT)
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.status_label.setStyleSheet("font-size: 12px; font-weight: 600; color: #A8B4D3;")
+        self.status_label.setAccessibleName("סטטוס פעולה")
         layout.addWidget(self.status_label)
 
         self.helper_label = QLabel(self.TEXT_HELPER_TEXT)
         self.helper_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.helper_label.setStyleSheet("font-size: 11px; color: #7782A1;")
+        self.helper_label.setAccessibleName("מידע עזרה")
         layout.addWidget(self.helper_label)
 
         header_divider = QFrame()
@@ -191,6 +192,10 @@ class ActionPopup(QWidget):
             button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            button.setAccessibleName(f"פעולה: {button.text()}")
+            button.setAccessibleDescription(
+                "כפתור פעולה של Nudge. לחיצה מפעילה את הפעולה על התוכן שהועתק."
+            )
 
         self.text_actions_widget = QWidget()
         text_grid = QGridLayout()
@@ -288,14 +293,19 @@ class ActionPopup(QWidget):
     def set_accessibility_mode(self, enabled: bool) -> None:
         if self._accessibility_mode == enabled:
             return
+        was_visible = self.isVisible()
+        old_position = self.pos()
         self._accessibility_mode = enabled
+        if was_visible:
+            self.hide()
         self._apply_accessibility_window_mode()
-        if self.isVisible():
+        if was_visible:
             self.helper_label.setText(
                 self._helper_text_for_mode(
                     self.IMAGE_HELPER_TEXT if self._mode == "image" else self.TEXT_HELPER_TEXT
                 )
             )
+            self.move(old_position)
             self.show()
             if enabled:
                 self._activate_accessible_focus()

@@ -1,5 +1,10 @@
 import base64
+import hashlib
+import hmac
+import json
 import os
+import time
+from base64 import urlsafe_b64encode
 
 from fastapi.testclient import TestClient
 
@@ -10,6 +15,12 @@ os.environ.setdefault("AZURE_OPENAI_DEPLOYMENT", "gpt-test")
 os.environ.setdefault("AZURE_DOC_INTELLIGENCE_ENDPOINT", "https://example.cognitiveservices.azure.com")
 os.environ.setdefault("AZURE_DOC_INTELLIGENCE_API_KEY", "test-doc-key")
 os.environ.setdefault("NUDGE_BACKEND_API_KEY", "test-backend-key")
+os.environ.setdefault("NUDGE_TOKEN_SIGNING_KEY", "test-signing-secret")
+os.environ.setdefault("NUDGE_TOKEN_ISSUER", "nudge")
+os.environ.setdefault("NUDGE_TOKEN_AUDIENCE", "nudge-client")
+os.environ.setdefault("NUDGE_REQUIRED_SCOPE", "nudge.api")
+os.environ.setdefault("NUDGE_AUTH_MODE", "token_or_api_key")
+os.environ.setdefault("NUDGE_ALLOW_LEGACY_API_KEY", "true")
 os.environ.setdefault("RATE_LIMIT_WINDOW_SECONDS", "60")
 os.environ.setdefault("RATE_LIMIT_ACTION_REQUESTS", "2")
 os.environ.setdefault("RATE_LIMIT_OCR_REQUESTS", "2")
@@ -37,17 +48,48 @@ def test_health_works() -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+    assert response.headers.get("X-Request-ID")
 
 
 def test_action_rejects_unauthorized() -> None:
     response = client.post("/ai/action", json={"text": "hello world", "action": "summarize"})
     assert response.status_code == 401
+    assert response.headers.get("X-Request-ID")
 
 
 def test_ocr_rejects_unauthorized() -> None:
     image_payload = base64.b64encode(b"png").decode("ascii")
     response = client.post("/ai/ocr", json={"image_base64": image_payload})
     assert response.status_code == 401
+
+
+def _encode_b64url(data: bytes) -> str:
+    return urlsafe_b64encode(data).decode("ascii").rstrip("=")
+
+
+def _make_access_token(sub: str = "test-client") -> str:
+    header = {"alg": "HS256", "typ": "JWT"}
+    now = int(time.time())
+    payload = {
+        "iss": os.environ["NUDGE_TOKEN_ISSUER"],
+        "aud": os.environ["NUDGE_TOKEN_AUDIENCE"],
+        "sub": sub,
+        "scope": os.environ["NUDGE_REQUIRED_SCOPE"],
+        "iat": now,
+        "nbf": now - 1,
+        "exp": now + 300,
+        "jti": "test-jti-1",
+    }
+    header_b64 = _encode_b64url(json.dumps(header, separators=(",", ":")).encode("utf-8"))
+    payload_b64 = _encode_b64url(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    to_sign = f"{header_b64}.{payload_b64}".encode("ascii")
+    signature = hmac.new(
+        os.environ["NUDGE_TOKEN_SIGNING_KEY"].encode("utf-8"),
+        to_sign,
+        hashlib.sha256,
+    ).digest()
+    sig_b64 = _encode_b64url(signature)
+    return f"{header_b64}.{payload_b64}.{sig_b64}"
 
 
 def test_action_whitespace_is_400() -> None:
@@ -66,6 +108,21 @@ def test_action_validation_invalid_enum() -> None:
         json={"text": "hello world", "action": "not_real_action"},
     )
     assert response.status_code == 422
+
+
+def test_action_accepts_valid_bearer_token(monkeypatch) -> None:
+    async def _fake_generate_action(action: str, text: str) -> str:
+        return "ok"
+
+    monkeypatch.setattr(ai_routes.openai_service, "generate_action", _fake_generate_action)
+    token = _make_access_token()
+    response = client.post(
+        "/ai/action",
+        headers={"Authorization": f"Bearer {token}", "X-Forwarded-For": "198.51.100.24"},
+        json={"text": "valid request content", "action": "summarize"},
+    )
+    assert response.status_code == 200
+    assert response.json()["result"] == "ok"
 
 
 def test_request_size_rejected_for_action() -> None:

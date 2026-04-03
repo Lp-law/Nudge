@@ -9,9 +9,18 @@
 - `AZURE_DOC_INTELLIGENCE_API_KEY`
 - `AZURE_DOC_INTELLIGENCE_API_VERSION` (optional override)
 - `NUDGE_BACKEND_API_KEY`
+- `NUDGE_AUTH_MODE`
+- `NUDGE_TOKEN_SIGNING_KEY`
+- `NUDGE_TOKEN_ISSUER`
+- `NUDGE_TOKEN_AUDIENCE`
+- `NUDGE_REQUIRED_SCOPE`
+- `NUDGE_ALLOW_LEGACY_API_KEY`
+- `NUDGE_REVOKED_TOKEN_JTIS`
 - `RATE_LIMIT_WINDOW_SECONDS`
 - `RATE_LIMIT_ACTION_REQUESTS`
 - `RATE_LIMIT_OCR_REQUESTS`
+- `RATE_LIMIT_BACKEND`
+- `REDIS_URL` (required when `RATE_LIMIT_BACKEND=redis`)
 - `MAX_REQUEST_BODY_BYTES`
 
 ## Deploy/update checklist
@@ -25,9 +34,9 @@
 1. Health:
    - `GET /health` returns `200` and `{"status":"ok"}`.
 2. Auth gate:
-   - `POST /ai/action` without `X-Nudge-API-Key` returns `401`.
+   - `POST /ai/action` without valid auth returns `401`.
 3. Authorized action:
-   - `POST /ai/action` with valid key returns `200` and `{ "result": "..." }`.
+   - `POST /ai/action` with valid bearer token returns `200` and `{ "result": "..." }`.
 4. OCR route:
    - `POST /ai/ocr` without auth returns `401`.
 5. Request ID:
@@ -65,13 +74,17 @@
 
 ## If auth/rate limit blocks legitimate users
 1. Confirm client sends `X-Nudge-API-Key`.
-2. Validate backend key value in environment matches client deployment.
+2. Confirm primary auth path (`Authorization: Bearer`) is configured correctly.
+3. If legacy fallback is enabled, validate backend key value in environment matches client deployment.
 3. Check current limits:
    - `RATE_LIMIT_WINDOW_SECONDS`
    - `RATE_LIMIT_ACTION_REQUESTS`
    - `RATE_LIMIT_OCR_REQUESTS`
-4. If limits are too strict for real usage, raise carefully and redeploy.
-5. Re-test with repeated calls from one IP.
+4. Check limiter backend:
+   - `RATE_LIMIT_BACKEND=redis` for multi-instance scale
+   - `REDIS_URL` reachable from runtime
+5. If limits are too strict for real usage, raise carefully and redeploy.
+6. Re-test with repeated calls from one IP.
 
 ## Local smoke command
 Run from repo root:

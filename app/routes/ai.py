@@ -4,7 +4,12 @@ import base64
 from fastapi import APIRouter, HTTPException, Request, status
 
 from app.core.config import get_settings
-from app.core.security import API_KEY_HEADER, InMemoryRateLimiter, get_client_ip, is_valid_api_key
+from app.core.security import (
+    AuthContext,
+    authenticate_request,
+    create_rate_limiter,
+    get_client_ip,
+)
 from app.schemas.ai import AIActionRequest, AIActionResponse, OCRRequest, OCRResponse
 from app.services.openai_service import AzureOpenAIService
 from app.services.ocr_service import AzureOCRService
@@ -17,7 +22,7 @@ openai_service = AzureOpenAIService()
 ocr_service = AzureOCRService()
 MAX_OCR_IMAGE_BYTES = 5 * 1024 * 1024
 settings = get_settings()
-rate_limiter = InMemoryRateLimiter()
+rate_limiter = create_rate_limiter(settings)
 
 
 def _request_id(request: Request) -> str:
@@ -29,18 +34,22 @@ def _detail(message: str, request: Request) -> dict[str, str]:
 
 
 def _enforce_auth(request: Request) -> None:
-    provided_key = request.headers.get(API_KEY_HEADER)
-    if not is_valid_api_key(settings.nudge_backend_api_key, provided_key):
+    context = getattr(request.state, "auth_context", None)
+    if isinstance(context, AuthContext):
+        return
+    resolved = authenticate_request(request, settings)
+    if resolved is None:
         logger.warning("Unauthorized request to %s", request.url.path)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=_detail("Unauthorized request.", request),
         )
+    request.state.auth_context = resolved
 
 
-def _enforce_rate_limit(request: Request, route_key: str, limit: int) -> None:
+async def _enforce_rate_limit(request: Request, route_key: str, limit: int) -> None:
     client_ip = get_client_ip(request)
-    decision = rate_limiter.allow(
+    decision = await rate_limiter.allow(
         key=f"{route_key}:{client_ip}",
         limit=limit,
         window_seconds=settings.rate_limit_window_seconds,
@@ -95,7 +104,7 @@ def _map_upstream_error(
 @router.post("/action", response_model=AIActionResponse)
 async def create_action(payload: AIActionRequest, request: Request) -> AIActionResponse:
     _enforce_auth(request)
-    _enforce_rate_limit(request, "action", settings.rate_limit_action_requests)
+    await _enforce_rate_limit(request, "action", settings.rate_limit_action_requests)
 
     if not payload.text:
         raise HTTPException(
@@ -130,7 +139,7 @@ async def create_action(payload: AIActionRequest, request: Request) -> AIActionR
 @router.post("/ocr", response_model=OCRResponse)
 async def extract_ocr(payload: OCRRequest, request: Request) -> OCRResponse:
     _enforce_auth(request)
-    _enforce_rate_limit(request, "ocr", settings.rate_limit_ocr_requests)
+    await _enforce_rate_limit(request, "ocr", settings.rate_limit_ocr_requests)
 
     if not payload.image_base64:
         raise HTTPException(
