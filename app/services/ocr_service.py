@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 
 import httpx
 
@@ -16,6 +17,10 @@ MAX_POLL_TIMEOUT_SECONDS = 90.0
 MAX_SUBMIT_RETRIES = 2
 MAX_POLL_RETRIES = 2
 BACKOFF_BASE_SECONDS = 0.5
+_ZERO_WIDTH_CHARS_RE = re.compile(r"[\u200b\u200c\u200d\ufeff]")
+_MULTI_BLANK_LINES_RE = re.compile(r"\n{3,}")
+_SPACE_RUN_RE = re.compile(r"[ \t]{2,}")
+_NOISE_ONLY_LINE_RE = re.compile(r"^[\W_]{1,3}$", re.UNICODE)
 
 
 class AzureOCRService:
@@ -133,7 +138,7 @@ class AzureOCRService:
         analyze_result = data.get("analyzeResult") or {}
         content = str(analyze_result.get("content") or "").strip()
         if content:
-            return content
+            return self._normalize_ocr_text(content)
 
         read_results = analyze_result.get("pages") or []
         lines: list[str] = []
@@ -142,7 +147,26 @@ class AzureOCRService:
                 text = str(line.get("text") or "").strip()
                 if text:
                     lines.append(text)
-        return "\n".join(lines).strip()
+        return self._normalize_ocr_text("\n".join(lines))
+
+    def _normalize_ocr_text(self, text: str) -> str:
+        # Deterministic OCR cleanup:
+        # - normalize line endings
+        # - remove zero-width artifacts
+        # - trim per-line edge spaces
+        # - drop tiny symbol-only noise lines
+        # - keep intentional line breaks and cap excessive blank blocks
+        normalized = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+        normalized = _ZERO_WIDTH_CHARS_RE.sub("", normalized)
+        cleaned_lines: list[str] = []
+        for raw_line in normalized.split("\n"):
+            line = _SPACE_RUN_RE.sub(" ", raw_line.strip())
+            if line and _NOISE_ONLY_LINE_RE.match(line):
+                continue
+            cleaned_lines.append(line)
+        joined = "\n".join(cleaned_lines).strip()
+        joined = _MULTI_BLANK_LINES_RE.sub("\n\n", joined)
+        return joined
 
     async def _request_with_retries(
         self,

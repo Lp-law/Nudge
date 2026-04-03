@@ -34,7 +34,7 @@ from .ui_strings import (
     ERROR_GENERIC,
     ERROR_INVALID_TEXT,
     ERROR_NO_IMAGE,
-    STATUS_TEXT_BY_ERROR,
+    resolve_status_text,
     TRAY_MENU_ACCESSIBILITY_MODE,
     TRAY_MENU_EXIT,
     TRAY_MENU_USER_GUIDE,
@@ -55,6 +55,7 @@ class TrayApp:
         self._request_in_flight = False
         self._is_shutting_down = False
         self._active_request_id: int | None = None
+        self._active_request_kind = ""
         self._active_request_clipboard_signature = ""
         self._current_image_png: bytes | None = None
         self._queued_context = QueuedClipboardContext()
@@ -134,6 +135,7 @@ class TrayApp:
             self._clear_active_request_state(clear_image=False)
             self.popup.set_error(ERROR_GENERIC)
             return
+        self._active_request_kind = "text"
         self._active_request_id = request_id
 
     def _handle_fix_layout_he(self) -> None:
@@ -167,6 +169,7 @@ class TrayApp:
             self._clear_active_request_state(clear_image=False)
             self.popup.set_error(ERROR_GENERIC)
             return
+        self._active_request_kind = "ocr"
         self._active_request_id = request_id
 
     def _on_text_ready(self, text: str) -> None:
@@ -233,7 +236,11 @@ class TrayApp:
             self._present_queued_context_if_any()
             return
 
+        active_kind = self._active_request_kind
         self._clear_active_request_state(clear_image=True)
+        if active_kind == "ocr":
+            # Word and similar editors paste more predictably with CRLF.
+            result = result.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\r\n")
         self.monitor.suppress_next_change()
         self.clipboard.setText(result, mode=QClipboard.Clipboard)
         self.popup.set_success()
@@ -247,7 +254,7 @@ class TrayApp:
         ):
             return
         self._clear_active_request_state(clear_image=False)
-        display_message = STATUS_TEXT_BY_ERROR.get(message, message or ERROR_GENERIC)
+        display_message = resolve_status_text(message)
         self.popup.set_error(display_message)
         self._present_queued_context_if_any()
 
@@ -296,6 +303,7 @@ class TrayApp:
     def _clear_active_request_state(self, *, clear_image: bool) -> None:
         self._request_in_flight = False
         self._active_request_id = None
+        self._active_request_kind = ""
         self._active_request_clipboard_signature = ""
         if clear_image:
             self._current_image_png = None

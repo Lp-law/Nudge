@@ -471,3 +471,10 @@ def test_ocr_poll_timeout_is_bounded(monkeypatch) -> None:
     get_settings.cache_clear()
     high = AzureOCRService()
     assert high._poll_timeout_seconds() <= 90.0
+
+
+def test_ocr_text_cleanup_preserves_lines_and_reduces_noise() -> None:
+    service = AzureOCRService()
+    raw = " שורה ראשונה  \r\n\r\n___\r\nשורה   שנייה\r\n \u200b \r\n@@\r\n"
+    cleaned = service._normalize_ocr_text(raw)
+    assert cleaned == "שורה ראשונה\n\nשורה שנייה"
