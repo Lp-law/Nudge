@@ -2,10 +2,18 @@ from dataclasses import dataclass
 import os
 
 
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = (os.getenv(name, "") or "").strip().lower()
+    if not value:
+        return default
+    return value in {"1", "true", "yes", "on"}
+
+
 @dataclass(frozen=True)
 class Settings:
     backend_base_url: str = os.getenv("NUDGE_BACKEND_BASE_URL", "http://127.0.0.1:8000")
     backend_api_key: str = os.getenv("NUDGE_BACKEND_API_KEY", "").strip()
+    accessibility_mode: bool = _env_flag("NUDGE_ACCESSIBILITY_MODE", False)
     popup_delay_ms: int = 700
     minimum_non_space_chars: int = 8
     request_timeout_ms: int = 12000

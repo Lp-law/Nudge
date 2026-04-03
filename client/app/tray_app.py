@@ -16,7 +16,22 @@ from .api_client import ApiClient
 from .clipboard_monitor import ClipboardMonitor
 from .layout_converter import convert_en_layout_to_hebrew
 from .popup import ActionPopup
+from .settings import get_settings
 from .sensitive_guard import detect_sensitive_text, image_requires_confirmation
+from .ui_strings import (
+    CLOUD_CONFIRM_CANCEL,
+    CLOUD_CONFIRM_CONTINUE,
+    CLOUD_CONFIRM_TITLE,
+    ERROR_CANCELLED,
+    ERROR_GENERIC,
+    ERROR_INVALID_TEXT,
+    ERROR_NO_IMAGE,
+    STATUS_TEXT_BY_ERROR,
+    TRAY_MENU_ACCESSIBILITY_MODE,
+    TRAY_MENU_EXIT,
+    TRAY_MENU_USER_GUIDE,
+    cloud_confirm_message,
+)
 from .user_guide import UserGuideDialog
 
 
@@ -24,6 +39,8 @@ class TrayApp:
     def __init__(self, app: QApplication) -> None:
         validate_action_contract()
         self.app = app
+        self.settings = get_settings()
+        self._accessibility_mode = self.settings.accessibility_mode
         self.app.setQuitOnLastWindowClosed(False)
         self.app.aboutToQuit.connect(self._on_app_shutdown)
         self._request_in_flight = False
@@ -35,7 +52,7 @@ class TrayApp:
 
         self.clipboard: QClipboard = self.app.clipboard()
         self.api_client = ApiClient()
-        self.popup = ActionPopup()
+        self.popup = ActionPopup(accessibility_mode=self._accessibility_mode)
         self.monitor = ClipboardMonitor(self.clipboard)
         self.monitor.text_ready.connect(self.popup.show_for_text)
         self.monitor.image_ready.connect(self._show_for_image)
@@ -45,9 +62,13 @@ class TrayApp:
         self.tray = QSystemTrayIcon(tray_icon, self.app)
         self.tray.setToolTip("Nudge")
         menu = QMenu()
-        help_action = menu.addAction("מדריך משתמש")
+        help_action = menu.addAction(TRAY_MENU_USER_GUIDE)
         help_action.triggered.connect(self._open_user_guide)
-        quit_action = menu.addAction("יציאה")
+        accessibility_action = menu.addAction(TRAY_MENU_ACCESSIBILITY_MODE)
+        accessibility_action.setCheckable(True)
+        accessibility_action.setChecked(self._accessibility_mode)
+        accessibility_action.toggled.connect(self._on_accessibility_toggled)
+        quit_action = menu.addAction(TRAY_MENU_EXIT)
         quit_action.triggered.connect(self.app.quit)
         self.tray.setContextMenu(menu)
         self.tray.show()
@@ -94,7 +115,7 @@ class TrayApp:
         )
         if request_id < 0:
             self._clear_active_request_state()
-            self.popup.set_error("שגיאה")
+            self.popup.set_error(ERROR_GENERIC)
             return
         self._active_request_id = request_id
 
@@ -104,7 +125,7 @@ class TrayApp:
             return
         converted = convert_en_layout_to_hebrew(text).strip()
         if not converted:
-            self.popup.set_error("לא זוהה טקסט תקין")
+            self.popup.set_error(ERROR_INVALID_TEXT)
             return
         self.monitor.suppress_next_change()
         self.clipboard.setText(converted, mode=QClipboard.Clipboard)
@@ -112,7 +133,7 @@ class TrayApp:
 
     def _handle_ocr_action(self) -> None:
         if self._current_image_png is None:
-            self.popup.set_error("לא נמצאה תמונה")
+            self.popup.set_error(ERROR_NO_IMAGE)
             return
         if not self._confirm_cloud_send_for_image():
             return
@@ -127,7 +148,7 @@ class TrayApp:
         )
         if request_id < 0:
             self._clear_active_request_state()
-            self.popup.set_error("שגיאה")
+            self.popup.set_error(ERROR_GENERIC)
             return
         self._active_request_id = request_id
 
@@ -156,7 +177,7 @@ class TrayApp:
             return
         if self._clipboard_signature() != self._active_request_clipboard_signature:
             self._clear_active_request_state()
-            self.popup.set_error("הפעולה בוטלה")
+            self.popup.set_error(ERROR_CANCELLED)
             return
 
         self._clear_active_request_state()
@@ -168,14 +189,7 @@ class TrayApp:
         if self._is_shutting_down or self._active_request_id != request_id:
             return
         self._clear_active_request_state()
-        display_message = {
-            "Timeout": "תם הזמן",
-            "Network error": "שגיאת רשת",
-            "Request failed": "הבקשה נכשלה",
-            "Bad response": "תגובה לא תקינה",
-            "Empty result": "תוצאה ריקה",
-            "OCR failed": "חילוץ טקסט נכשל",
-        }.get(message, message or "שגיאה")
+        display_message = STATUS_TEXT_BY_ERROR.get(message, message or ERROR_GENERIC)
         self.popup.set_error(display_message)
 
     def _open_user_guide(self) -> None:
@@ -198,20 +212,20 @@ class TrayApp:
         reason_text = ", ".join(reasons[:3])
         if len(reasons) > 3:
             reason_text += " ועוד"
-        message = (
-            "זוהה תוכן רגיש אפשרי.\n"
-            f"סיבה: {reason_text}\n\n"
-            "הפעולה תשלח את התוכן לשירות ענן של Nudge. להמשיך?"
-        )
+        message = cloud_confirm_message(reason_text)
         dialog = QMessageBox(self.popup)
         dialog.setIcon(QMessageBox.Icon.Warning)
-        dialog.setWindowTitle("אישור שליחה לענן")
+        dialog.setWindowTitle(CLOUD_CONFIRM_TITLE)
         dialog.setText(message)
-        continue_button = dialog.addButton("המשך", QMessageBox.ButtonRole.AcceptRole)
-        dialog.addButton("ביטול", QMessageBox.ButtonRole.RejectRole)
+        continue_button = dialog.addButton(CLOUD_CONFIRM_CONTINUE, QMessageBox.ButtonRole.AcceptRole)
+        dialog.addButton(CLOUD_CONFIRM_CANCEL, QMessageBox.ButtonRole.RejectRole)
         dialog.setDefaultButton(continue_button)
         dialog.exec()
         return dialog.clickedButton() is continue_button
+
+    def _on_accessibility_toggled(self, enabled: bool) -> None:
+        self._accessibility_mode = enabled
+        self.popup.set_accessibility_mode(enabled)
 
     def _on_app_shutdown(self) -> None:
         self._is_shutting_down = True

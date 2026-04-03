@@ -35,10 +35,12 @@ class ActionPopup(QWidget):
     TEXT_HELPER_TEXT = "בחר פעולה. חלק מהפעולות מעבדות טקסט בענן."
     IMAGE_HELPER_TEXT = "חלץ טקסט מהתמונה (OCR בענן)."
     SUCCESS_HELPER_TEXT = "התוצאה הועתקה ללוח והחליפה את התוכן הקודם."
+    ACCESSIBILITY_HELPER_TEXT = "מצב נגישות פעיל: ניתן לנווט עם Tab ולהפעיל עם Enter."
 
-    def __init__(self) -> None:
+    def __init__(self, accessibility_mode: bool = False) -> None:
         super().__init__()
         validate_action_contract()
+        self._accessibility_mode = accessibility_mode
         self._current_text = ""
         self._is_loading = False
         self._mode = "text"
@@ -49,12 +51,7 @@ class ActionPopup(QWidget):
         self._result_timer.setSingleShot(True)
         self._result_timer.timeout.connect(self.hide)
 
-        self.setWindowFlags(
-            Qt.WindowType.Tool
-            | Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
-        )
-        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        self._apply_accessibility_window_mode()
         self.setFixedWidth(self.POPUP_WIDTH)
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.setStyleSheet(
@@ -193,6 +190,7 @@ class ActionPopup(QWidget):
             button.setIconSize(self.ACTION_ICON_SIZE)
             button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
             button.setCursor(Qt.CursorShape.PointingHandCursor)
+            button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         self.text_actions_widget = QWidget()
         text_grid = QGridLayout()
@@ -233,7 +231,7 @@ class ActionPopup(QWidget):
         self._result_timer.stop()
         self._set_loading(False)
         self._set_status(self.IDLE_STATUS_TEXT, "#9BA8CA")
-        self.helper_label.setText(self.TEXT_HELPER_TEXT)
+        self.helper_label.setText(self._helper_text_for_mode(self.TEXT_HELPER_TEXT))
         self._set_mode("text")
         self.adjustSize()
         cursor_pos = QCursor.pos()
@@ -242,6 +240,8 @@ class ActionPopup(QWidget):
         x, y = self._bounded_position(x, y)
         self.move(x, y)
         self.show()
+        if self._accessibility_mode:
+            self._activate_accessible_focus()
         self._idle_timer.start(self.IDLE_AUTO_HIDE_MS)
 
     def show_for_image(self) -> None:
@@ -254,7 +254,7 @@ class ActionPopup(QWidget):
         self._result_timer.stop()
         self._set_loading(False)
         self._set_status("בחר פעולה לתמונה", "#9BA8CA")
-        self.helper_label.setText(self.IMAGE_HELPER_TEXT)
+        self.helper_label.setText(self._helper_text_for_mode(self.IMAGE_HELPER_TEXT))
         self._set_mode("image")
         self.adjustSize()
         cursor_pos = QCursor.pos()
@@ -263,6 +263,8 @@ class ActionPopup(QWidget):
         x, y = self._bounded_position(x, y)
         self.move(x, y)
         self.show()
+        if self._accessibility_mode:
+            self._activate_accessible_focus()
         self._idle_timer.start(self.IDLE_AUTO_HIDE_MS)
 
     def set_loading(self) -> None:
@@ -282,6 +284,21 @@ class ActionPopup(QWidget):
         self._set_status(message, "#FF9A9A")
         self._set_loading(False)
         self._result_timer.start(self.ERROR_AUTO_HIDE_MS)
+
+    def set_accessibility_mode(self, enabled: bool) -> None:
+        if self._accessibility_mode == enabled:
+            return
+        self._accessibility_mode = enabled
+        self._apply_accessibility_window_mode()
+        if self.isVisible():
+            self.helper_label.setText(
+                self._helper_text_for_mode(
+                    self.IMAGE_HELPER_TEXT if self._mode == "image" else self.TEXT_HELPER_TEXT
+                )
+            )
+            self.show()
+            if enabled:
+                self._activate_accessible_focus()
 
     def _set_loading(self, is_loading: bool) -> None:
         self._is_loading = is_loading
@@ -316,6 +333,31 @@ class ActionPopup(QWidget):
         self.text_actions_widget.setVisible(not is_image_mode)
         self.image_actions_widget.setVisible(is_image_mode)
         self.actions_title.setText("פעולת תמונה" if is_image_mode else "פעולות טקסט")
+
+    def _apply_accessibility_window_mode(self) -> None:
+        self.setWindowFlags(
+            Qt.WindowType.Tool
+            | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+        )
+        self.setAttribute(
+            Qt.WidgetAttribute.WA_ShowWithoutActivating, not self._accessibility_mode
+        )
+
+    def _helper_text_for_mode(self, default_text: str) -> str:
+        if self._accessibility_mode:
+            return f"{default_text}\n{self.ACCESSIBILITY_HELPER_TEXT}"
+        return default_text
+
+    def _activate_accessible_focus(self) -> None:
+        self.raise_()
+        self.activateWindow()
+        if self._mode == "image":
+            self.buttons["extract_text"].setFocus(
+                Qt.FocusReason.ActiveWindowFocusReason
+            )
+            return
+        self.buttons["summarize"].setFocus(Qt.FocusReason.ActiveWindowFocusReason)
 
     def _load_popup_icon(self) -> QPixmap | None:
         icon_path = Path(__file__).resolve().parents[1] / "assets" / "nudge.ico"

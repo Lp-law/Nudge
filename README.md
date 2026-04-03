@@ -85,7 +85,11 @@ Optional backend override:
 ```powershell
 $env:NUDGE_BACKEND_BASE_URL="http://127.0.0.1:8000"
 $env:NUDGE_BACKEND_API_KEY="replace_with_shared_backend_api_key"
+$env:NUDGE_ACCESSIBILITY_MODE="1"
 ```
+
+`NUDGE_ACCESSIBILITY_MODE` is optional. When enabled, popup focuses itself for full keyboard navigation (Tab/Shift+Tab, Enter/Space, Escape).  
+You can also toggle accessibility mode from the tray menu (`מצב נגישות`).
 
 ## Client local run
 
