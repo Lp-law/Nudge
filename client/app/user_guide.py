@@ -70,7 +70,21 @@ Nudge מעבד תוכן מועתק כדי לספק פעולות AI. השתמשו
 
 תמיכה
 support@nudge.example
-https://www.nudge.example/help""",
+https://www.nudge.example/help
+
+נגישות (לעיוורים ולמשתמשי קורא מסך)
+- Nudge ניתן להפעלה מלאה עם מקלדת.
+- להורדה והתקנה נגישה: פתחו את אתר Nudge בדפדפן עם קורא מסך, עברו לכותרת "Download", לחצו Enter על קישור ההורדה ופעלו לפי הוראות ההתקנה הקוליות של Windows.
+- אם מופיע SmartScreen, נווטו עם Tab ל-"More info", לחצו Enter, ואז Tab ל-"Run anyway" ולחצו Enter.
+- שימוש יומי נגיש:
+  1) סמנו טקסט והעתיקו עם Ctrl+C.
+  2) המתינו לחלון Nudge.
+  3) עברו בין פעולות עם Tab/Shift+Tab.
+  4) אשרו פעולה עם Enter.
+  5) הדביקו תוצאה עם Ctrl+V.
+- ל-OCR: העתיקו תמונה עם טקסט, בחרו "חלץ טקסט" עם Tab + Enter, והדביקו.
+- אם חלון הפעולות לא מופיע, בדקו ש-Nudge פעיל באזור השעון.
+- למשתמשים עם קורא מסך מומלץ לעבוד עם NVDA או JAWS ב-Windows.""",
         "short_install": """התקנה מהירה:
 1) הורידו מהאתר הרשמי.
 2) פתחו את הקובץ ואשרו הרשאות.
@@ -140,7 +154,24 @@ Nudge processes copied content to provide AI actions. Use care with sensitive in
 
 Support
 support@nudge.example
-https://www.nudge.example/help""",
+https://www.nudge.example/help
+
+Accessibility (for blind users and screen readers)
+- Nudge can be used with keyboard-only navigation.
+- Accessible download/install:
+  open the official website with your screen reader, jump to the Download heading, press Enter on the download link, and follow Windows spoken prompts.
+- If SmartScreen appears:
+  Tab to "More info", press Enter, Tab to "Run anyway", press Enter.
+- Accessible daily use:
+  1) Select text and press Ctrl+C.
+  2) Wait for the Nudge popup.
+  3) Move between actions with Tab / Shift+Tab.
+  4) Press Enter to run the selected action.
+  5) Paste with Ctrl+V.
+- For OCR:
+  copy an image with text, select "Extract Text" with Tab + Enter, then paste.
+- If popup does not appear, confirm Nudge is running in the system tray.
+- NVDA or JAWS are recommended on Windows.""",
         "short_install": """Quick install:
 1) Download from official website.
 2) Run the file and allow prompts.
@@ -209,7 +240,24 @@ Nudge مساعد خفيف على Windows لتحسين النص بسرعة.
 
 الدعم
 support@nudge.example
-https://www.nudge.example/help""",
+https://www.nudge.example/help
+
+إمكانية الوصول (للمكفوفين ولمستخدمي قارئ الشاشة)
+- يمكن استخدام Nudge بالكامل عبر لوحة المفاتيح.
+- تنزيل وتثبيت بشكل قابل للوصول:
+  افتح الموقع الرسمي باستخدام قارئ الشاشة، انتقل إلى عنوان Download، واضغط Enter على رابط التنزيل، ثم اتبع تعليمات Windows الصوتية.
+- عند ظهور SmartScreen:
+  استخدم Tab للوصول إلى More info ثم Enter، وبعدها Tab إلى Run anyway ثم Enter.
+- الاستخدام اليومي القابل للوصول:
+  1) حدّد النص واضغط Ctrl+C.
+  2) انتظر نافذة Nudge.
+  3) تنقّل بين الأزرار بـ Tab و Shift+Tab.
+  4) نفّذ الإجراء بـ Enter.
+  5) الصق النتيجة بـ Ctrl+V.
+- للـ OCR:
+  انسخ صورة تحتوي نصًا، اختر "استخراج النص" باستخدام Tab + Enter ثم الصق.
+- إذا لم تظهر النافذة، تأكد أن Nudge يعمل في شريط النظام.
+- يُنصح باستخدام NVDA أو JAWS على Windows.""",
         "short_install": """تثبيت سريع:
 1) تنزيل من الموقع الرسمي.
 2) تشغيل الملف والموافقة على الرسائل.
@@ -278,7 +326,24 @@ Nudge обрабатывает скопированный контент для 
 
 Поддержка
 support@nudge.example
-https://www.nudge.example/help""",
+https://www.nudge.example/help
+
+Доступность (для незрячих и пользователей экранного доступа)
+- Nudge можно использовать только с клавиатуры.
+- Доступная загрузка и установка:
+  откройте официальный сайт со скринридером, перейдите к заголовку Download, нажмите Enter на ссылке загрузки и следуйте голосовым подсказкам Windows.
+- Если появляется SmartScreen:
+  Tab до "More info" -> Enter, затем Tab до "Run anyway" -> Enter.
+- Ежедневное использование:
+  1) Выделите текст и нажмите Ctrl+C.
+  2) Дождитесь окна Nudge.
+  3) Переключайтесь между действиями Tab / Shift+Tab.
+  4) Подтвердите выбор клавишей Enter.
+  5) Вставьте результат через Ctrl+V.
+- Для OCR:
+  скопируйте изображение с текстом, выберите "Извлечь текст" через Tab + Enter, затем вставьте.
+- Если окно не появляется, проверьте, что Nudge запущен в системном трее.
+- На Windows рекомендуется NVDA или JAWS.""",
         "short_install": """Быстрая установка:
 1) Скачайте с официального сайта.
 2) Запустите файл и подтвердите запросы.
