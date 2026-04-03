@@ -130,6 +130,16 @@ Client includes a single-instance guard: if Nudge is already running in the same
 
 Nudge client can be packaged into a real Windows app folder + installer using `PyInstaller` and `Inno Setup`.
 
+### Version source of truth (updater-ready foundation)
+
+- Client version/channel are defined in `client/release/version.json`.
+- Supported channels now: `stable`, `beta`.
+- This file is bundled into packaged builds and read at runtime.
+- App runtime exposes:
+  - `QApplication.applicationVersion()` from this file
+  - `nudge_release_channel` / `nudge_release_metadata_url` app properties
+- Future updater metadata can be published using `client/release/release_metadata.example.json` shape.
+
 ### Build prerequisites (Windows)
 
 - Python 3.11
@@ -163,6 +173,7 @@ Installer behavior:
 - creates Start Menu shortcut
 - optional Desktop shortcut
 - optional "start when I sign in" startup shortcut
+- installer filename includes version (for example `Nudge-Setup-0.1.0.exe`)
 
 ### Installer smoke test checklist
 

@@ -11,6 +11,16 @@ if (-not (Test-Path ".venv\Scripts\python.exe")) {
     throw "Missing client venv. Create it first with: python -m venv .venv"
 }
 
+$versionInfoPath = Join-Path $root "release\version.json"
+if (-not (Test-Path $versionInfoPath)) {
+    throw "Missing version source-of-truth file: $versionInfoPath"
+}
+$versionInfo = Get-Content $versionInfoPath -Raw | ConvertFrom-Json
+$appVersion = [string]$versionInfo.version
+if ([string]::IsNullOrWhiteSpace($appVersion)) {
+    throw "release/version.json must include a non-empty version"
+}
+
 & ".venv\Scripts\python.exe" -m pip install --upgrade pip
 & ".venv\Scripts\python.exe" -m pip install -r requirements.txt -r requirements-build.txt
 
@@ -36,7 +46,7 @@ if (-not $iscc) {
     throw "Inno Setup compiler (ISCC.exe) not found. Install Inno Setup 6 or run with -SkipInstaller."
 }
 
-& $iscc.Path "installer\NudgeSetup.iss"
+& $iscc.Path "/DMyAppVersion=$appVersion" "installer\NudgeSetup.iss"
 if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup build failed."
 }

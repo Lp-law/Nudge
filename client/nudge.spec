@@ -8,6 +8,8 @@ a = Analysis(
     datas=[
         ("assets/nudge.ico", "assets"),
         ("app/user_guide_content.json", "app"),
+        ("release/version.json", "release"),
+        ("release/release_metadata.example.json", "release"),
     ],
     hiddenimports=[],
     hookspath=[],

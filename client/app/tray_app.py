@@ -70,7 +70,14 @@ class TrayApp:
 
         tray_icon = self._load_tray_icon()
         self.tray = QSystemTrayIcon(tray_icon, self.app)
-        self.tray.setToolTip("Nudge")
+        version = (self.app.applicationVersion() or "").strip()
+        channel = str(self.app.property("nudge_release_channel") or "stable").strip().lower()
+        if version and channel == "stable":
+            self.tray.setToolTip(f"Nudge {version}")
+        elif version:
+            self.tray.setToolTip(f"Nudge {version} ({channel})")
+        else:
+            self.tray.setToolTip("Nudge")
         menu = QMenu()
         help_action = menu.addAction(TRAY_MENU_USER_GUIDE)
         help_action.triggered.connect(self._open_user_guide)

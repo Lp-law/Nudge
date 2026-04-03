@@ -1,0 +1,20 @@
+{
+  "stable": {
+    "version": "0.1.0",
+    "installer_url": "https://example.com/nudge/stable/Nudge-Setup-0.1.0.exe",
+    "sha256": "replace_with_sha256",
+    "published_at": "2026-04-03T00:00:00Z",
+    "min_supported_version": "0.1.0",
+    "mandatory": false,
+    "notes_url": "https://example.com/nudge/releases/0.1.0"
+  },
+  "beta": {
+    "version": "0.2.0-beta.1",
+    "installer_url": "https://example.com/nudge/beta/Nudge-Setup-0.2.0-beta.1.exe",
+    "sha256": "replace_with_sha256",
+    "published_at": "2026-04-03T00:00:00Z",
+    "min_supported_version": "0.1.0",
+    "mandatory": false,
+    "notes_url": "https://example.com/nudge/releases/0.2.0-beta.1"
+  }
+}

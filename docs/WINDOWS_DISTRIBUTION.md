@@ -13,6 +13,8 @@ This guide covers packaging the Nudge client into a Windows executable and creat
 - `client/build_windows.ps1` - build script
 - `client/installer/NudgeSetup.iss` - Inno Setup script
 - `client/requirements-build.txt` - packaging tool dependencies
+- `client/release/version.json` - single source of truth for app version/channel
+- `client/release/release_metadata.example.json` - template shape for future update feed metadata
 
 ## Build steps
 
@@ -34,7 +36,7 @@ If Inno Setup is not installed yet, create only the packaged app:
 ## Output artifacts
 
 - `client/dist/Nudge/` - packaged app directory
-- `client/installer/Output/Nudge-Setup.exe` - end-user installer
+- `client/installer/Output/Nudge-Setup-<version>.exe` - end-user installer
 
 ## Post-build validation
 
@@ -48,5 +50,7 @@ If Inno Setup is not installed yet, create only the packaged app:
 ## Notes
 
 - Build bundles `client/assets/nudge.ico` and `client/app/user_guide_content.json`.
+- Build also bundles release/version metadata files from `client/release/`.
 - Resource lookup is packaging-safe via `client/app/runtime_paths.py`.
 - Installer includes optional "start when I sign in" task through a Startup shortcut.
+- Build script injects installer version from `client/release/version.json`.

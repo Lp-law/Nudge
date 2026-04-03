@@ -3,6 +3,7 @@ import sys
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
+from .release_info import load_release_info
 from .tray_app import TrayApp
 from .ui_strings import APP_TITLE, TRAY_UNAVAILABLE_MESSAGE
 
@@ -27,7 +28,11 @@ def _acquire_single_instance(app: QApplication) -> bool:
 
 def main() -> int:
     app = QApplication(sys.argv)
+    release = load_release_info()
     app.setApplicationName(APP_TITLE)
+    app.setApplicationVersion(release.version)
+    app.setProperty("nudge_release_channel", release.channel)
+    app.setProperty("nudge_release_metadata_url", release.release_metadata_url)
 
     if not _acquire_single_instance(app):
         return 0

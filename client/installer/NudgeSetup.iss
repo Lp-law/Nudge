@@ -1,5 +1,7 @@
 #define MyAppName "Nudge"
-#define MyAppVersion "0.1.0"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.0.0"
+#endif
 #define MyAppPublisher "Nudge"
 #define MyAppExeName "Nudge.exe"
 
@@ -12,7 +14,7 @@ DefaultDirName={autopf}\Nudge
 DefaultGroupName=Nudge
 DisableProgramGroupPage=yes
 OutputDir=Output
-OutputBaseFilename=Nudge-Setup
+OutputBaseFilename=Nudge-Setup-{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
