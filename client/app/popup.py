@@ -20,22 +20,27 @@ from .action_contract import (
     TEXT_ACTION_KEYS,
     validate_action_contract,
 )
+from .ui_strings import (
+    POPUP_ACCESSIBILITY_HELPER,
+    POPUP_CONTEXT_CHANGED_HELPER,
+    POPUP_IDLE_STATUS,
+    POPUP_IMAGE_HELPER,
+    POPUP_IMAGE_STATUS,
+    POPUP_LOADING_STATUS,
+    POPUP_SUCCESS_HELPER,
+    POPUP_SUCCESS_STATUS,
+    POPUP_TEXT_HELPER,
+)
 
 
 class ActionPopup(QWidget):
     action_selected = Signal(str)
-    IDLE_STATUS_TEXT = "בחר פעולה"
     ICON_SIZE = 18
     IDLE_AUTO_HIDE_MS = 5250
     SUCCESS_AUTO_HIDE_MS = 675
     ERROR_AUTO_HIDE_MS = 1050
     ACTION_ICON_SIZE = QSize(14, 14)
     POPUP_WIDTH = 428
-    TEXT_HELPER_TEXT = "בחר פעולה. חלק מהפעולות מעבדות טקסט בענן."
-    IMAGE_HELPER_TEXT = "חלץ טקסט מהתמונה (OCR בענן)."
-    SUCCESS_HELPER_TEXT = "התוצאה הועתקה ללוח והחליפה את התוכן הקודם."
-    ACCESSIBILITY_HELPER_TEXT = "מצב נגישות פעיל: ניתן לנווט עם Tab ולהפעיל עם Enter."
-    CONTEXT_CHANGED_HELPER_TEXT = "זוהה תוכן חדש. הוא יוצג אוטומטית בסיום הפעולה הנוכחית."
 
     def __init__(self, accessibility_mode: bool = False) -> None:
         super().__init__()
@@ -153,13 +158,13 @@ class ActionPopup(QWidget):
         header_row.addStretch(1)
         layout.addLayout(header_row)
 
-        self.status_label = QLabel(self.IDLE_STATUS_TEXT)
+        self.status_label = QLabel(POPUP_IDLE_STATUS)
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.status_label.setStyleSheet("font-size: 12px; font-weight: 600; color: #A8B4D3;")
         self.status_label.setAccessibleName("סטטוס פעולה")
         layout.addWidget(self.status_label)
 
-        self.helper_label = QLabel(self.TEXT_HELPER_TEXT)
+        self.helper_label = QLabel(POPUP_TEXT_HELPER)
         self.helper_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.helper_label.setStyleSheet("font-size: 11px; color: #7782A1;")
         self.helper_label.setAccessibleName("מידע עזרה")
@@ -236,8 +241,8 @@ class ActionPopup(QWidget):
         self._idle_timer.stop()
         self._result_timer.stop()
         self._set_loading(False)
-        self._set_status(self.IDLE_STATUS_TEXT, "#9BA8CA")
-        self.helper_label.setText(self._helper_text_for_mode(self.TEXT_HELPER_TEXT))
+        self._set_status(POPUP_IDLE_STATUS, "#9BA8CA")
+        self.helper_label.setText(self._helper_text_for_mode(POPUP_TEXT_HELPER))
         self._set_mode("text")
         self.adjustSize()
         cursor_pos = QCursor.pos()
@@ -259,8 +264,8 @@ class ActionPopup(QWidget):
         self._idle_timer.stop()
         self._result_timer.stop()
         self._set_loading(False)
-        self._set_status("בחר פעולה לתמונה", "#9BA8CA")
-        self.helper_label.setText(self._helper_text_for_mode(self.IMAGE_HELPER_TEXT))
+        self._set_status(POPUP_IMAGE_STATUS, "#9BA8CA")
+        self.helper_label.setText(self._helper_text_for_mode(POPUP_IMAGE_HELPER))
         self._set_mode("image")
         self.adjustSize()
         cursor_pos = QCursor.pos()
@@ -275,19 +280,19 @@ class ActionPopup(QWidget):
 
     def set_loading(self) -> None:
         self._idle_timer.stop()
-        self._set_status("מעבד...", "#8CB6FF")
+        self._set_status(POPUP_LOADING_STATUS, "#8CB6FF")
         self._set_loading(True)
 
     def set_context_change_pending(self) -> None:
         if not self._is_loading:
             return
-        self.helper_label.setText(self.CONTEXT_CHANGED_HELPER_TEXT)
+        self.helper_label.setText(POPUP_CONTEXT_CHANGED_HELPER)
 
     def set_success(self) -> None:
         self._idle_timer.stop()
-        self._set_status("הועתק", "#6AD49A")
+        self._set_status(POPUP_SUCCESS_STATUS, "#6AD49A")
         self._set_loading(False)
-        self.helper_label.setText(self.SUCCESS_HELPER_TEXT)
+        self.helper_label.setText(POPUP_SUCCESS_HELPER)
         self._result_timer.start(self.SUCCESS_AUTO_HIDE_MS)
 
     def set_error(self, message: str = "שגיאה") -> None:
@@ -308,7 +313,7 @@ class ActionPopup(QWidget):
         if was_visible:
             self.helper_label.setText(
                 self._helper_text_for_mode(
-                    self.IMAGE_HELPER_TEXT if self._mode == "image" else self.TEXT_HELPER_TEXT
+                    POPUP_IMAGE_HELPER if self._mode == "image" else POPUP_TEXT_HELPER
                 )
             )
             self.move(old_position)
@@ -335,7 +340,7 @@ class ActionPopup(QWidget):
             self._idle_timer.stop()
             self._result_timer.stop()
             self._set_loading(False)
-            self._set_status(self.IDLE_STATUS_TEXT, "#9BA8CA")
+            self._set_status(POPUP_IDLE_STATUS, "#9BA8CA")
             self.hide()
             return
         super().keyPressEvent(event)
@@ -362,7 +367,7 @@ class ActionPopup(QWidget):
 
     def _helper_text_for_mode(self, default_text: str) -> str:
         if self._accessibility_mode:
-            return f"{default_text}\n{self.ACCESSIBILITY_HELPER_TEXT}"
+            return f"{default_text}\n{POPUP_ACCESSIBILITY_HELPER}"
         return default_text
 
     def _activate_accessible_focus(self) -> None:

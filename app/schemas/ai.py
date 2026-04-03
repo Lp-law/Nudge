@@ -4,7 +4,8 @@ from pydantic import BaseModel, Field, field_validator
 
 
 MAX_TEXT_CHARS = 12000
-MAX_IMAGE_BASE64_CHARS = 8_000_000
+MAX_OCR_IMAGE_BYTES = 5 * 1024 * 1024
+MAX_IMAGE_BASE64_CHARS = ((MAX_OCR_IMAGE_BYTES + 2) // 3) * 4 + 128
 ACTION_KEYS: tuple[str, ...] = (
     "summarize",
     "improve",

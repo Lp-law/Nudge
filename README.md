@@ -103,7 +103,8 @@ $env:NUDGE_ACCESSIBILITY_MODE="1"
 `NUDGE_BACKEND_API_KEY` remains for controlled dev/internal compatibility only.
 
 `NUDGE_ACCESSIBILITY_MODE` is optional. When enabled, popup focuses itself for full keyboard navigation (Tab/Shift+Tab, Enter/Space, Escape).  
-You can also toggle accessibility mode from the tray menu (`מצב נגישות`).
+You can also toggle accessibility mode from the tray menu (`מצב נגישות`).  
+The tray toggle is persisted per user (`QSettings`) and becomes the active value for the next launches.
 
 ## Client local run
 

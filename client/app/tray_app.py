@@ -41,16 +41,7 @@ class TrayApp:
         self.app = app
         self.settings = get_settings()
         self._preferences = QSettings("Nudge", "NudgeClient")
-        persisted_accessibility = self._preferences.value("accessibility_mode", None)
-        if persisted_accessibility is None:
-            self._accessibility_mode = self.settings.accessibility_mode
-        else:
-            self._accessibility_mode = str(persisted_accessibility).strip().lower() in {
-                "1",
-                "true",
-                "yes",
-                "on",
-            }
+        self._accessibility_mode = self._load_accessibility_mode()
         self.app.setQuitOnLastWindowClosed(False)
         self.app.aboutToQuit.connect(self._on_app_shutdown)
         self._request_in_flight = False
@@ -210,14 +201,6 @@ class TrayApp:
             self._current_image_png = queued_image
             self.popup.show_for_image()
 
-    def _show_for_image(self, image: object) -> None:
-        # Backward-compatible wrapper; current flow uses _on_image_ready.
-        png_data = self._qimage_to_png_bytes(image)
-        if not png_data:
-            return
-        self._current_image_png = png_data
-        self.popup.show_for_image()
-
     def _qimage_to_png_bytes(self, image_obj: object) -> bytes:
         image = image_obj if hasattr(image_obj, "save") else None
         if image is None or image.isNull():
@@ -285,7 +268,8 @@ class TrayApp:
 
     def _on_accessibility_toggled(self, enabled: bool) -> None:
         self._accessibility_mode = enabled
-        self._preferences.setValue("accessibility_mode", enabled)
+        self._preferences.setValue("accessibility_mode", "true" if enabled else "false")
+        self._preferences.sync()
         self.popup.set_accessibility_mode(enabled)
 
     def _on_app_shutdown(self) -> None:
@@ -309,3 +293,12 @@ class TrayApp:
                 return f"image:{hashlib.sha1(png_data).hexdigest()}" if png_data else "image:empty"
         text = self.clipboard.text(mode=QClipboard.Clipboard) or ""
         return f"text:{hashlib.sha1(text.encode('utf-8', errors='ignore')).hexdigest()}"
+
+    def _load_accessibility_mode(self) -> bool:
+        persisted = self._preferences.value("accessibility_mode", None)
+        if persisted is None:
+            default_mode = bool(self.settings.accessibility_mode)
+            self._preferences.setValue("accessibility_mode", "true" if default_mode else "false")
+            self._preferences.sync()
+            return default_mode
+        return str(persisted).strip().lower() in {"1", "true", "yes", "on"}

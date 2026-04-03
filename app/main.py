@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from fastapi import FastAPI, Request, status
@@ -22,12 +23,7 @@ logging.basicConfig(
 for handler in logging.getLogger().handlers:
     handler.addFilter(RequestIdLogFilter())
 
-app = FastAPI(title="Nudge MVP Backend", version="0.1.0")
-app.include_router(ai_router)
-
-
-@app.on_event("startup")
-async def validate_startup_config() -> None:
+def validate_startup_config() -> None:
     settings = get_settings()
     required = {
         "AZURE_OPENAI_API_KEY": settings.azure_openai_api_key,
@@ -76,6 +72,16 @@ async def validate_startup_config() -> None:
     if (settings.rate_limit_backend or "memory").strip().lower() == "redis":
         if not (settings.redis_url and settings.redis_url.strip()):
             raise RuntimeError("REDIS_URL is required when RATE_LIMIT_BACKEND=redis.")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    validate_startup_config()
+    yield
+
+
+app = FastAPI(title="Nudge MVP Backend", version="0.1.0", lifespan=lifespan)
+app.include_router(ai_router)
 
 
 @app.middleware("http")

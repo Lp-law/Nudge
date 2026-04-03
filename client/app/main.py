@@ -4,6 +4,7 @@ from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
 from .tray_app import TrayApp
+from .ui_strings import APP_TITLE, TRAY_UNAVAILABLE_MESSAGE
 
 SINGLE_INSTANCE_NAME = "NudgeTraySingleton"
 
@@ -26,7 +27,7 @@ def _acquire_single_instance(app: QApplication) -> bool:
 
 def main() -> int:
     app = QApplication(sys.argv)
-    app.setApplicationName("Nudge")
+    app.setApplicationName(APP_TITLE)
 
     if not _acquire_single_instance(app):
         return 0
@@ -34,8 +35,8 @@ def main() -> int:
     if not QSystemTrayIcon.isSystemTrayAvailable():
         QMessageBox.critical(
             None,
-            "Nudge",
-            "System tray is not available. Nudge cannot run in this session.",
+            APP_TITLE,
+            TRAY_UNAVAILABLE_MESSAGE,
         )
         return 1
 

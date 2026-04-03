@@ -10,7 +10,13 @@ from app.core.security import (
     create_rate_limiter,
     get_client_ip,
 )
-from app.schemas.ai import AIActionRequest, AIActionResponse, OCRRequest, OCRResponse
+from app.schemas.ai import (
+    MAX_OCR_IMAGE_BYTES,
+    AIActionRequest,
+    AIActionResponse,
+    OCRRequest,
+    OCRResponse,
+)
 from app.services.openai_service import AzureOpenAIService
 from app.services.ocr_service import AzureOCRService
 from app.services.upstream_errors import UpstreamServiceError
@@ -20,7 +26,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai", tags=["ai"])
 openai_service = AzureOpenAIService()
 ocr_service = AzureOCRService()
-MAX_OCR_IMAGE_BYTES = 5 * 1024 * 1024
 settings = get_settings()
 rate_limiter = create_rate_limiter(settings)
 

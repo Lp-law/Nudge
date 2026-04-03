@@ -5,6 +5,7 @@ import json
 import os
 import time
 from base64 import urlsafe_b64encode
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -238,3 +239,26 @@ def test_client_action_contract_sanity() -> None:
     assert "fix_layout_he" in LOCAL_TEXT_ACTION_KEYS
     assert "extract_text" not in BACKEND_TEXT_ACTION_KEYS
     assert set(LOCAL_TEXT_ACTION_KEYS).issubset(set(ALL_ACTION_KEYS))
+
+
+def test_user_guide_content_sanity() -> None:
+    payload = json.loads(
+        Path("client/app/user_guide_content.json").read_text(encoding="utf-8")
+    )
+    for locale in ("he", "en", "ar", "ru"):
+        assert locale in payload
+        entry = payload[locale]
+        for key in (
+            "label",
+            "title",
+            "layout",
+            "language_label",
+            "close_button",
+            "short_install_title",
+            "short_use_title",
+        ):
+            assert str(entry.get(key, "")).strip()
+        for section_key in ("full_lines", "short_install_lines", "short_use_lines"):
+            lines = entry.get(section_key)
+            assert isinstance(lines, list)
+            assert len(lines) > 0

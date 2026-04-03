@@ -3,6 +3,10 @@
     "label": "עברית",
     "title": "מדריך משתמש - Nudge",
     "layout": "rtl",
+    "language_label": "שפה",
+    "close_button": "סגירה",
+    "short_install_title": "גרסה קצרה לאתר - התקנה",
+    "short_use_title": "גרסה קצרה לאתר - שימוש",
     "full_lines": [
       "מה זה Nudge",
       "Nudge הוא עוזר קטן ל-Windows לשיפור טקסטים במהירות.",
@@ -71,6 +75,10 @@
     "label": "English",
     "title": "Nudge User Guide",
     "layout": "ltr",
+    "language_label": "Language",
+    "close_button": "Close",
+    "short_install_title": "Short website version - install",
+    "short_use_title": "Short website version - use",
     "full_lines": [
       "What is Nudge",
       "Nudge is a lightweight Windows assistant for fast text improvements.",
@@ -139,6 +147,10 @@
     "label": "العربية",
     "title": "دليل Nudge",
     "layout": "rtl",
+    "language_label": "اللغة",
+    "close_button": "إغلاق",
+    "short_install_title": "نسخة مختصرة للموقع - التثبيت",
+    "short_use_title": "نسخة مختصرة للموقع - الاستخدام",
     "full_lines": [
       "ما هو Nudge",
       "Nudge مساعد خفيف على Windows لتحسين النص بسرعة.",
@@ -201,6 +213,10 @@
     "label": "Русский",
     "title": "Руководство Nudge",
     "layout": "ltr",
+    "language_label": "Язык",
+    "close_button": "Закрыть",
+    "short_install_title": "Краткая версия для сайта - установка",
+    "short_use_title": "Краткая версия для сайта - использование",
     "full_lines": [
       "Что такое Nudge",
       "Nudge - легкий помощник Windows для быстрого улучшения текста.",
