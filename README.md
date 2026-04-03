@@ -44,6 +44,8 @@ Edit `.env` with your real Azure values.
 - `AZURE_OPENAI_ENDPOINT` (example: `https://<resource>.openai.azure.com`)
 - `AZURE_OPENAI_API_VERSION`
 - `AZURE_OPENAI_DEPLOYMENT`
+- `AZURE_OCR_ENDPOINT` (example: `https://<resource>.cognitiveservices.azure.com`)
+- `AZURE_OCR_API_KEY`
 - `PORT` (optional locally, default app behavior is `8000`)
 
 ## Backend local run
@@ -111,6 +113,9 @@ Copy text and click:
 - `Improve`: expect cleaner wording with same meaning
 - `Make Email`: expect polished email format
 - `Fix Language`: expect corrected grammar/spelling
+- `אנגלית > עברית`: expect keyboard-layout text converted to Hebrew (client-side)
+- `הסבר משמעות`: expect concise meaning explanation in Hebrew
+- For copied image: click `חלץ טקסט` to extract OCR text
 
 After each click:
 

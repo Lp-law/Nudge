@@ -25,6 +25,8 @@ async def validate_startup_config() -> None:
         "AZURE_OPENAI_ENDPOINT": settings.azure_openai_endpoint,
         "AZURE_OPENAI_API_VERSION": settings.azure_openai_api_version,
         "AZURE_OPENAI_DEPLOYMENT": settings.azure_openai_deployment,
+        "AZURE_OCR_ENDPOINT": settings.azure_ocr_endpoint,
+        "AZURE_OCR_API_KEY": settings.azure_ocr_api_key,
     }
     missing = [name for name, value in required.items() if not (value and str(value).strip())]
     if missing:
@@ -33,7 +35,7 @@ async def validate_startup_config() -> None:
             ", ".join(missing),
         )
         raise RuntimeError(
-            "Missing required Azure OpenAI environment variables. "
+            "Missing required Azure AI environment variables. "
             "Check server configuration."
         )
 

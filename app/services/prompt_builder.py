@@ -16,8 +16,15 @@ def build_messages(action: ActionType, text: str) -> list[dict[str, str]]:
             "Include a clear subject line at the top."
         ),
         "fix_language": (
-            "Correct grammar, spelling, punctuation, and language issues while "
-            "preserving meaning and tone."
+            "Return directly usable corrected text only. Correct grammar, spelling, "
+            "punctuation, and wording while preserving meaning and tone. "
+            "Do not explain or add metadata."
+        ),
+        "explain_meaning": (
+            "Explain the meaning of the user text in clear, simple Hebrew. "
+            "This is interpretation, not direct translation. If translation helps, "
+            "include it briefly inside the explanation. Keep it concise and useful, "
+            "and return only the explanation text."
         ),
         "email_check": (
             "Check the email text for common issues. Prioritize detecting when "

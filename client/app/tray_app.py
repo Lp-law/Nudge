@@ -1,11 +1,12 @@
 from pathlib import Path
 
+from PySide6.QtCore import QByteArray, QBuffer, QIODevice
 from PySide6.QtGui import QClipboard, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
 
 from .api_client import ApiClient
 from .clipboard_monitor import ClipboardMonitor
-from . import popup as popup_module
+from .layout_converter import convert_en_layout_to_hebrew
 from .popup import ActionPopup
 
 
@@ -14,14 +15,14 @@ class TrayApp:
         self.app = app
         self.app.setQuitOnLastWindowClosed(False)
         self._request_in_flight = False
-        print(f"[Nudge Client] tray_app loaded from: {Path(__file__).resolve()}")
-        print(f"[Nudge Client] popup module loaded from: {Path(popup_module.__file__).resolve()}")
+        self._current_image_png: bytes | None = None
 
         self.clipboard: QClipboard = self.app.clipboard()
         self.api_client = ApiClient()
         self.popup = ActionPopup()
         self.monitor = ClipboardMonitor(self.clipboard)
         self.monitor.text_ready.connect(self.popup.show_for_text)
+        self.monitor.image_ready.connect(self._show_for_image)
         self.popup.action_selected.connect(self._run_action)
 
         tray_icon = self._load_tray_icon()
@@ -48,6 +49,14 @@ class TrayApp:
         if self._request_in_flight:
             return
 
+        if action == "fix_layout_he":
+            self._handle_fix_layout_he()
+            return
+
+        if action == "extract_text":
+            self._handle_ocr_action()
+            return
+
         text = self.popup.current_text
         if not text:
             return
@@ -61,19 +70,67 @@ class TrayApp:
             on_error=self._handle_error,
         )
 
+    def _handle_fix_layout_he(self) -> None:
+        text = self.popup.current_text
+        if not text:
+            return
+        converted = convert_en_layout_to_hebrew(text).strip()
+        if not converted:
+            self.popup.set_error("לא זוהה טקסט תקין")
+            return
+        self.monitor.suppress_next_change()
+        self.clipboard.setText(converted, mode=QClipboard.Clipboard)
+        self.popup.set_success()
+
+    def _handle_ocr_action(self) -> None:
+        if self._current_image_png is None:
+            self.popup.set_error("לא נמצאה תמונה")
+            return
+
+        self._request_in_flight = True
+        self.popup.set_loading()
+        self.api_client.request_ocr(
+            image_png=self._current_image_png,
+            on_success=self._handle_success,
+            on_error=self._handle_error,
+        )
+
+    def _show_for_image(self, image: object) -> None:
+        if self._request_in_flight:
+            return
+        png_data = self._qimage_to_png_bytes(image)
+        if not png_data:
+            return
+        self._current_image_png = png_data
+        self.popup.show_for_image()
+
+    def _qimage_to_png_bytes(self, image_obj: object) -> bytes:
+        image = image_obj if hasattr(image_obj, "save") else None
+        if image is None or image.isNull():
+            return b""
+        buffer = QByteArray()
+        qt_buffer = QBuffer(buffer)
+        qt_buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+        image.save(qt_buffer, "PNG")
+        qt_buffer.close()
+        return bytes(buffer)
+
     def _handle_success(self, result: str) -> None:
         self._request_in_flight = False
+        self._current_image_png = None
         self.monitor.suppress_next_change()
         self.clipboard.setText(result, mode=QClipboard.Clipboard)
         self.popup.set_success()
 
     def _handle_error(self, message: str) -> None:
         self._request_in_flight = False
+        self._current_image_png = None
         display_message = {
             "Timeout": "תם הזמן",
             "Network error": "שגיאת רשת",
             "Request failed": "הבקשה נכשלה",
             "Bad response": "תגובה לא תקינה",
             "Empty result": "תוצאה ריקה",
+            "OCR failed": "חילוץ טקסט נכשל",
         }.get(message, message or "שגיאה")
         self.popup.set_error(display_message)

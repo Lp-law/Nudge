@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     azure_openai_deployment: str | None = Field(
         default=None, alias="AZURE_OPENAI_DEPLOYMENT"
     )
+    azure_ocr_endpoint: str | None = Field(default=None, alias="AZURE_OCR_ENDPOINT")
+    azure_ocr_api_key: str | None = Field(default=None, alias="AZURE_OCR_API_KEY")
     port: int = Field(default=8000, alias="PORT")
 
 

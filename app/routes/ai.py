@@ -1,14 +1,17 @@
 import logging
+import base64
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.schemas.ai import AIActionRequest, AIActionResponse
+from app.schemas.ai import AIActionRequest, AIActionResponse, OCRRequest, OCRResponse
 from app.services.openai_service import AzureOpenAIService
+from app.services.ocr_service import AzureOCRService
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai", tags=["ai"])
 openai_service = AzureOpenAIService()
+ocr_service = AzureOCRService()
 
 
 @router.post("/action", response_model=AIActionResponse)
@@ -49,3 +52,54 @@ async def create_action(payload: AIActionRequest) -> AIActionResponse:
         ) from exc
 
     return AIActionResponse(result=result)
+
+
+@router.post("/ocr", response_model=OCRResponse)
+async def extract_ocr(payload: OCRRequest) -> OCRResponse:
+    if not payload.image_base64:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Image payload must not be empty.",
+        )
+
+    try:
+        image_bytes = base64.b64decode(payload.image_base64, validate=True)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid image payload.",
+        ) from exc
+
+    if not image_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Image payload must not be empty.",
+        )
+
+    try:
+        result = await ocr_service.extract_text(image_bytes=image_bytes)
+    except ValueError as exc:
+        logger.exception("Server configuration error during OCR handling")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error.",
+        ) from exc
+    except RuntimeError as exc:
+        message = str(exc).lower()
+        status_code = (
+            status.HTTP_504_GATEWAY_TIMEOUT
+            if "timed out" in message
+            else status.HTTP_502_BAD_GATEWAY
+        )
+        raise HTTPException(
+            status_code=status_code,
+            detail="OCR service is currently unavailable. Please try again.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected OCR failure")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="OCR service is currently unavailable. Please try again.",
+        ) from exc
+
+    return OCRResponse(result=result)

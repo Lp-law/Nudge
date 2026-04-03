@@ -1,4 +1,5 @@
 import json
+import base64
 from typing import Callable
 
 from PySide6.QtCore import QObject, QTimer, QUrl
@@ -13,6 +14,7 @@ class ApiClient(QObject):
         self.settings = get_settings()
         self._network = QNetworkAccessManager(self)
         self._endpoint = f"{self.settings.backend_base_url.rstrip('/')}/ai/action"
+        self._ocr_endpoint = f"{self.settings.backend_base_url.rstrip('/')}/ai/ocr"
 
     def request_action(
         self,
@@ -21,11 +23,7 @@ class ApiClient(QObject):
         on_success: Callable[[str], None],
         on_error: Callable[[str], None],
     ) -> None:
-        request = QNetworkRequest(QUrl(self._endpoint))
-        request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json")
-
-        payload = json.dumps({"text": text, "action": action}).encode("utf-8")
-        reply = self._network.post(request, payload)
+        reply = self._post_json(self._endpoint, {"text": text, "action": action})
 
         timeout_timer = QTimer(reply)
         timeout_timer.setSingleShot(True)
@@ -40,6 +38,35 @@ class ApiClient(QObject):
                 on_error=on_error,
             )
         )
+
+    def request_ocr(
+        self,
+        image_png: bytes,
+        on_success: Callable[[str], None],
+        on_error: Callable[[str], None],
+    ) -> None:
+        encoded_image = base64.b64encode(image_png).decode("ascii")
+        reply = self._post_json(self._ocr_endpoint, {"image_base64": encoded_image})
+
+        timeout_timer = QTimer(reply)
+        timeout_timer.setSingleShot(True)
+        timeout_timer.timeout.connect(lambda r=reply: self._on_timeout(r))
+        timeout_timer.start(self.settings.request_timeout_ms)
+        reply.setProperty("timeout_timer", timeout_timer)
+
+        reply.finished.connect(
+            lambda r=reply: self._handle_reply(
+                reply=r,
+                on_success=on_success,
+                on_error=on_error,
+            )
+        )
+
+    def _post_json(self, endpoint: str, payload: dict[str, str]) -> QNetworkReply:
+        request = QNetworkRequest(QUrl(endpoint))
+        request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json")
+        raw_payload = json.dumps(payload).encode("utf-8")
+        return self._network.post(request, raw_payload)
 
     def _on_timeout(self, reply: QNetworkReply) -> None:
         if reply.isFinished():

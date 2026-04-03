@@ -8,6 +8,7 @@ ActionType = Literal[
     "improve",
     "make_email",
     "fix_language",
+    "explain_meaning",
     "email_check",
 ]
 
@@ -25,4 +26,19 @@ class AIActionRequest(BaseModel):
 
 
 class AIActionResponse(BaseModel):
+    result: str
+
+
+class OCRRequest(BaseModel):
+    image_base64: str
+
+    @field_validator("image_base64", mode="before")
+    @classmethod
+    def strip_base64(cls, value: str) -> str:
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+
+class OCRResponse(BaseModel):
     result: str
