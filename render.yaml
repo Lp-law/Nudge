@@ -20,5 +20,15 @@ services:
         sync: false
       - key: AZURE_DOC_INTELLIGENCE_API_VERSION
         value: 2024-02-29-preview
+      - key: NUDGE_BACKEND_API_KEY
+        sync: false
+      - key: RATE_LIMIT_WINDOW_SECONDS
+        value: "60"
+      - key: RATE_LIMIT_ACTION_REQUESTS
+        value: "30"
+      - key: RATE_LIMIT_OCR_REQUESTS
+        value: "10"
+      - key: MAX_REQUEST_BODY_BYTES
+        value: "10485760"
       - key: PYTHON_VERSION
         value: 3.11.10

@@ -48,6 +48,11 @@ Edit `.env` with your real Azure values.
 - `AZURE_DOC_INTELLIGENCE_ENDPOINT` (example: `https://<resource>.cognitiveservices.azure.com`)
 - `AZURE_DOC_INTELLIGENCE_API_KEY`
 - `AZURE_DOC_INTELLIGENCE_API_VERSION` (optional override; default in app is `2024-02-29-preview`)
+- `NUDGE_BACKEND_API_KEY` (shared API key for protected backend endpoints)
+- `RATE_LIMIT_WINDOW_SECONDS` (default `60`)
+- `RATE_LIMIT_ACTION_REQUESTS` (default `30`)
+- `RATE_LIMIT_OCR_REQUESTS` (default `10`)
+- `MAX_REQUEST_BODY_BYTES` (default `10485760`, 10MB)
 - `PORT` (optional locally, default app behavior is `8000`)
 
 ## Backend local run
@@ -79,6 +84,7 @@ Optional backend override:
 
 ```powershell
 $env:NUDGE_BACKEND_BASE_URL="http://127.0.0.1:8000"
+$env:NUDGE_BACKEND_API_KEY="replace_with_shared_backend_api_key"
 ```
 
 ## Client local run
@@ -104,6 +110,7 @@ python -m app.main
 ```powershell
 curl -X POST "http://127.0.0.1:8000/ai/action" `
   -H "Content-Type: application/json" `
+  -H "X-Nudge-API-Key: replace_with_shared_backend_api_key" `
   -d "{\"text\":\"This is a long sample paragraph for testing summarize behavior.\",\"action\":\"summarize\"}"
 ```
 
@@ -165,6 +172,14 @@ After each click:
 - OCR uses Azure AI Document Intelligence `prebuilt-read`.
 - `POST /ai/ocr` stays unchanged (`image_base64` in, `{ "result": "string" }` out).
 - Client OCR flow remains unchanged; only backend OCR provider path was upgraded.
+
+## Security and request control notes
+
+- `POST /ai/action` and `POST /ai/ocr` require header `X-Nudge-API-Key`.
+- `/health` remains public.
+- Backend enforces per-IP in-memory rate limits for action/OCR routes.
+- Backend enforces request body size limits at middleware level (plus model validation).
+- Each request gets `X-Request-ID` in response headers for operational tracing.
 
 ## Render vs local usage
 

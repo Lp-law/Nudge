@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     azure_doc_intel_api_version: str = Field(
         default="2024-02-29-preview", alias="AZURE_DOC_INTELLIGENCE_API_VERSION"
     )
+    nudge_backend_api_key: str | None = Field(
+        default=None, alias="NUDGE_BACKEND_API_KEY"
+    )
+    rate_limit_window_seconds: int = Field(default=60, alias="RATE_LIMIT_WINDOW_SECONDS")
+    rate_limit_action_requests: int = Field(default=30, alias="RATE_LIMIT_ACTION_REQUESTS")
+    rate_limit_ocr_requests: int = Field(default=10, alias="RATE_LIMIT_OCR_REQUESTS")
+    max_request_body_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_REQUEST_BODY_BYTES")
     port: int = Field(default=8000, alias="PORT")
 
 

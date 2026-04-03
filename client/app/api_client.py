@@ -65,6 +65,8 @@ class ApiClient(QObject):
     def _post_json(self, endpoint: str, payload: dict[str, str]) -> QNetworkReply:
         request = QNetworkRequest(QUrl(endpoint))
         request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json")
+        if self.settings.backend_api_key:
+            request.setRawHeader(b"X-Nudge-API-Key", self.settings.backend_api_key.encode("utf-8"))
         raw_payload = json.dumps(payload).encode("utf-8")
         return self._network.post(request, raw_payload)
 
