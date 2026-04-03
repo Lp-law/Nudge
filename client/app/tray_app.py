@@ -8,6 +8,7 @@ from .api_client import ApiClient
 from .clipboard_monitor import ClipboardMonitor
 from .layout_converter import convert_en_layout_to_hebrew
 from .popup import ActionPopup
+from .user_guide import UserGuideDialog
 
 
 class TrayApp:
@@ -16,6 +17,7 @@ class TrayApp:
         self.app.setQuitOnLastWindowClosed(False)
         self._request_in_flight = False
         self._current_image_png: bytes | None = None
+        self._guide_dialog: UserGuideDialog | None = None
 
         self.clipboard: QClipboard = self.app.clipboard()
         self.api_client = ApiClient()
@@ -29,6 +31,8 @@ class TrayApp:
         self.tray = QSystemTrayIcon(tray_icon, self.app)
         self.tray.setToolTip("Nudge")
         menu = QMenu()
+        help_action = menu.addAction("מדריך משתמש")
+        help_action.triggered.connect(self._open_user_guide)
         quit_action = menu.addAction("יציאה")
         quit_action.triggered.connect(self.app.quit)
         self.tray.setContextMenu(menu)
@@ -134,3 +138,9 @@ class TrayApp:
             "OCR failed": "חילוץ טקסט נכשל",
         }.get(message, message or "שגיאה")
         self.popup.set_error(display_message)
+
+    def _open_user_guide(self) -> None:
+        if self._guide_dialog is None:
+            self._guide_dialog = UserGuideDialog()
+        self._guide_dialog.show()
+        self._guide_dialog.raise_()
