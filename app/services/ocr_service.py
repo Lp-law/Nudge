@@ -17,8 +17,8 @@ class AzureOCRService:
 
     def _validate_settings(self) -> None:
         required = {
-            "AZURE_OCR_ENDPOINT": self.settings.azure_ocr_endpoint,
-            "AZURE_OCR_API_KEY": self.settings.azure_ocr_api_key,
+            "AZURE_DOC_INTELLIGENCE_ENDPOINT": self.settings.azure_doc_intel_endpoint,
+            "AZURE_DOC_INTELLIGENCE_API_KEY": self.settings.azure_doc_intel_api_key,
         }
         missing = [key for key, value in required.items() if not value]
         if missing:
@@ -26,16 +26,23 @@ class AzureOCRService:
 
     async def extract_text(self, image_bytes: bytes) -> str:
         self._validate_settings()
-        endpoint = self.settings.azure_ocr_endpoint.rstrip("/")
-        analyze_url = f"{endpoint}/vision/v3.2/read/analyze"
+        endpoint = (self.settings.azure_doc_intel_endpoint or "").rstrip("/")
+        analyze_url = (
+            f"{endpoint}/documentintelligence/documentModels/prebuilt-read:analyze"
+            f"?api-version={self.settings.azure_doc_intel_api_version}"
+        )
         headers = {
-            "Ocp-Apim-Subscription-Key": self.settings.azure_ocr_api_key or "",
+            "Ocp-Apim-Subscription-Key": self.settings.azure_doc_intel_api_key or "",
             "Content-Type": "application/octet-stream",
         }
 
         async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await client.post(analyze_url, headers=headers, content=image_bytes)
-            response.raise_for_status()
+            try:
+                response = await client.post(analyze_url, headers=headers, content=image_bytes)
+                response.raise_for_status()
+            except httpx.HTTPError as exc:
+                logger.exception("Document Intelligence analyze request failed")
+                raise RuntimeError("OCR analyze request failed.") from exc
 
             operation_location = response.headers.get("Operation-Location")
             if not operation_location:
@@ -43,11 +50,17 @@ class AzureOCRService:
 
             started = asyncio.get_running_loop().time()
             while True:
-                poll_response = await client.get(
-                    operation_location,
-                    headers={"Ocp-Apim-Subscription-Key": self.settings.azure_ocr_api_key or ""},
-                )
-                poll_response.raise_for_status()
+                try:
+                    poll_response = await client.get(
+                        operation_location,
+                        headers={
+                            "Ocp-Apim-Subscription-Key": self.settings.azure_doc_intel_api_key or ""
+                        },
+                    )
+                    poll_response.raise_for_status()
+                except httpx.HTTPError as exc:
+                    logger.exception("Document Intelligence polling failed")
+                    raise RuntimeError("OCR polling failed.") from exc
                 data = poll_response.json()
                 status = str(data.get("status", "")).lower()
 
@@ -68,7 +81,11 @@ class AzureOCRService:
 
     def _extract_lines(self, data: dict) -> str:
         analyze_result = data.get("analyzeResult") or {}
-        read_results = analyze_result.get("readResults") or []
+        content = str(analyze_result.get("content") or "").strip()
+        if content:
+            return content
+
+        read_results = analyze_result.get("pages") or []
         lines: list[str] = []
         for page in read_results:
             for line in page.get("lines", []):
