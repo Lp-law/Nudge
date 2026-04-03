@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from PySide6.QtGui import QClipboard, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
 
@@ -19,14 +21,22 @@ class TrayApp:
         self.monitor.text_ready.connect(self.popup.show_for_text)
         self.popup.action_selected.connect(self._run_action)
 
-        tray_icon = self.app.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
-        self.tray = QSystemTrayIcon(QIcon(tray_icon), self.app)
+        tray_icon = self._load_tray_icon()
+        self.tray = QSystemTrayIcon(tray_icon, self.app)
         self.tray.setToolTip("Nudge")
         menu = QMenu()
         quit_action = menu.addAction("יציאה")
         quit_action.triggered.connect(self.app.quit)
         self.tray.setContextMenu(menu)
         self.tray.show()
+
+    def _load_tray_icon(self) -> QIcon:
+        icon_path = Path(__file__).resolve().parents[1] / "assets" / "nudge.ico"
+        if icon_path.exists():
+            custom_icon = QIcon(str(icon_path))
+            if not custom_icon.isNull():
+                return custom_icon
+        return self.app.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
 
     def _run_action(self, action: str) -> None:
         if self._request_in_flight:
