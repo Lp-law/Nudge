@@ -11,8 +11,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from pathlib import Path
-
 from .action_contract import (
     ACTION_LABELS,
     IMAGE_ACTION_KEYS,
@@ -20,6 +18,7 @@ from .action_contract import (
     TEXT_ACTION_KEYS,
     validate_action_contract,
 )
+from .runtime_paths import resource_path
 from .ui_strings import (
     POPUP_ACCESSIBILITY_HELPER,
     POPUP_CONTEXT_CHANGED_HELPER,
@@ -381,7 +380,7 @@ class ActionPopup(QWidget):
         self.buttons["summarize"].setFocus(Qt.FocusReason.ActiveWindowFocusReason)
 
     def _load_popup_icon(self) -> QPixmap | None:
-        icon_path = Path(__file__).resolve().parents[1] / "assets" / "nudge.ico"
+        icon_path = resource_path("assets", "nudge.ico")
         if not icon_path.exists():
             return None
         pixmap = QPixmap(str(icon_path))

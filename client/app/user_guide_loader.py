@@ -1,9 +1,9 @@
 import json
 import logging
-from pathlib import Path
 
+from .runtime_paths import resource_path
 
-CONTENT_PATH = Path(__file__).with_name("user_guide_content.json")
+CONTENT_PATH = resource_path("app", "user_guide_content.json")
 logger = logging.getLogger(__name__)
 REQUIRED_LOCALES = ("he", "en", "ar", "ru")
 REQUIRED_LINE_KEYS = ("full_lines", "short_install_lines", "short_use_lines")

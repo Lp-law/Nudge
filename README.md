@@ -126,6 +126,55 @@ python -m app.main
 
 Client includes a single-instance guard: if Nudge is already running in the same user session, a second launch exits immediately.
 
+## Windows packaging and installer
+
+Nudge client can be packaged into a real Windows app folder + installer using `PyInstaller` and `Inno Setup`.
+
+### Build prerequisites (Windows)
+
+- Python 3.11
+- Inno Setup 6 (for `.exe` installer generation)
+
+### Build commands
+
+From repo root:
+
+```powershell
+cd client
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+.\build_windows.ps1
+```
+
+Build outputs:
+
+- App folder: `client\dist\Nudge\`
+- Installer: `client\installer\Output\Nudge-Setup.exe`
+
+If you only want the app folder and not the installer:
+
+```powershell
+.\build_windows.ps1 -SkipInstaller
+```
+
+Installer behavior:
+
+- installs Nudge under `Program Files\Nudge`
+- creates Start Menu shortcut
+- optional Desktop shortcut
+- optional "start when I sign in" startup shortcut
+
+### Installer smoke test checklist
+
+1. Install `Nudge-Setup.exe`.
+2. Launch Nudge from Start Menu and verify tray icon appears.
+3. Launch again and verify second instance exits (single-instance guard).
+4. Open tray user guide and verify multilingual content loads.
+5. Toggle accessibility mode from tray menu, restart Nudge, and verify setting persists.
+6. Copy text/image and verify popup actions still work.
+
+More detailed packaging notes: `docs/WINDOWS_DISTRIBUTION.md`.
+
 ## Exact run order (local end-to-end)
 
 1. Start backend from repo root.

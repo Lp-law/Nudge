@@ -1,4 +1,3 @@
-from pathlib import Path
 import hashlib
 
 from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QSettings
@@ -24,6 +23,7 @@ from .lifecycle_logic import (
     should_ignore_response,
 )
 from .popup import ActionPopup
+from .runtime_paths import resource_path
 from .settings import get_settings
 from .sensitive_guard import detect_sensitive_text, image_requires_confirmation
 from .ui_strings import (
@@ -84,7 +84,7 @@ class TrayApp:
         self.tray.show()
 
     def _load_tray_icon(self) -> QIcon:
-        icon_path = Path(__file__).resolve().parents[1] / "assets" / "nudge.ico"
+        icon_path = resource_path("assets", "nudge.ico")
         if icon_path.exists():
             custom_icon = QIcon(str(icon_path))
             if not custom_icon.isNull():
