@@ -8,6 +8,7 @@
 - `AZURE_DOC_INTELLIGENCE_ENDPOINT`
 - `AZURE_DOC_INTELLIGENCE_API_KEY`
 - `AZURE_DOC_INTELLIGENCE_API_VERSION` (optional override)
+- `OCR_POLL_TIMEOUT_SECONDS` (bounded in code to 8..90 seconds)
 - `NUDGE_BACKEND_API_KEY` (required only when using `api_key` mode or compatibility fallback)
 - `NUDGE_AUTH_MODE`
 - `NUDGE_TOKEN_SIGNING_KEY`
@@ -35,6 +36,20 @@
 - **Production-intended:** `NUDGE_AUTH_MODE=token`, `NUDGE_ALLOW_LEGACY_API_KEY=false`, `RATE_LIMIT_BACKEND=redis`, `TOKEN_STATE_BACKEND=redis`, non-free Render plan.
 - **Internal/dev compatibility:** `token_or_api_key` and legacy API key fallback are allowed only for controlled migration/testing.
 - **Trust boundary caveat:** per-IP limiting uses forwarded client IP and assumes trusted proxy/edge behavior.
+- **Trusted proxy requirement:** set `TRUSTED_PROXY_CIDRS` only to actual edge/proxy CIDRs. Keep empty unless verified.
+- **Bootstrap key discipline:** rotate `NUDGE_AUTH_BOOTSTRAP_KEY` on a defined schedule and after any suspected exposure.
+
+## Staging vs production checklist
+- **Staging must prove:**
+  - token issue/refresh/revoke endpoints are functional
+  - limiter fail mode behavior tested (`fail_open`/`fail_closed`)
+  - OCR timeout behavior validated with small and heavy samples
+  - metrics endpoint scrape + alert simulation completed
+- **Production must prove before broader rollout:**
+  - Redis healthy for both limiter and token state
+  - trusted proxy CIDRs verified
+  - bootstrap key rotation documented and owned
+  - alert thresholds tuned from real baseline (not placeholders)
 
 ## Deploy/update checklist
 1. Ensure CI is green on `main`.
@@ -55,6 +70,11 @@
    - `POST /ai/ocr` without auth returns `401`.
 5. Request ID:
    - Responses include `X-Request-ID` header.
+6. Auth issuer:
+   - `POST /auth/token` issues access+refresh with valid bootstrap key.
+   - `POST /auth/refresh` rotates refresh token.
+7. Metrics:
+   - `GET /metrics` with valid auth returns Prometheus payload including `nudge_http_requests_total`.
 
 ## Rollback guidance
 1. In Render, redeploy last known-good commit.
@@ -81,7 +101,15 @@ Monitor `/metrics` (auth-protected) and alert on:
 - `nudge_rate_limit_backend_failures_total` any non-zero in production
 - `nudge_upstream_timeouts_total{service="openai|ocr"}` sustained increases
 - `nudge_ocr_failures_total` error-rate trend changes
+- `nudge_upstream_retries_total{service="openai|ocr"}` sustained retry surge (>3x baseline for 10 minutes)
 - `nudge_http_request_latency_seconds` p95 > 2.5s for `/ai/action` or > 8s for `/ai/ocr`
+- `nudge_token_events_total` unexpected issue/refresh/revoke distribution changes
+
+## Incident triggers (action-oriented)
+- **Auth incident:** auth-failure spike + user impact -> verify token issuer path, signing key, revoked-jti state.
+- **Limiter incident:** any limiter backend failure in production -> verify Redis reachability, enforce fail policy, assess abuse window.
+- **OCR incident:** timeout/retry spike -> review `OCR_POLL_TIMEOUT_SECONDS`, Azure status, sample payload sizes.
+- **Latency incident:** p95 sustained breach -> inspect upstream retries/timeouts first, then capacity/proxy.
 
 ## If Azure OpenAI or OCR fails
 1. Verify Azure env vars in Render are present and correct.

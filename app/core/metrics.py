@@ -41,6 +41,11 @@ OCR_FAILURES = Counter(
     "OCR failures",
     ("kind",),
 )
+TOKEN_EVENTS = Counter(
+    "nudge_token_events_total",
+    "Token lifecycle events",
+    ("event",),
+)
 
 
 def record_request(method: str, path: str, status_code: int, elapsed_seconds: float) -> None:
@@ -70,6 +75,10 @@ def record_upstream_timeout(service: str) -> None:
 
 def record_ocr_failure(kind: str) -> None:
     OCR_FAILURES.labels(kind=kind).inc()
+
+
+def record_token_event(event: str) -> None:
+    TOKEN_EVENTS.labels(event=event).inc()
 
 
 def metrics_content_type() -> str:

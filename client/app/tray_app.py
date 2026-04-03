@@ -15,6 +15,14 @@ from .action_contract import (
 from .api_client import ApiClient
 from .clipboard_monitor import ClipboardMonitor
 from .layout_converter import convert_en_layout_to_hebrew
+from .lifecycle_logic import (
+    QueuedClipboardContext,
+    pop_queued_context,
+    queue_image_context,
+    queue_text_context,
+    resolve_accessibility_mode,
+    should_ignore_response,
+)
 from .popup import ActionPopup
 from .settings import get_settings
 from .sensitive_guard import detect_sensitive_text, image_requires_confirmation
@@ -49,9 +57,7 @@ class TrayApp:
         self._active_request_id: int | None = None
         self._active_request_clipboard_signature = ""
         self._current_image_png: bytes | None = None
-        self._queued_kind = ""
-        self._queued_text = ""
-        self._queued_image_png: bytes | None = None
+        self._queued_context = QueuedClipboardContext()
         self._guide_dialog: UserGuideDialog | None = None
 
         self.clipboard: QClipboard = self.app.clipboard()
@@ -175,24 +181,19 @@ class TrayApp:
         self.popup.show_for_image()
 
     def _queue_pending_text(self, text: str) -> None:
-        self._queued_kind = "text"
-        self._queued_text = text
-        self._queued_image_png = None
+        self._queued_context = queue_text_context(self._queued_context, text)
 
     def _queue_pending_image(self, image_png: bytes) -> None:
-        self._queued_kind = "image"
-        self._queued_image_png = image_png
-        self._queued_text = ""
+        self._queued_context = queue_image_context(self._queued_context, image_png)
 
     def _present_queued_context_if_any(self) -> None:
         if self._is_shutting_down:
             return
-        queued_kind = self._queued_kind
-        queued_text = self._queued_text
-        queued_image = self._queued_image_png
-        self._queued_kind = ""
-        self._queued_text = ""
-        self._queued_image_png = None
+        queued, emptied = pop_queued_context(self._queued_context)
+        self._queued_context = emptied
+        queued_kind = queued.kind
+        queued_text = queued.text
+        queued_image = queued.image_png
 
         if queued_kind == "text" and queued_text:
             self.popup.show_for_text(queued_text)
@@ -213,7 +214,11 @@ class TrayApp:
         return bytes(buffer)
 
     def _handle_success(self, request_id: int, result: str) -> None:
-        if self._is_shutting_down or self._active_request_id != request_id:
+        if should_ignore_response(
+            is_shutting_down=self._is_shutting_down,
+            active_request_id=self._active_request_id,
+            response_request_id=request_id,
+        ):
             return
         if self._clipboard_signature() != self._active_request_clipboard_signature:
             self._clear_active_request_state(clear_image=True)
@@ -228,7 +233,11 @@ class TrayApp:
         self._present_queued_context_if_any()
 
     def _handle_error(self, request_id: int, message: str) -> None:
-        if self._is_shutting_down or self._active_request_id != request_id:
+        if should_ignore_response(
+            is_shutting_down=self._is_shutting_down,
+            active_request_id=self._active_request_id,
+            response_request_id=request_id,
+        ):
             return
         self._clear_active_request_state(clear_image=False)
         display_message = STATUS_TEXT_BY_ERROR.get(message, message or ERROR_GENERIC)
@@ -296,9 +305,11 @@ class TrayApp:
 
     def _load_accessibility_mode(self) -> bool:
         persisted = self._preferences.value("accessibility_mode", None)
-        if persisted is None:
-            default_mode = bool(self.settings.accessibility_mode)
-            self._preferences.setValue("accessibility_mode", "true" if default_mode else "false")
+        resolved, should_persist_default = resolve_accessibility_mode(
+            persisted,
+            bool(self.settings.accessibility_mode),
+        )
+        if should_persist_default:
+            self._preferences.setValue("accessibility_mode", "true" if resolved else "false")
             self._preferences.sync()
-            return default_mode
-        return str(persisted).strip().lower() in {"1", "true", "yes", "on"}
+        return resolved

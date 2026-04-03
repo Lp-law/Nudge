@@ -66,7 +66,7 @@ async def _enforce_rate_limit(request: Request, route_key: str, limit: int) -> N
             limit=limit,
             window_seconds=settings.rate_limit_window_seconds,
         )
-    except Exception:
+    except Exception as exc:
         failure_mode = (settings.rate_limit_failure_mode or "fail_closed").strip().lower()
         record_rate_limit_backend_failure(request.url.path, failure_mode)
         logger.exception(
@@ -80,7 +80,7 @@ async def _enforce_rate_limit(request: Request, route_key: str, limit: int) -> N
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=_detail("Rate limiter unavailable. Please retry shortly.", request),
-        )
+        ) from exc
     if not decision.allowed:
         record_rate_limit_denial(request.url.path)
         raise HTTPException(

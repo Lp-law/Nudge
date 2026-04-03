@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
+from app.core.metrics import record_token_event
 from app.services.auth_issuer import AuthIssuerService
 
 
@@ -54,6 +55,7 @@ async def issue_token(payload: TokenIssueRequest) -> TokenResponse:
         subject=payload.subject.strip(),
         device_id=payload.device_id.strip(),
     )
+    record_token_event("issued")
     return TokenResponse(**pair.__dict__)
 
 
@@ -64,6 +66,7 @@ async def refresh_token(payload: TokenRefreshRequest) -> TokenResponse:
         pair = await auth_issuer.refresh(payload.refresh_token.strip())
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    record_token_event("refreshed")
     return TokenResponse(**pair.__dict__)
 
 
@@ -74,4 +77,5 @@ async def revoke_token(payload: TokenRevokeRequest) -> dict[str, str]:
         await auth_issuer.revoke(payload.token.strip())
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    record_token_event("revoked")
     return {"status": "revoked"}

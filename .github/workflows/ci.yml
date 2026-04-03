@@ -28,7 +28,7 @@ jobs:
 
       - name: Lint (Ruff)
         run: |
-          ruff check --select F,E9 app client/app tests
+          ruff check --select F,E9,B app client/app tests
 
       - name: Dependency audit
         run: |

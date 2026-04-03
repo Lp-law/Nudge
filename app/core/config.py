@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     azure_doc_intel_api_version: str = Field(
         default="2024-02-29-preview", alias="AZURE_DOC_INTELLIGENCE_API_VERSION"
     )
+    ocr_poll_timeout_seconds: float = Field(default=25.0, alias="OCR_POLL_TIMEOUT_SECONDS")
     nudge_backend_api_key: str | None = Field(
         default=None, alias="NUDGE_BACKEND_API_KEY"
     )

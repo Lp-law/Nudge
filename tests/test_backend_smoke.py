@@ -43,6 +43,7 @@ from app.main import app
 from app.routes import ai as ai_routes
 from app.schemas.ai import ACTION_KEYS
 from app.services.prompt_builder import INSTRUCTIONS_BY_ACTION
+from app.services.ocr_service import AzureOCRService
 from app.services.upstream_errors import UpstreamServiceError
 from client.app.action_contract import (
     ALL_ACTION_KEYS,
@@ -420,3 +421,15 @@ def test_metrics_endpoint_returns_prometheus_payload() -> None:
     body = response.text
     assert "nudge_http_requests_total" in body
     assert "nudge_http_request_latency_seconds" in body
+
+
+def test_ocr_poll_timeout_is_bounded(monkeypatch) -> None:
+    monkeypatch.setenv("OCR_POLL_TIMEOUT_SECONDS", "1")
+    get_settings.cache_clear()
+    low = AzureOCRService()
+    assert low._poll_timeout_seconds() >= 8.0
+
+    monkeypatch.setenv("OCR_POLL_TIMEOUT_SECONDS", "999")
+    get_settings.cache_clear()
+    high = AzureOCRService()
+    assert high._poll_timeout_seconds() <= 90.0

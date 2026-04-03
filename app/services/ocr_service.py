@@ -10,7 +10,9 @@ from app.services.upstream_errors import UpstreamServiceError
 
 logger = logging.getLogger(__name__)
 POLL_INTERVAL_SECONDS = 0.6
-POLL_TIMEOUT_SECONDS = 15.0
+DEFAULT_POLL_TIMEOUT_SECONDS = 25.0
+MIN_POLL_TIMEOUT_SECONDS = 8.0
+MAX_POLL_TIMEOUT_SECONDS = 90.0
 MAX_SUBMIT_RETRIES = 2
 MAX_POLL_RETRIES = 2
 BACKOFF_BASE_SECONDS = 0.5
@@ -28,6 +30,14 @@ class AzureOCRService:
         missing = [key for key, value in required.items() if not value]
         if missing:
             raise ValueError("Missing required OCR configuration: " + ", ".join(missing))
+
+    def _poll_timeout_seconds(self) -> float:
+        configured = float(self.settings.ocr_poll_timeout_seconds or DEFAULT_POLL_TIMEOUT_SECONDS)
+        if configured < MIN_POLL_TIMEOUT_SECONDS:
+            return MIN_POLL_TIMEOUT_SECONDS
+        if configured > MAX_POLL_TIMEOUT_SECONDS:
+            return MAX_POLL_TIMEOUT_SECONDS
+        return configured
 
     async def extract_text(self, image_bytes: bytes) -> str:
         self._validate_settings()
@@ -61,6 +71,7 @@ class AzureOCRService:
                 )
 
             started = asyncio.get_running_loop().time()
+            poll_timeout_seconds = self._poll_timeout_seconds()
             while True:
                 poll_response = await self._request_with_retries(
                     client=client,
@@ -101,9 +112,15 @@ class AzureOCRService:
                         retryable=False,
                     )
 
-                if asyncio.get_running_loop().time() - started > POLL_TIMEOUT_SECONDS:
+                elapsed = asyncio.get_running_loop().time() - started
+                if elapsed > poll_timeout_seconds:
                     record_upstream_timeout("ocr")
                     record_ocr_failure("timeout")
+                    logger.warning(
+                        "OCR polling timed out elapsed_seconds=%.2f configured_timeout_seconds=%.2f",
+                        elapsed,
+                        poll_timeout_seconds,
+                    )
                     raise UpstreamServiceError(
                         "timeout",
                         "OCR request timed out.",

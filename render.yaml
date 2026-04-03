@@ -20,6 +20,8 @@ services:
         sync: false
       - key: AZURE_DOC_INTELLIGENCE_API_VERSION
         value: 2024-02-29-preview
+      - key: OCR_POLL_TIMEOUT_SECONDS
+        value: "25"
       - key: NUDGE_BACKEND_API_KEY
         sync: false
       - key: NUDGE_AUTH_MODE

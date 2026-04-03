@@ -48,6 +48,7 @@ Edit `.env` with your real Azure values.
 - `AZURE_DOC_INTELLIGENCE_ENDPOINT` (example: `https://<resource>.cognitiveservices.azure.com`)
 - `AZURE_DOC_INTELLIGENCE_API_KEY`
 - `AZURE_DOC_INTELLIGENCE_API_VERSION` (optional override; default in app is `2024-02-29-preview`)
+- `OCR_POLL_TIMEOUT_SECONDS` (bounded to `8..90` seconds; default `25`)
 - `NUDGE_AUTH_MODE` (`token`, `api_key`, or `token_or_api_key`; **production: `token`**)
 - `NUDGE_TOKEN_SIGNING_KEY` (required for `token` mode)
 - `NUDGE_AUTH_ISSUER_ENABLED` (default `true`; enables internal token issue/refresh endpoints)
@@ -231,13 +232,20 @@ After each click:
   - `TOKEN_STATE_BACKEND=redis`
   - `RATE_LIMIT_FAILURE_MODE=fail_closed`
   - `NUDGE_AUTH_BOOTSTRAP_KEY` set and rotated operationally
+  - `TRUSTED_PROXY_CIDRS` explicitly set only to your real edge/proxy CIDRs
   - non-free Render plan
 - **Internal/dev compatibility path**
   - optional `token_or_api_key` mode and legacy API key fallback for migration/testing only
 - **Important caveat**
   - per-IP rate limiting relies on trusted proxy forwarding (`X-Forwarded-For`) behavior; keep deployment behind trusted edge/proxy only.
 - **Still future architecture work**
-  - token issuance/refresh and full identity lifecycle are intentionally out of this backend-only validation layer.
+  - external account onboarding UX, federated enterprise identity flows, and full self-service identity lifecycle management.
+
+## Staging vs production discipline
+
+- **Staging:** can validate new token/limiter/metrics behavior with reduced traffic and synthetic incidents.
+- **Production:** requires Redis-backed token/rate state, bootstrap key rotation process, trusted proxy CIDR validation, and active monitoring/alerting against `/metrics`.
+- **Pre-broader-rollout gate:** do not scale rollout until post-deploy checks and alert baselines are stable for at least one release cycle.
 
 ## Local vs cloud behavior
 
@@ -262,7 +270,7 @@ py -m pytest -q
 Run lightweight lint/security checks used by CI:
 
 ```powershell
-py -m ruff check --select F,E9 app client/app tests
+py -m ruff check --select F,E9,B app client/app tests
 py -m pip_audit -r requirements.txt --progress-spinner off
 ```
 
@@ -275,6 +283,7 @@ What smoke checks cover:
 - OCR edge failures (invalid/empty/oversized image payload)
 - minimal rate-limit enforcement checks
 - upstream timeout error mapping expectation (`504`)
+- client lifecycle logic sanity (stale-response guard, queued context, accessibility preference logic)
 
 ## Operations runbook
 
