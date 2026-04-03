@@ -236,6 +236,9 @@ After each click:
 
 ## Common errors and diagnosis
 
+For support, you can generate a safe diagnostics summary from tray menu: `אבחון ותמיכה` and copy it to clipboard.
+The summary intentionally excludes clipboard content, OCR images, secrets, and user text.
+
 - **Backend exits on startup missing Azure vars**
   - Cause: required env vars not set
   - Fix: populate `.env` with all Azure settings

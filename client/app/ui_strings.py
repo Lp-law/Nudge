@@ -1,4 +1,5 @@
 TRAY_MENU_USER_GUIDE = "מדריך משתמש"
+TRAY_MENU_DIAGNOSTICS = "אבחון ותמיכה"
 TRAY_MENU_ACCESSIBILITY_MODE = "מצב נגישות"
 TRAY_MENU_EXIT = "יציאה"
 APP_TITLE = "Nudge"
@@ -61,6 +62,10 @@ def resolve_status_text(message: str) -> str:
 CLOUD_CONFIRM_TITLE = "אישור שליחה לענן"
 CLOUD_CONFIRM_CONTINUE = "המשך"
 CLOUD_CONFIRM_CANCEL = "ביטול"
+DIAGNOSTICS_TITLE = "אבחון Nudge"
+DIAGNOSTICS_COPY_BUTTON = "העתק דוח"
+DIAGNOSTICS_CLOSE_BUTTON = "סגירה"
+DIAGNOSTICS_COPIED_MESSAGE = "דוח האבחון הועתק ללוח."
 
 
 def cloud_confirm_message(reason_text: str) -> str:

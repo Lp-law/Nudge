@@ -13,6 +13,7 @@ from .action_contract import (
 )
 from .api_client import ApiClient
 from .clipboard_monitor import ClipboardMonitor
+from .diagnostics import build_diagnostics_summary
 from .layout_converter import convert_en_layout_to_hebrew
 from .lifecycle_logic import (
     QueuedClipboardContext,
@@ -30,12 +31,17 @@ from .ui_strings import (
     CLOUD_CONFIRM_CANCEL,
     CLOUD_CONFIRM_CONTINUE,
     CLOUD_CONFIRM_TITLE,
+    DIAGNOSTICS_CLOSE_BUTTON,
+    DIAGNOSTICS_COPY_BUTTON,
+    DIAGNOSTICS_COPIED_MESSAGE,
+    DIAGNOSTICS_TITLE,
     ERROR_CANCELLED,
     ERROR_GENERIC,
     ERROR_INVALID_TEXT,
     ERROR_NO_IMAGE,
     resolve_status_text,
     TRAY_MENU_ACCESSIBILITY_MODE,
+    TRAY_MENU_DIAGNOSTICS,
     TRAY_MENU_EXIT,
     TRAY_MENU_USER_GUIDE,
     cloud_confirm_message,
@@ -82,6 +88,8 @@ class TrayApp:
         menu = QMenu()
         help_action = menu.addAction(TRAY_MENU_USER_GUIDE)
         help_action.triggered.connect(self._open_user_guide)
+        diagnostics_action = menu.addAction(TRAY_MENU_DIAGNOSTICS)
+        diagnostics_action.triggered.connect(self._open_diagnostics)
         accessibility_action = menu.addAction(TRAY_MENU_ACCESSIBILITY_MODE)
         accessibility_action.setCheckable(True)
         accessibility_action.setChecked(self._accessibility_mode)
@@ -263,6 +271,30 @@ class TrayApp:
             self._guide_dialog = UserGuideDialog()
         self._guide_dialog.show()
         self._guide_dialog.raise_()
+
+    def _open_diagnostics(self) -> None:
+        summary = build_diagnostics_summary(
+            app=self.app,
+            settings=self.settings,
+            accessibility_mode=self._accessibility_mode,
+            tray_available=bool(QSystemTrayIcon.isSystemTrayAvailable()),
+        )
+        dialog = QMessageBox(self.popup)
+        dialog.setIcon(QMessageBox.Icon.Information)
+        dialog.setWindowTitle(DIAGNOSTICS_TITLE)
+        dialog.setText(summary)
+        copy_button = dialog.addButton(
+            DIAGNOSTICS_COPY_BUTTON,
+            QMessageBox.ButtonRole.ActionRole,
+        )
+        dialog.addButton(
+            DIAGNOSTICS_CLOSE_BUTTON,
+            QMessageBox.ButtonRole.RejectRole,
+        )
+        dialog.exec()
+        if dialog.clickedButton() is copy_button:
+            self.clipboard.setText(summary, mode=QClipboard.Clipboard)
+            self.tray.showMessage("Nudge", DIAGNOSTICS_COPIED_MESSAGE, QSystemTrayIcon.MessageIcon.Information, 1800)
 
     def _confirm_cloud_send_for_text(self, text: str) -> bool:
         reasons = detect_sensitive_text(text)
