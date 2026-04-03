@@ -6,6 +6,7 @@ import os
 import time
 from base64 import urlsafe_b64encode
 from pathlib import Path
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
@@ -22,14 +23,22 @@ os.environ.setdefault("NUDGE_TOKEN_AUDIENCE", "nudge-client")
 os.environ.setdefault("NUDGE_REQUIRED_SCOPE", "nudge.api")
 os.environ.setdefault("NUDGE_AUTH_MODE", "token_or_api_key")
 os.environ.setdefault("NUDGE_ALLOW_LEGACY_API_KEY", "true")
+os.environ.setdefault("NUDGE_AUTH_ISSUER_ENABLED", "true")
+os.environ.setdefault("NUDGE_AUTH_BOOTSTRAP_KEY", "bootstrap-test-key")
+os.environ.setdefault("NUDGE_ACCESS_TOKEN_TTL_SECONDS", "900")
+os.environ.setdefault("NUDGE_REFRESH_TOKEN_TTL_SECONDS", "2592000")
+os.environ.setdefault("TOKEN_STATE_BACKEND", "memory")
+os.environ.setdefault("TOKEN_STATE_PREFIX", "nudge:test:auth")
 os.environ.setdefault("RATE_LIMIT_WINDOW_SECONDS", "60")
 os.environ.setdefault("RATE_LIMIT_ACTION_REQUESTS", "2")
 os.environ.setdefault("RATE_LIMIT_OCR_REQUESTS", "2")
 os.environ.setdefault("RATE_LIMIT_BACKEND", "memory")
+os.environ.setdefault("RATE_LIMIT_FAILURE_MODE", "fail_closed")
+os.environ.setdefault("TRUSTED_PROXY_CIDRS", "0.0.0.0/0,::/0")
 os.environ.setdefault("MAX_REQUEST_BODY_BYTES", "1024")
 
 from app.core.config import get_settings
-from app.core.security import API_KEY_HEADER
+from app.core.security import API_KEY_HEADER, get_client_ip
 from app.main import app
 from app.routes import ai as ai_routes
 from app.schemas.ai import ACTION_KEYS
@@ -104,6 +113,14 @@ def _bearer_headers(*, forwarded_for: str) -> dict[str, str]:
     }
 
 
+def _patch_forwarded_ip(monkeypatch) -> None:
+    def _client_ip(request, _settings) -> str:
+        forwarded = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+        return forwarded or "testclient"
+
+    monkeypatch.setattr(ai_routes, "get_client_ip", _client_ip)
+
+
 def test_action_whitespace_is_400() -> None:
     response = client.post(
         "/ai/action",
@@ -136,6 +153,58 @@ def test_action_accepts_valid_bearer_token(monkeypatch) -> None:
     assert response.json()["result"] == "ok"
 
 
+def test_auth_issue_and_refresh_flow() -> None:
+    issue = client.post(
+        "/auth/token",
+        json={
+            "subject": "install-123",
+            "device_id": "device-abc",
+            "bootstrap_key": "bootstrap-test-key",
+        },
+    )
+    assert issue.status_code == 200
+    issued = issue.json()
+    assert issued["access_token"]
+    assert issued["refresh_token"]
+    assert issued["token_type"] == "Bearer"
+
+    refreshed = client.post(
+        "/auth/refresh",
+        json={"refresh_token": issued["refresh_token"]},
+    )
+    assert refreshed.status_code == 200
+    refreshed_data = refreshed.json()
+    assert refreshed_data["access_token"]
+    assert refreshed_data["refresh_token"]
+    assert refreshed_data["refresh_token"] != issued["refresh_token"]
+
+
+def test_revoked_access_token_rejected(monkeypatch) -> None:
+    async def _fake_generate_action(action: str, text: str) -> str:
+        return "ok"
+
+    monkeypatch.setattr(ai_routes.openai_service, "generate_action", _fake_generate_action)
+    issue = client.post(
+        "/auth/token",
+        json={
+            "subject": "install-revoke",
+            "device_id": "device-revoke",
+            "bootstrap_key": "bootstrap-test-key",
+        },
+    )
+    assert issue.status_code == 200
+    access_token = issue.json()["access_token"]
+    revoke = client.post("/auth/revoke", json={"token": access_token})
+    assert revoke.status_code == 200
+
+    response = client.post(
+        "/ai/action",
+        headers={"Authorization": f"Bearer {access_token}", "X-Forwarded-For": "198.51.100.41"},
+        json={"text": "valid request content", "action": "summarize"},
+    )
+    assert response.status_code == 401
+
+
 def test_action_accepts_api_key_mode_without_legacy_flag(monkeypatch) -> None:
     async def _fake_generate_action(action: str, text: str) -> str:
         return "ok"
@@ -145,10 +214,64 @@ def test_action_accepts_api_key_mode_without_legacy_flag(monkeypatch) -> None:
     monkeypatch.setenv("NUDGE_ALLOW_LEGACY_API_KEY", "false")
     monkeypatch.setenv("NUDGE_BACKEND_API_KEY", "test-backend-key")
     get_settings.cache_clear()
+    _patch_forwarded_ip(monkeypatch)
 
     response = client.post(
         "/ai/action",
         headers={API_KEY_HEADER: "test-backend-key", "X-Forwarded-For": "198.51.100.31"},
+        json={"text": "valid request content", "action": "summarize"},
+    )
+    assert response.status_code == 200
+    assert response.json()["result"] == "ok"
+
+
+def test_trusted_proxy_ip_resolution() -> None:
+    request = SimpleNamespace(
+        headers={"x-forwarded-for": "198.51.100.50, 203.0.113.10"},
+        client=SimpleNamespace(host="127.0.0.1"),
+    )
+    settings = SimpleNamespace(trusted_proxy_cidrs="127.0.0.1/32")
+    assert get_client_ip(request, settings) == "198.51.100.50"
+
+
+def test_untrusted_proxy_ignores_forwarded_for() -> None:
+    request = SimpleNamespace(
+        headers={"x-forwarded-for": "198.51.100.50"},
+        client=SimpleNamespace(host="10.0.0.11"),
+    )
+    settings = SimpleNamespace(trusted_proxy_cidrs="127.0.0.1/32")
+    assert get_client_ip(request, settings) == "10.0.0.11"
+
+
+def test_rate_limiter_backend_failure_fail_closed(monkeypatch) -> None:
+    async def _raise_allow(*_args, **_kwargs):
+        raise RuntimeError("redis down")
+
+    monkeypatch.setattr(ai_routes.rate_limiter, "allow", _raise_allow)
+    monkeypatch.setattr(ai_routes.settings, "rate_limit_failure_mode", "fail_closed")
+    _patch_forwarded_ip(monkeypatch)
+    response = client.post(
+        "/ai/action",
+        headers={**AUTH_HEADERS, "X-Forwarded-For": "198.51.100.28"},
+        json={"text": "valid request content", "action": "summarize"},
+    )
+    assert response.status_code == 503
+
+
+def test_rate_limiter_backend_failure_fail_open(monkeypatch) -> None:
+    async def _raise_allow(*_args, **_kwargs):
+        raise RuntimeError("redis down")
+
+    async def _fake_generate_action(action: str, text: str) -> str:
+        return "ok"
+
+    monkeypatch.setattr(ai_routes.rate_limiter, "allow", _raise_allow)
+    monkeypatch.setattr(ai_routes.settings, "rate_limit_failure_mode", "fail_open")
+    monkeypatch.setattr(ai_routes.openai_service, "generate_action", _fake_generate_action)
+    _patch_forwarded_ip(monkeypatch)
+    response = client.post(
+        "/ai/action",
+        headers={**AUTH_HEADERS, "X-Forwarded-For": "198.51.100.29"},
         json={"text": "valid request content", "action": "summarize"},
     )
     assert response.status_code == 200
@@ -207,6 +330,7 @@ def test_action_rate_limit_enforced(monkeypatch) -> None:
         return "ok"
 
     monkeypatch.setattr(ai_routes.openai_service, "generate_action", _fake_generate_action)
+    _patch_forwarded_ip(monkeypatch)
     headers = {**AUTH_HEADERS, "X-Forwarded-For": "198.51.100.20"}
     payload = {"text": "valid request content", "action": "summarize"}
 
@@ -224,6 +348,7 @@ def test_ocr_rate_limit_enforced(monkeypatch) -> None:
         return "extracted"
 
     monkeypatch.setattr(ai_routes.ocr_service, "extract_text", _fake_extract_text)
+    _patch_forwarded_ip(monkeypatch)
     headers = {**AUTH_HEADERS, "X-Forwarded-For": "198.51.100.21"}
     payload = {"image_base64": base64.b64encode(b"png").decode("ascii")}
 
@@ -241,6 +366,7 @@ def test_upstream_timeout_maps_to_504(monkeypatch) -> None:
         raise UpstreamServiceError("timeout", "AI timeout", retryable=False)
 
     monkeypatch.setattr(ai_routes.openai_service, "generate_action", _raise_timeout)
+    _patch_forwarded_ip(monkeypatch)
     headers = {**AUTH_HEADERS, "X-Forwarded-For": "198.51.100.22"}
     response = client.post(
         "/ai/action",
@@ -281,3 +407,16 @@ def test_user_guide_content_sanity() -> None:
             lines = entry.get(section_key)
             assert isinstance(lines, list)
             assert len(lines) > 0
+
+
+def test_metrics_endpoint_requires_auth() -> None:
+    response = client.get("/metrics")
+    assert response.status_code == 401
+
+
+def test_metrics_endpoint_returns_prometheus_payload() -> None:
+    response = client.get("/metrics", headers=AUTH_HEADERS)
+    assert response.status_code == 200
+    body = response.text
+    assert "nudge_http_requests_total" in body
+    assert "nudge_http_request_latency_seconds" in body

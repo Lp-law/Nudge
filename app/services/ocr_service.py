@@ -4,6 +4,7 @@ import logging
 import httpx
 
 from app.core.config import get_settings
+from app.core.metrics import record_ocr_failure, record_upstream_retry, record_upstream_timeout
 from app.services.upstream_errors import UpstreamServiceError
 
 
@@ -93,6 +94,7 @@ class AzureOCRService:
 
                 if status == "failed":
                     logger.error("Azure OCR failed to process image")
+                    record_ocr_failure("failed")
                     raise UpstreamServiceError(
                         "upstream_unavailable",
                         "OCR processing failed.",
@@ -100,6 +102,8 @@ class AzureOCRService:
                     )
 
                 if asyncio.get_running_loop().time() - started > POLL_TIMEOUT_SECONDS:
+                    record_upstream_timeout("ocr")
+                    record_ocr_failure("timeout")
                     raise UpstreamServiceError(
                         "timeout",
                         "OCR request timed out.",
@@ -240,5 +244,6 @@ class AzureOCRService:
             error.kind,
             delay,
         )
+        record_upstream_retry("ocr", error.kind)
         await asyncio.sleep(delay)
         return True

@@ -11,6 +11,7 @@ from openai import (
 )
 
 from app.core.config import get_settings
+from app.core.metrics import record_upstream_retry, record_upstream_timeout
 from app.schemas.ai import ActionType
 from app.services.prompt_builder import build_messages
 from app.services.upstream_errors import UpstreamServiceError
@@ -68,6 +69,7 @@ class AzureOpenAIService:
                 )
                 break
             except asyncio.TimeoutError as exc:
+                record_upstream_timeout("openai")
                 error = UpstreamServiceError(
                     "timeout",
                     "AI request timed out.",
@@ -189,5 +191,6 @@ class AzureOpenAIService:
             error.kind,
             delay,
         )
+        record_upstream_retry("openai", error.kind)
         await asyncio.sleep(delay)
         return True

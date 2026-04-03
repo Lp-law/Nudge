@@ -50,6 +50,10 @@ Edit `.env` with your real Azure values.
 - `AZURE_DOC_INTELLIGENCE_API_VERSION` (optional override; default in app is `2024-02-29-preview`)
 - `NUDGE_AUTH_MODE` (`token`, `api_key`, or `token_or_api_key`; **production: `token`**)
 - `NUDGE_TOKEN_SIGNING_KEY` (required for `token` mode)
+- `NUDGE_AUTH_ISSUER_ENABLED` (default `true`; enables internal token issue/refresh endpoints)
+- `NUDGE_AUTH_BOOTSTRAP_KEY` (required when auth issuer is enabled)
+- `NUDGE_ACCESS_TOKEN_TTL_SECONDS` (default `900`)
+- `NUDGE_REFRESH_TOKEN_TTL_SECONDS` (default `2592000`)
 - `NUDGE_TOKEN_ISSUER` (default `nudge`)
 - `NUDGE_TOKEN_AUDIENCE` (default `nudge-client`)
 - `NUDGE_REQUIRED_SCOPE` (default `nudge.api`)
@@ -60,7 +64,11 @@ Edit `.env` with your real Azure values.
 - `RATE_LIMIT_ACTION_REQUESTS` (default `30`)
 - `RATE_LIMIT_OCR_REQUESTS` (default `10`)
 - `RATE_LIMIT_BACKEND` (`memory` or `redis`; **production: `redis`**)
-- `REDIS_URL` (required when `RATE_LIMIT_BACKEND=redis`)
+- `RATE_LIMIT_FAILURE_MODE` (`fail_closed` or `fail_open`; **production default: `fail_closed`**)
+- `TRUSTED_PROXY_CIDRS` (comma-separated CIDRs of trusted proxy sources allowed to set `X-Forwarded-For`)
+- `TOKEN_STATE_BACKEND` (`memory` or `redis`; **production: `redis`**)
+- `TOKEN_STATE_PREFIX` (default `nudge:auth`)
+- `REDIS_URL` (required when `RATE_LIMIT_BACKEND=redis` and/or `TOKEN_STATE_BACKEND=redis`)
 - `MAX_REQUEST_BODY_BYTES` (default `10485760`, 10MB)
 - `PORT` (optional locally, default app behavior is `8000`)
 
@@ -198,14 +206,21 @@ After each click:
 
 - `POST /ai/action` and `POST /ai/ocr` require auth: preferred `Authorization: Bearer <token>`.
 - Legacy fallback `X-Nudge-API-Key` is supported only when `NUDGE_ALLOW_LEGACY_API_KEY=true`.
+- Internal auth issuer lifecycle endpoints:
+  - `POST /auth/token` (bootstrap-gated issuance of short-lived access + refresh token)
+  - `POST /auth/refresh` (refresh rotation)
+  - `POST /auth/revoke` (persisted revocation by token `jti`)
 - `/health` remains public.
+- `/metrics` is auth-protected.
 - Auth checks happen before protected request body processing for `/ai/action` and `/ai/ocr`.
 - Backend supports configurable rate-limit backend (`memory` or `redis`).
+- On limiter backend failure, behavior is explicit via `RATE_LIMIT_FAILURE_MODE` (`fail_closed` default).
 - Backend enforces request body size limits at middleware level (plus model validation).
 - Each request gets `X-Request-ID` in response headers for operational tracing.
 - Client adds a lightweight sensitive-content guard before cloud actions.
 - If likely sensitive text is detected (or before OCR image upload), client asks for explicit user confirmation.
 - Sensitive-content detection is heuristic/pattern-based and does not guarantee full detection.
+- `X-Forwarded-For` is honored only when the direct client IP belongs to `TRUSTED_PROXY_CIDRS`.
 
 ## Deployment posture (production vs compatibility)
 
@@ -213,6 +228,9 @@ After each click:
   - `NUDGE_AUTH_MODE=token`
   - `NUDGE_ALLOW_LEGACY_API_KEY=false`
   - `RATE_LIMIT_BACKEND=redis`
+  - `TOKEN_STATE_BACKEND=redis`
+  - `RATE_LIMIT_FAILURE_MODE=fail_closed`
+  - `NUDGE_AUTH_BOOTSTRAP_KEY` set and rotated operationally
   - non-free Render plan
 - **Internal/dev compatibility path**
   - optional `token_or_api_key` mode and legacy API key fallback for migration/testing only

@@ -11,6 +11,10 @@
 - `NUDGE_BACKEND_API_KEY` (required only when using `api_key` mode or compatibility fallback)
 - `NUDGE_AUTH_MODE`
 - `NUDGE_TOKEN_SIGNING_KEY`
+- `NUDGE_AUTH_ISSUER_ENABLED`
+- `NUDGE_AUTH_BOOTSTRAP_KEY` (required when issuer is enabled)
+- `NUDGE_ACCESS_TOKEN_TTL_SECONDS`
+- `NUDGE_REFRESH_TOKEN_TTL_SECONDS`
 - `NUDGE_TOKEN_ISSUER`
 - `NUDGE_TOKEN_AUDIENCE`
 - `NUDGE_REQUIRED_SCOPE`
@@ -20,11 +24,15 @@
 - `RATE_LIMIT_ACTION_REQUESTS`
 - `RATE_LIMIT_OCR_REQUESTS`
 - `RATE_LIMIT_BACKEND`
-- `REDIS_URL` (required when `RATE_LIMIT_BACKEND=redis`)
+- `RATE_LIMIT_FAILURE_MODE`
+- `TRUSTED_PROXY_CIDRS`
+- `TOKEN_STATE_BACKEND`
+- `TOKEN_STATE_PREFIX`
+- `REDIS_URL` (required when `RATE_LIMIT_BACKEND=redis` and/or `TOKEN_STATE_BACKEND=redis`)
 - `MAX_REQUEST_BODY_BYTES`
 
 ## Deployment mode expectations
-- **Production-intended:** `NUDGE_AUTH_MODE=token`, `NUDGE_ALLOW_LEGACY_API_KEY=false`, `RATE_LIMIT_BACKEND=redis`, non-free Render plan.
+- **Production-intended:** `NUDGE_AUTH_MODE=token`, `NUDGE_ALLOW_LEGACY_API_KEY=false`, `RATE_LIMIT_BACKEND=redis`, `TOKEN_STATE_BACKEND=redis`, non-free Render plan.
 - **Internal/dev compatibility:** `token_or_api_key` and legacy API key fallback are allowed only for controlled migration/testing.
 - **Trust boundary caveat:** per-IP limiting uses forwarded client IP and assumes trusted proxy/edge behavior.
 
@@ -66,6 +74,15 @@
    - payload/validation failure
    - deployment/config issue
 
+## Metrics and alerts baseline
+Monitor `/metrics` (auth-protected) and alert on:
+- `nudge_auth_failures_total` sudden spikes (>5x baseline for 5 minutes)
+- `nudge_rate_limit_denials_total` sustained growth with user complaints
+- `nudge_rate_limit_backend_failures_total` any non-zero in production
+- `nudge_upstream_timeouts_total{service="openai|ocr"}` sustained increases
+- `nudge_ocr_failures_total` error-rate trend changes
+- `nudge_http_request_latency_seconds` p95 > 2.5s for `/ai/action` or > 8s for `/ai/ocr`
+
 ## If Azure OpenAI or OCR fails
 1. Verify Azure env vars in Render are present and correct.
 2. Confirm Azure service availability in Azure portal.
@@ -90,13 +107,17 @@
    - `RATE_LIMIT_OCR_REQUESTS`
 5. Check limiter backend:
    - `RATE_LIMIT_BACKEND=redis` for multi-instance scale
+   - `TOKEN_STATE_BACKEND=redis` for shared revocation/refresh state
    - `REDIS_URL` reachable from runtime
-6. If limits are too strict for real usage, raise carefully and redeploy.
-7. Re-test with repeated calls from one IP.
+6. Verify trust boundary:
+   - configure `TRUSTED_PROXY_CIDRS` only to actual edge/proxy CIDRs
+   - if unknown, keep it empty and rely on direct client IP
+7. If limits are too strict for real usage, raise carefully and redeploy.
+8. Re-test with repeated calls from one IP.
 
 ## Auth architecture status
-- Already implemented: bearer token validation, scope/audience/issuer checks, revocation list via `jti`, optional compatibility fallback.
-- Still out of scope for this batch: full token issuance/refresh lifecycle and per-user/install identity provisioning authority.
+- Already implemented: bearer token validation, scope/audience/issuer checks, persisted token revocation, internal short-lived access/refresh issuance endpoints, optional compatibility fallback.
+- Still out of scope for this batch: full external account onboarding, self-service passwordless/login UX, and enterprise federation flows.
 
 ## Local smoke command
 Run from repo root:

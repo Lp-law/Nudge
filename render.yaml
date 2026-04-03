@@ -26,6 +26,14 @@ services:
         value: token
       - key: NUDGE_TOKEN_SIGNING_KEY
         sync: false
+      - key: NUDGE_AUTH_ISSUER_ENABLED
+        value: "true"
+      - key: NUDGE_AUTH_BOOTSTRAP_KEY
+        sync: false
+      - key: NUDGE_ACCESS_TOKEN_TTL_SECONDS
+        value: "900"
+      - key: NUDGE_REFRESH_TOKEN_TTL_SECONDS
+        value: "2592000"
       - key: NUDGE_TOKEN_ISSUER
         value: nudge
       - key: NUDGE_TOKEN_AUDIENCE
@@ -44,6 +52,14 @@ services:
         value: "10"
       - key: RATE_LIMIT_BACKEND
         value: redis
+      - key: RATE_LIMIT_FAILURE_MODE
+        value: fail_closed
+      - key: TRUSTED_PROXY_CIDRS
+        value: ""
+      - key: TOKEN_STATE_BACKEND
+        value: redis
+      - key: TOKEN_STATE_PREFIX
+        value: nudge:auth
       - key: REDIS_URL
         sync: false
       - key: MAX_REQUEST_BODY_BYTES

@@ -1,18 +1,26 @@
 import logging
 from contextlib import asynccontextmanager
+from time import perf_counter
 from uuid import uuid4
 
 from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 import uvicorn
 
 from app.core.config import get_settings
+from app.core.metrics import (
+    metrics_content_type,
+    record_auth_failure,
+    record_request,
+    render_metrics,
+)
 from app.core.security import (
     REQUEST_ID_CTX,
     REQUEST_ID_HEADER,
     RequestIdLogFilter,
     authenticate_request,
 )
+from app.routes.auth import router as auth_router
 from app.routes.ai import router as ai_router
 
 
@@ -68,10 +76,22 @@ def validate_startup_config() -> None:
                 "token_or_api_key mode requires either NUDGE_TOKEN_SIGNING_KEY "
                 "or legacy API key fallback."
             )
+    if settings.nudge_auth_issuer_enabled and not (
+        settings.nudge_auth_bootstrap_key and settings.nudge_auth_bootstrap_key.strip()
+    ):
+        raise RuntimeError("NUDGE_AUTH_BOOTSTRAP_KEY is required when auth issuer is enabled.")
 
     if (settings.rate_limit_backend or "memory").strip().lower() == "redis":
         if not (settings.redis_url and settings.redis_url.strip()):
             raise RuntimeError("REDIS_URL is required when RATE_LIMIT_BACKEND=redis.")
+    if (settings.token_state_backend or "memory").strip().lower() == "redis":
+        if not (settings.redis_url and settings.redis_url.strip()):
+            raise RuntimeError("REDIS_URL is required when TOKEN_STATE_BACKEND=redis.")
+    if (settings.rate_limit_failure_mode or "fail_closed").strip().lower() not in {
+        "fail_open",
+        "fail_closed",
+    }:
+        raise RuntimeError("RATE_LIMIT_FAILURE_MODE must be fail_open or fail_closed.")
 
 
 @asynccontextmanager
@@ -82,10 +102,12 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="Nudge MVP Backend", version="0.1.0", lifespan=lifespan)
 app.include_router(ai_router)
+app.include_router(auth_router)
 
 
 @app.middleware("http")
 async def request_context_middleware(request: Request, call_next):
+    started = perf_counter()
     existing = getattr(request.state, "request_id", "")
     request_id = (
         str(existing).strip()
@@ -98,6 +120,13 @@ async def request_context_middleware(request: Request, call_next):
         response = await call_next(request)
     finally:
         REQUEST_ID_CTX.reset(token)
+    elapsed = perf_counter() - started
+    record_request(
+        method=request.method,
+        path=request.url.path,
+        status_code=int(getattr(response, "status_code", 500)),
+        elapsed_seconds=elapsed,
+    )
     response.headers[REQUEST_ID_HEADER] = request_id
     return response
 
@@ -112,8 +141,9 @@ async def request_body_limit_middleware(request: Request, call_next):
     request.state.request_id = request_id
     token = REQUEST_ID_CTX.set(request_id)
     try:
-        auth_context = authenticate_request(request, settings)
+        auth_context = await authenticate_request(request, settings)
         if auth_context is None:
+            record_auth_failure(request.url.path, (settings.nudge_auth_mode or "").strip().lower())
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={
@@ -160,6 +190,20 @@ async def request_body_limit_middleware(request: Request, call_next):
 @app.get("/health")
 async def health() -> JSONResponse:
     return JSONResponse(content={"status": "ok"})
+
+
+@app.get("/metrics")
+async def metrics(request: Request) -> Response:
+    settings = get_settings()
+    context = await authenticate_request(request, settings)
+    if context is None:
+        record_auth_failure(request.url.path, (settings.nudge_auth_mode or "").strip().lower())
+        request_id = getattr(request.state, "request_id", "-")
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"detail": {"message": "Unauthorized request.", "request_id": request_id}},
+        )
+    return Response(content=render_metrics(), media_type=metrics_content_type())
 
 
 if __name__ == "__main__":

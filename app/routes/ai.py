@@ -4,6 +4,11 @@ import base64
 from fastapi import APIRouter, HTTPException, Request, status
 
 from app.core.config import get_settings
+from app.core.metrics import (
+    record_auth_failure,
+    record_rate_limit_backend_failure,
+    record_rate_limit_denial,
+)
 from app.core.security import (
     AuthContext,
     authenticate_request,
@@ -38,12 +43,13 @@ def _detail(message: str, request: Request) -> dict[str, str]:
     return {"message": message, "request_id": _request_id(request)}
 
 
-def _enforce_auth(request: Request) -> None:
+async def _enforce_auth(request: Request) -> None:
     context = getattr(request.state, "auth_context", None)
     if isinstance(context, AuthContext):
         return
-    resolved = authenticate_request(request, settings)
+    resolved = await authenticate_request(request, settings)
     if resolved is None:
+        record_auth_failure(request.url.path, (settings.nudge_auth_mode or "").strip().lower())
         logger.warning("Unauthorized request to %s", request.url.path)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -53,13 +59,30 @@ def _enforce_auth(request: Request) -> None:
 
 
 async def _enforce_rate_limit(request: Request, route_key: str, limit: int) -> None:
-    client_ip = get_client_ip(request)
-    decision = await rate_limiter.allow(
-        key=f"{route_key}:{client_ip}",
-        limit=limit,
-        window_seconds=settings.rate_limit_window_seconds,
-    )
+    client_ip = get_client_ip(request, settings)
+    try:
+        decision = await rate_limiter.allow(
+            key=f"{route_key}:{client_ip}",
+            limit=limit,
+            window_seconds=settings.rate_limit_window_seconds,
+        )
+    except Exception:
+        failure_mode = (settings.rate_limit_failure_mode or "fail_closed").strip().lower()
+        record_rate_limit_backend_failure(request.url.path, failure_mode)
+        logger.exception(
+            "Rate limiter backend failure path=%s mode=%s request_id=%s",
+            request.url.path,
+            failure_mode,
+            _request_id(request),
+        )
+        if failure_mode == "fail_open":
+            return
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_detail("Rate limiter unavailable. Please retry shortly.", request),
+        )
     if not decision.allowed:
+        record_rate_limit_denial(request.url.path)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=_detail("Rate limit exceeded. Please retry shortly.", request),
@@ -108,7 +131,7 @@ def _map_upstream_error(
 
 @router.post("/action", response_model=AIActionResponse)
 async def create_action(payload: AIActionRequest, request: Request) -> AIActionResponse:
-    _enforce_auth(request)
+    await _enforce_auth(request)
     await _enforce_rate_limit(request, "action", settings.rate_limit_action_requests)
 
     if not payload.text:
@@ -143,7 +166,7 @@ async def create_action(payload: AIActionRequest, request: Request) -> AIActionR
 
 @router.post("/ocr", response_model=OCRResponse)
 async def extract_ocr(payload: OCRRequest, request: Request) -> OCRResponse:
-    _enforce_auth(request)
+    await _enforce_auth(request)
     await _enforce_rate_limit(request, "ocr", settings.rate_limit_ocr_requests)
 
     if not payload.image_base64:

@@ -1,13 +1,16 @@
 import contextvars
 import hashlib
 import hmac
+import ipaddress
 import json
 import time
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from collections import defaultdict, deque
 from dataclasses import dataclass
+from functools import lru_cache
 from logging import Filter, LogRecord
 from threading import Lock
+from uuid import uuid4
 
 import redis.asyncio as redis
 from fastapi import Request
@@ -30,6 +33,10 @@ class RequestIdLogFilter(Filter):
 class AuthContext:
     principal: str
     auth_type: str
+    jti: str = ""
+    token_type: str = "access"
+    device_id: str = ""
+    expires_at: int = 0
 
 
 def _clean_auth_mode(value: str) -> str:
@@ -75,6 +82,8 @@ def _verify_bearer_token(
     audience: str,
     required_scope: str,
     revoked_jtis: set[str],
+    require_scope: bool = True,
+    expected_token_type: str = "access",
 ) -> AuthContext | None:
     if not token or not signing_key:
         return None
@@ -131,7 +140,11 @@ def _verify_bearer_token(
         scopes = {str(item).strip() for item in scopes_raw if str(item).strip()}
     else:
         scopes = set()
-    if required_scope and required_scope not in scopes:
+    if require_scope and required_scope and required_scope not in scopes:
+        return None
+
+    token_type = str(payload.get("typ") or "access").strip().lower()
+    if expected_token_type and token_type != expected_token_type:
         return None
 
     jti = str(payload.get("jti") or "").strip()
@@ -142,10 +155,221 @@ def _verify_bearer_token(
     if not principal:
         return None
 
-    return AuthContext(principal=principal, auth_type="bearer")
+    device_id = str(payload.get("did") or "").strip()
+    return AuthContext(
+        principal=principal,
+        auth_type="bearer",
+        jti=jti or "",
+        token_type=token_type,
+        device_id=device_id,
+        expires_at=exp,
+    )
 
 
-def authenticate_request(request: Request, settings) -> AuthContext | None:
+class TokenStateStore:
+    async def is_jti_revoked(self, jti: str) -> bool:
+        raise NotImplementedError
+
+    async def revoke_jti(self, jti: str, expires_at: int) -> None:
+        raise NotImplementedError
+
+    async def store_refresh_jti(
+        self,
+        jti: str,
+        expires_at: int,
+        *,
+        subject: str,
+        device_id: str,
+    ) -> None:
+        raise NotImplementedError
+
+    async def consume_refresh_jti(self, jti: str) -> bool:
+        raise NotImplementedError
+
+
+class InMemoryTokenStateStore(TokenStateStore):
+    def __init__(self) -> None:
+        self._revoked: dict[str, int] = {}
+        self._refresh_tokens: dict[str, int] = {}
+        self._lock = Lock()
+
+    def _cleanup(self) -> None:
+        now = int(time.time())
+        for store in (self._revoked, self._refresh_tokens):
+            expired = [key for key, exp in store.items() if exp <= now]
+            for key in expired:
+                store.pop(key, None)
+
+    async def is_jti_revoked(self, jti: str) -> bool:
+        if not jti:
+            return False
+        with self._lock:
+            self._cleanup()
+            return jti in self._revoked
+
+    async def revoke_jti(self, jti: str, expires_at: int) -> None:
+        if not jti:
+            return
+        with self._lock:
+            self._cleanup()
+            self._revoked[jti] = max(expires_at, int(time.time()) + 60)
+            self._refresh_tokens.pop(jti, None)
+
+    async def store_refresh_jti(
+        self,
+        jti: str,
+        expires_at: int,
+        *,
+        subject: str,
+        device_id: str,
+    ) -> None:
+        if not jti:
+            return
+        with self._lock:
+            self._cleanup()
+            self._refresh_tokens[jti] = max(expires_at, int(time.time()) + 60)
+
+    async def consume_refresh_jti(self, jti: str) -> bool:
+        if not jti:
+            return False
+        with self._lock:
+            self._cleanup()
+            expires_at = self._refresh_tokens.pop(jti, None)
+            return bool(expires_at and expires_at > int(time.time()))
+
+
+class RedisTokenStateStore(TokenStateStore):
+    def __init__(self, redis_url: str, *, prefix: str) -> None:
+        self._client = redis.from_url(redis_url, decode_responses=True)
+        self._prefix = (prefix or "nudge:auth").strip()
+
+    def _revoked_key(self, jti: str) -> str:
+        return f"{self._prefix}:revoked:{jti}"
+
+    def _refresh_key(self, jti: str) -> str:
+        return f"{self._prefix}:refresh:{jti}"
+
+    async def is_jti_revoked(self, jti: str) -> bool:
+        if not jti:
+            return False
+        return bool(await self._client.exists(self._revoked_key(jti)))
+
+    async def revoke_jti(self, jti: str, expires_at: int) -> None:
+        if not jti:
+            return
+        ttl = max(60, expires_at - int(time.time()))
+        await self._client.set(self._revoked_key(jti), "1", ex=ttl)
+        await self._client.delete(self._refresh_key(jti))
+
+    async def store_refresh_jti(
+        self,
+        jti: str,
+        expires_at: int,
+        *,
+        subject: str,
+        device_id: str,
+    ) -> None:
+        if not jti:
+            return
+        ttl = max(60, expires_at - int(time.time()))
+        payload = json.dumps({"sub": subject, "did": device_id or ""}, separators=(",", ":"))
+        await self._client.set(self._refresh_key(jti), payload, ex=ttl)
+
+    async def consume_refresh_jti(self, jti: str) -> bool:
+        if not jti:
+            return False
+        removed = await self._client.delete(self._refresh_key(jti))
+        return bool(removed)
+
+
+def create_token_state_store(settings) -> TokenStateStore:
+    backend = (settings.token_state_backend or "memory").strip().lower()
+    if backend == "redis":
+        redis_url = (settings.redis_url or "").strip()
+        if not redis_url:
+            raise ValueError("REDIS_URL is required when TOKEN_STATE_BACKEND=redis.")
+        return RedisTokenStateStore(redis_url, prefix=settings.token_state_prefix)
+    return InMemoryTokenStateStore()
+
+
+_TOKEN_STATE_STORE: TokenStateStore | None = None
+_TOKEN_STATE_STORE_KEY = ""
+
+
+def get_token_state_store(settings) -> TokenStateStore:
+    global _TOKEN_STATE_STORE, _TOKEN_STATE_STORE_KEY
+    backend = (settings.token_state_backend or "memory").strip().lower()
+    key = f"{backend}|{(settings.redis_url or '').strip()}|{settings.token_state_prefix}"
+    if _TOKEN_STATE_STORE is None or _TOKEN_STATE_STORE_KEY != key:
+        _TOKEN_STATE_STORE = create_token_state_store(settings)
+        _TOKEN_STATE_STORE_KEY = key
+    return _TOKEN_STATE_STORE
+
+
+async def verify_token_string(
+    token: str,
+    settings,
+    *,
+    expected_token_type: str = "access",
+    require_scope: bool = True,
+) -> AuthContext | None:
+    context = _verify_bearer_token(
+        token,
+        signing_key=(settings.nudge_token_signing_key or "").strip(),
+        issuer=settings.nudge_token_issuer,
+        audience=settings.nudge_token_audience,
+        required_scope=settings.nudge_required_scope,
+        revoked_jtis=_parse_revoked_jtis(settings.nudge_revoked_token_jtis),
+        require_scope=require_scope,
+        expected_token_type=expected_token_type,
+    )
+    if context is None:
+        return None
+    if context.jti and await get_token_state_store(settings).is_jti_revoked(context.jti):
+        return None
+    return context
+
+
+def issue_signed_token(payload: dict[str, object], signing_key: str) -> str:
+    header_b64 = _b64url_encode(
+        json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode("utf-8")
+    )
+    payload_b64 = _b64url_encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    signed = f"{header_b64}.{payload_b64}".encode("ascii")
+    signature = hmac.new(signing_key.encode("utf-8"), signed, hashlib.sha256).digest()
+    return f"{header_b64}.{payload_b64}.{_b64url_encode(signature)}"
+
+
+def build_token_claims(
+    *,
+    subject: str,
+    issuer: str,
+    audience: str,
+    scope: str,
+    token_type: str,
+    ttl_seconds: int,
+    device_id: str = "",
+) -> dict[str, object]:
+    now = int(time.time())
+    exp = now + max(60, int(ttl_seconds))
+    claims: dict[str, object] = {
+        "iss": issuer,
+        "aud": audience,
+        "sub": subject,
+        "iat": now,
+        "nbf": now - 1,
+        "exp": exp,
+        "jti": str(uuid4()),
+        "typ": token_type,
+    }
+    if scope:
+        claims["scope"] = scope
+    if device_id:
+        claims["did"] = device_id
+    return claims
+
+
+async def authenticate_request(request: Request, settings) -> AuthContext | None:
     mode = _clean_auth_mode(settings.nudge_auth_mode)
     allow_token = mode in {"token", "token_or_api_key"}
     allow_api_key = mode == "api_key" or (
@@ -154,13 +378,11 @@ def authenticate_request(request: Request, settings) -> AuthContext | None:
 
     if allow_token:
         token = _read_bearer_token(request)
-        context = _verify_bearer_token(
+        context = await verify_token_string(
             token,
-            signing_key=(settings.nudge_token_signing_key or "").strip(),
-            issuer=settings.nudge_token_issuer,
-            audience=settings.nudge_token_audience,
-            required_scope=settings.nudge_required_scope,
-            revoked_jtis=_parse_revoked_jtis(settings.nudge_revoked_token_jtis),
+            settings,
+            expected_token_type="access",
+            require_scope=True,
         )
         if context is not None:
             return context
@@ -173,15 +395,41 @@ def authenticate_request(request: Request, settings) -> AuthContext | None:
     return None
 
 
-def get_client_ip(request: Request) -> str:
+@lru_cache(maxsize=64)
+def _parse_trusted_proxy_networks(raw: str) -> tuple[ipaddress._BaseNetwork, ...]:
+    values = []
+    for part in (raw or "").split(","):
+        item = part.strip()
+        if not item:
+            continue
+        try:
+            values.append(ipaddress.ip_network(item, strict=False))
+        except ValueError:
+            continue
+    return tuple(values)
+
+
+def _is_trusted_proxy_ip(client_ip: str, trusted_proxy_cidrs: str) -> bool:
+    if not client_ip:
+        return False
+    try:
+        ip_obj = ipaddress.ip_address(client_ip)
+    except ValueError:
+        return False
+    networks = _parse_trusted_proxy_networks(trusted_proxy_cidrs)
+    if not networks:
+        return False
+    return any(ip_obj in network for network in networks)
+
+
+def get_client_ip(request: Request, settings) -> str:
+    direct_ip = request.client.host if request.client and request.client.host else "unknown"
     forwarded_for = (request.headers.get("x-forwarded-for") or "").strip()
-    if forwarded_for:
+    if forwarded_for and _is_trusted_proxy_ip(direct_ip, settings.trusted_proxy_cidrs):
         first_ip = forwarded_for.split(",")[0].strip()
         if first_ip:
             return first_ip
-    if request.client and request.client.host:
-        return request.client.host
-    return "unknown"
+    return direct_ip
 
 
 @dataclass(frozen=True)
