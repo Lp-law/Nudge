@@ -15,6 +15,8 @@ from uuid import uuid4
 import redis.asyncio as redis
 from fastapi import Request
 
+from app.core.metrics import record_forwarded_header_event
+
 
 API_KEY_HEADER = "X-Nudge-API-Key"
 REQUEST_ID_HEADER = "X-Request-ID"
@@ -49,6 +51,20 @@ def is_valid_api_key(expected: str | None, provided: str | None) -> bool:
     if not expected_clean or not provided_clean:
         return False
     return hmac.compare_digest(expected_clean, provided_clean)
+
+
+def is_strong_bootstrap_key(value: str | None) -> bool:
+    candidate = (value or "").strip()
+    if len(candidate) < 24:
+        return False
+    weak_markers = {
+        "replace_with_strong_bootstrap_key",
+        "changeme",
+        "test",
+        "bootstrap",
+    }
+    lowered = candidate.lower()
+    return lowered not in weak_markers
 
 
 def _b64url_decode(value: str) -> bytes:
@@ -396,8 +412,11 @@ async def authenticate_request(request: Request, settings) -> AuthContext | None
 
 
 @lru_cache(maxsize=64)
-def _parse_trusted_proxy_networks(raw: str) -> tuple[ipaddress._BaseNetwork, ...]:
+def _parse_trusted_proxy_networks(
+    raw: str,
+) -> tuple[tuple[ipaddress._BaseNetwork, ...], tuple[str, ...]]:
     values = []
+    invalid = []
     for part in (raw or "").split(","):
         item = part.strip()
         if not item:
@@ -405,8 +424,21 @@ def _parse_trusted_proxy_networks(raw: str) -> tuple[ipaddress._BaseNetwork, ...
         try:
             values.append(ipaddress.ip_network(item, strict=False))
         except ValueError:
-            continue
-    return tuple(values)
+            invalid.append(item)
+    return tuple(values), tuple(invalid)
+
+
+def validate_trusted_proxy_cidrs(raw: str, *, allow_insecure_any: bool) -> None:
+    networks, invalid = _parse_trusted_proxy_networks(raw)
+    if invalid:
+        raise ValueError(f"Invalid TRUSTED_PROXY_CIDRS values: {', '.join(invalid)}")
+    if not allow_insecure_any:
+        for network in networks:
+            if network.prefixlen == 0:
+                raise ValueError(
+                    "Refusing wildcard TRUSTED_PROXY_CIDRS entry. "
+                    "Set TRUSTED_PROXY_ALLOW_INSECURE_ANY=true only for controlled internal tests."
+                )
 
 
 def _is_trusted_proxy_ip(client_ip: str, trusted_proxy_cidrs: str) -> bool:
@@ -416,7 +448,7 @@ def _is_trusted_proxy_ip(client_ip: str, trusted_proxy_cidrs: str) -> bool:
         ip_obj = ipaddress.ip_address(client_ip)
     except ValueError:
         return False
-    networks = _parse_trusted_proxy_networks(trusted_proxy_cidrs)
+    networks, _invalid = _parse_trusted_proxy_networks(trusted_proxy_cidrs)
     if not networks:
         return False
     return any(ip_obj in network for network in networks)
@@ -425,10 +457,18 @@ def _is_trusted_proxy_ip(client_ip: str, trusted_proxy_cidrs: str) -> bool:
 def get_client_ip(request: Request, settings) -> str:
     direct_ip = request.client.host if request.client and request.client.host else "unknown"
     forwarded_for = (request.headers.get("x-forwarded-for") or "").strip()
-    if forwarded_for and _is_trusted_proxy_ip(direct_ip, settings.trusted_proxy_cidrs):
+    if not forwarded_for:
+        record_forwarded_header_event("absent")
+        return direct_ip
+
+    if _is_trusted_proxy_ip(direct_ip, settings.trusted_proxy_cidrs):
         first_ip = forwarded_for.split(",")[0].strip()
         if first_ip:
+            record_forwarded_header_event("trusted")
             return first_ip
+        record_forwarded_header_event("malformed")
+        return direct_ip
+    record_forwarded_header_event("untrusted_source")
     return direct_ip
 
 

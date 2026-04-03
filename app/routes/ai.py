@@ -8,6 +8,7 @@ from app.core.metrics import (
     record_auth_failure,
     record_rate_limit_backend_failure,
     record_rate_limit_denial,
+    record_rate_limit_failure_mode_event,
 )
 from app.core.security import (
     AuthContext,
@@ -76,7 +77,9 @@ async def _enforce_rate_limit(request: Request, route_key: str, limit: int) -> N
             _request_id(request),
         )
         if failure_mode == "fail_open":
+            record_rate_limit_failure_mode_event(request.url.path, failure_mode, "allowed")
             return
+        record_rate_limit_failure_mode_event(request.url.path, failure_mode, "blocked")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=_detail("Rate limiter unavailable. Please retry shortly.", request),

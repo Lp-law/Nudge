@@ -1,8 +1,10 @@
-from fastapi import APIRouter, HTTPException, status
+import hmac
+
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
-from app.core.metrics import record_token_event
+from app.core.metrics import record_auth_failure, record_token_event
 from app.services.auth_issuer import AuthIssuerService
 
 
@@ -11,10 +13,13 @@ settings = get_settings()
 auth_issuer = AuthIssuerService()
 
 
+BOOTSTRAP_HEADER = "X-Nudge-Bootstrap-Key"
+
+
 class TokenIssueRequest(BaseModel):
     subject: str = Field(min_length=1, max_length=256)
     device_id: str = Field(min_length=1, max_length=256)
-    bootstrap_key: str = Field(min_length=1, max_length=512)
+    bootstrap_key: str | None = Field(default=None, min_length=1, max_length=512)
 
 
 class TokenRefreshRequest(BaseModel):
@@ -40,7 +45,13 @@ def _ensure_issuer_enabled() -> None:
 
 def _validate_bootstrap_key(provided: str) -> None:
     expected = (settings.nudge_auth_bootstrap_key or "").strip()
-    if not expected or provided.strip() != expected:
+    provided_clean = (provided or "").strip()
+    if (
+        not expected
+        or not provided_clean
+        or not hmac.compare_digest(provided_clean, expected)
+    ):
+        record_auth_failure("/auth/token", "bootstrap")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized request.",
@@ -48,9 +59,12 @@ def _validate_bootstrap_key(provided: str) -> None:
 
 
 @router.post("/token", response_model=TokenResponse)
-async def issue_token(payload: TokenIssueRequest) -> TokenResponse:
+async def issue_token(payload: TokenIssueRequest, request: Request) -> TokenResponse:
     _ensure_issuer_enabled()
-    _validate_bootstrap_key(payload.bootstrap_key)
+    provided = (request.headers.get(BOOTSTRAP_HEADER) or "").strip() or (
+        payload.bootstrap_key or ""
+    )
+    _validate_bootstrap_key(provided)
     pair = await auth_issuer.issue_token_pair(
         subject=payload.subject.strip(),
         device_id=payload.device_id.strip(),

@@ -26,6 +26,11 @@ RATE_LIMIT_BACKEND_FAILURES = Counter(
     "Rate limiter backend failures",
     ("path", "mode"),
 )
+RATE_LIMIT_FAILURE_MODE_EVENTS = Counter(
+    "nudge_rate_limit_failure_mode_events_total",
+    "Rate limiter backend failure mode outcomes",
+    ("path", "mode", "outcome"),
+)
 UPSTREAM_RETRIES = Counter(
     "nudge_upstream_retries_total",
     "Upstream retries",
@@ -46,6 +51,11 @@ TOKEN_EVENTS = Counter(
     "Token lifecycle events",
     ("event",),
 )
+FORWARDED_HEADER_EVENTS = Counter(
+    "nudge_forwarded_header_events_total",
+    "Forwarded header trust-boundary events",
+    ("outcome",),
+)
 
 
 def record_request(method: str, path: str, status_code: int, elapsed_seconds: float) -> None:
@@ -65,6 +75,10 @@ def record_rate_limit_backend_failure(path: str, mode: str) -> None:
     RATE_LIMIT_BACKEND_FAILURES.labels(path=path, mode=mode).inc()
 
 
+def record_rate_limit_failure_mode_event(path: str, mode: str, outcome: str) -> None:
+    RATE_LIMIT_FAILURE_MODE_EVENTS.labels(path=path, mode=mode, outcome=outcome).inc()
+
+
 def record_upstream_retry(service: str, kind: str) -> None:
     UPSTREAM_RETRIES.labels(service=service, kind=kind).inc()
 
@@ -79,6 +93,10 @@ def record_ocr_failure(kind: str) -> None:
 
 def record_token_event(event: str) -> None:
     TOKEN_EVENTS.labels(event=event).inc()
+
+
+def record_forwarded_header_event(outcome: str) -> None:
+    FORWARDED_HEADER_EVENTS.labels(outcome=outcome).inc()
 
 
 def metrics_content_type() -> str:

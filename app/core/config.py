@@ -65,6 +65,10 @@ class Settings(BaseSettings):
         default="fail_closed", alias="RATE_LIMIT_FAILURE_MODE"
     )
     trusted_proxy_cidrs: str = Field(default="", alias="TRUSTED_PROXY_CIDRS")
+    trusted_proxy_allow_insecure_any: bool = Field(
+        default=False,
+        alias="TRUSTED_PROXY_ALLOW_INSECURE_ANY",
+    )
     redis_url: str | None = Field(default=None, alias="REDIS_URL")
     max_request_body_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_REQUEST_BODY_BYTES")
     port: int = Field(default=8000, alias="PORT")

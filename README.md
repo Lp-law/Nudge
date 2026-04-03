@@ -52,7 +52,7 @@ Edit `.env` with your real Azure values.
 - `NUDGE_AUTH_MODE` (`token`, `api_key`, or `token_or_api_key`; **production: `token`**)
 - `NUDGE_TOKEN_SIGNING_KEY` (required for `token` mode)
 - `NUDGE_AUTH_ISSUER_ENABLED` (default `true`; enables internal token issue/refresh endpoints)
-- `NUDGE_AUTH_BOOTSTRAP_KEY` (required when auth issuer is enabled)
+- `NUDGE_AUTH_BOOTSTRAP_KEY` (required when auth issuer is enabled; use a high-entropy value, minimum 24 chars)
 - `NUDGE_ACCESS_TOKEN_TTL_SECONDS` (default `900`)
 - `NUDGE_REFRESH_TOKEN_TTL_SECONDS` (default `2592000`)
 - `NUDGE_TOKEN_ISSUER` (default `nudge`)
@@ -67,6 +67,7 @@ Edit `.env` with your real Azure values.
 - `RATE_LIMIT_BACKEND` (`memory` or `redis`; **production: `redis`**)
 - `RATE_LIMIT_FAILURE_MODE` (`fail_closed` or `fail_open`; **production default: `fail_closed`**)
 - `TRUSTED_PROXY_CIDRS` (comma-separated CIDRs of trusted proxy sources allowed to set `X-Forwarded-For`)
+- `TRUSTED_PROXY_ALLOW_INSECURE_ANY` (default `false`; blocks wildcard proxy CIDRs like `0.0.0.0/0` unless explicitly overridden for controlled tests)
 - `TOKEN_STATE_BACKEND` (`memory` or `redis`; **production: `redis`**)
 - `TOKEN_STATE_PREFIX` (default `nudge:auth`)
 - `REDIS_URL` (required when `RATE_LIMIT_BACKEND=redis` and/or `TOKEN_STATE_BACKEND=redis`)
@@ -208,20 +209,23 @@ After each click:
 - `POST /ai/action` and `POST /ai/ocr` require auth: preferred `Authorization: Bearer <token>`.
 - Legacy fallback `X-Nudge-API-Key` is supported only when `NUDGE_ALLOW_LEGACY_API_KEY=true`.
 - Internal auth issuer lifecycle endpoints:
-  - `POST /auth/token` (bootstrap-gated issuance of short-lived access + refresh token)
+  - `POST /auth/token` (bootstrap-gated issuance of short-lived access + refresh token; send bootstrap secret in `X-Nudge-Bootstrap-Key`, body fallback kept for internal compatibility)
   - `POST /auth/refresh` (refresh rotation)
   - `POST /auth/revoke` (persisted revocation by token `jti`)
 - `/health` remains public.
 - `/metrics` is auth-protected.
 - Auth checks happen before protected request body processing for `/ai/action` and `/ai/ocr`.
 - Backend supports configurable rate-limit backend (`memory` or `redis`).
-- On limiter backend failure, behavior is explicit via `RATE_LIMIT_FAILURE_MODE` (`fail_closed` default).
+- On limiter backend failure, behavior is explicit via `RATE_LIMIT_FAILURE_MODE` (`fail_closed` default):
+  - `fail_closed`: requests are rejected with `503` (protects abuse boundary).
+  - `fail_open`: requests continue while failures are logged/metriced (availability-first tradeoff).
 - Backend enforces request body size limits at middleware level (plus model validation).
 - Each request gets `X-Request-ID` in response headers for operational tracing.
 - Client adds a lightweight sensitive-content guard before cloud actions.
 - If likely sensitive text is detected (or before OCR image upload), client asks for explicit user confirmation.
 - Sensitive-content detection is heuristic/pattern-based and does not guarantee full detection.
 - `X-Forwarded-For` is honored only when the direct client IP belongs to `TRUSTED_PROXY_CIDRS`.
+- wildcard trusted-proxy entries are rejected by default; only allow with `TRUSTED_PROXY_ALLOW_INSECURE_ANY=true` in controlled internal testing.
 
 ## Deployment posture (production vs compatibility)
 
@@ -233,11 +237,12 @@ After each click:
   - `RATE_LIMIT_FAILURE_MODE=fail_closed`
   - `NUDGE_AUTH_BOOTSTRAP_KEY` set and rotated operationally
   - `TRUSTED_PROXY_CIDRS` explicitly set only to your real edge/proxy CIDRs
+  - `TRUSTED_PROXY_ALLOW_INSECURE_ANY=false`
   - non-free Render plan
 - **Internal/dev compatibility path**
   - optional `token_or_api_key` mode and legacy API key fallback for migration/testing only
 - **Important caveat**
-  - per-IP rate limiting relies on trusted proxy forwarding (`X-Forwarded-For`) behavior; keep deployment behind trusted edge/proxy only.
+  - per-IP rate limiting honors `X-Forwarded-For` only from trusted proxy CIDRs; otherwise it falls back to the direct socket IP.
 - **Still future architecture work**
   - external account onboarding UX, federated enterprise identity flows, and full self-service identity lifecycle management.
 

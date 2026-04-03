@@ -58,6 +58,8 @@ services:
         value: fail_closed
       - key: TRUSTED_PROXY_CIDRS
         value: ""
+      - key: TRUSTED_PROXY_ALLOW_INSECURE_ANY
+        value: "false"
       - key: TOKEN_STATE_BACKEND
         value: redis
       - key: TOKEN_STATE_PREFIX

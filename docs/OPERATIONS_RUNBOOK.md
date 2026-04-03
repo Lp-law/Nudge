@@ -13,7 +13,7 @@
 - `NUDGE_AUTH_MODE`
 - `NUDGE_TOKEN_SIGNING_KEY`
 - `NUDGE_AUTH_ISSUER_ENABLED`
-- `NUDGE_AUTH_BOOTSTRAP_KEY` (required when issuer is enabled)
+- `NUDGE_AUTH_BOOTSTRAP_KEY` (required when issuer is enabled; high-entropy, minimum 24 chars)
 - `NUDGE_ACCESS_TOKEN_TTL_SECONDS`
 - `NUDGE_REFRESH_TOKEN_TTL_SECONDS`
 - `NUDGE_TOKEN_ISSUER`
@@ -27,6 +27,7 @@
 - `RATE_LIMIT_BACKEND`
 - `RATE_LIMIT_FAILURE_MODE`
 - `TRUSTED_PROXY_CIDRS`
+- `TRUSTED_PROXY_ALLOW_INSECURE_ANY` (keep `false` in production)
 - `TOKEN_STATE_BACKEND`
 - `TOKEN_STATE_PREFIX`
 - `REDIS_URL` (required when `RATE_LIMIT_BACKEND=redis` and/or `TOKEN_STATE_BACKEND=redis`)
@@ -37,6 +38,7 @@
 - **Internal/dev compatibility:** `token_or_api_key` and legacy API key fallback are allowed only for controlled migration/testing.
 - **Trust boundary caveat:** per-IP limiting uses forwarded client IP and assumes trusted proxy/edge behavior.
 - **Trusted proxy requirement:** set `TRUSTED_PROXY_CIDRS` only to actual edge/proxy CIDRs. Keep empty unless verified.
+- **Trusted proxy guardrail:** wildcard CIDRs (for example `0.0.0.0/0`, `::/0`) are rejected unless `TRUSTED_PROXY_ALLOW_INSECURE_ANY=true` (test-only override).
 - **Bootstrap key discipline:** rotate `NUDGE_AUTH_BOOTSTRAP_KEY` on a defined schedule and after any suspected exposure.
 
 ## Staging vs production checklist
@@ -48,6 +50,7 @@
 - **Production must prove before broader rollout:**
   - Redis healthy for both limiter and token state
   - trusted proxy CIDRs verified
+  - wildcard override disabled (`TRUSTED_PROXY_ALLOW_INSECURE_ANY=false`)
   - bootstrap key rotation documented and owned
   - alert thresholds tuned from real baseline (not placeholders)
 
@@ -71,7 +74,7 @@
 5. Request ID:
    - Responses include `X-Request-ID` header.
 6. Auth issuer:
-   - `POST /auth/token` issues access+refresh with valid bootstrap key.
+   - `POST /auth/token` issues access+refresh with valid `X-Nudge-Bootstrap-Key`.
    - `POST /auth/refresh` rotates refresh token.
 7. Metrics:
    - `GET /metrics` with valid auth returns Prometheus payload including `nudge_http_requests_total`.
@@ -99,15 +102,18 @@ Monitor `/metrics` (auth-protected) and alert on:
 - `nudge_auth_failures_total` sudden spikes (>5x baseline for 5 minutes)
 - `nudge_rate_limit_denials_total` sustained growth with user complaints
 - `nudge_rate_limit_backend_failures_total` any non-zero in production
+- `nudge_rate_limit_failure_mode_events_total{outcome="allowed"}` any non-zero in production when policy is expected to be fail-closed
 - `nudge_upstream_timeouts_total{service="openai|ocr"}` sustained increases
 - `nudge_ocr_failures_total` error-rate trend changes
 - `nudge_upstream_retries_total{service="openai|ocr"}` sustained retry surge (>3x baseline for 10 minutes)
 - `nudge_http_request_latency_seconds` p95 > 2.5s for `/ai/action` or > 8s for `/ai/ocr`
 - `nudge_token_events_total` unexpected issue/refresh/revoke distribution changes
+- `nudge_forwarded_header_events_total{outcome="untrusted_source"}` sustained spikes, which indicate proxy trust-boundary drift or abusive spoof attempts
 
 ## Incident triggers (action-oriented)
 - **Auth incident:** auth-failure spike + user impact -> verify token issuer path, signing key, revoked-jti state.
 - **Limiter incident:** any limiter backend failure in production -> verify Redis reachability, enforce fail policy, assess abuse window.
+- **Limiter fail-open incident:** any `...failure_mode_events_total{outcome="allowed"}` in production -> immediately verify mode, assess abuse exposure window, and plan rollback if accidental.
 - **OCR incident:** timeout/retry spike -> review `OCR_POLL_TIMEOUT_SECONDS`, Azure status, sample payload sizes.
 - **Latency incident:** p95 sustained breach -> inspect upstream retries/timeouts first, then capacity/proxy.
 
@@ -139,12 +145,14 @@ Monitor `/metrics` (auth-protected) and alert on:
    - `REDIS_URL` reachable from runtime
 6. Verify trust boundary:
    - configure `TRUSTED_PROXY_CIDRS` only to actual edge/proxy CIDRs
+   - keep `TRUSTED_PROXY_ALLOW_INSECURE_ANY=false` in production
    - if unknown, keep it empty and rely on direct client IP
 7. If limits are too strict for real usage, raise carefully and redeploy.
 8. Re-test with repeated calls from one IP.
 
 ## Auth architecture status
 - Already implemented: bearer token validation, scope/audience/issuer checks, persisted token revocation, internal short-lived access/refresh issuance endpoints, optional compatibility fallback.
+- Operational requirement: bootstrap secret must be delivered/stored as a secret, used only for controlled issuance paths, and rotated with explicit ownership.
 - Still out of scope for this batch: full external account onboarding, self-service passwordless/login UX, and enterprise federation flows.
 
 ## Local smoke command

@@ -39,6 +39,23 @@ def test_queued_context_latest_wins_and_pops_once() -> None:
     assert emptied == QueuedClipboardContext()
 
 
+def test_queued_context_can_end_with_image() -> None:
+    queued = QueuedClipboardContext()
+    queued = queue_text_context(queued, "text-a")
+    queued = queue_image_context(queued, b"img-final")
+    popped, emptied = pop_queued_context(queued)
+    assert popped.kind == "image"
+    assert popped.image_png == b"img-final"
+    assert popped.text == ""
+    assert emptied == QueuedClipboardContext()
+
+
+def test_pop_queued_context_empty_state_is_stable() -> None:
+    popped, emptied = pop_queued_context(QueuedClipboardContext())
+    assert popped == QueuedClipboardContext()
+    assert emptied == QueuedClipboardContext()
+
+
 def test_resolve_accessibility_mode_prefers_persisted_value() -> None:
     resolved, should_persist = resolve_accessibility_mode(None, True)
     assert resolved is True

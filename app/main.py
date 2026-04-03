@@ -19,6 +19,8 @@ from app.core.security import (
     REQUEST_ID_HEADER,
     RequestIdLogFilter,
     authenticate_request,
+    is_strong_bootstrap_key,
+    validate_trusted_proxy_cidrs,
 )
 from app.routes.auth import router as auth_router
 from app.routes.ai import router as ai_router
@@ -80,6 +82,22 @@ def validate_startup_config() -> None:
         settings.nudge_auth_bootstrap_key and settings.nudge_auth_bootstrap_key.strip()
     ):
         raise RuntimeError("NUDGE_AUTH_BOOTSTRAP_KEY is required when auth issuer is enabled.")
+    if settings.nudge_auth_issuer_enabled and not is_strong_bootstrap_key(
+        settings.nudge_auth_bootstrap_key
+    ):
+        raise RuntimeError(
+            "NUDGE_AUTH_BOOTSTRAP_KEY must be strong (>=24 chars and non-placeholder)."
+        )
+    if int(settings.nudge_access_token_ttl_seconds) < 300 or int(
+        settings.nudge_access_token_ttl_seconds
+    ) > 3600:
+        raise RuntimeError("NUDGE_ACCESS_TOKEN_TTL_SECONDS must be between 300 and 3600.")
+    if int(settings.nudge_refresh_token_ttl_seconds) < 3600 or int(
+        settings.nudge_refresh_token_ttl_seconds
+    ) > 60 * 24 * 60 * 60:
+        raise RuntimeError(
+            "NUDGE_REFRESH_TOKEN_TTL_SECONDS must be between 3600 and 5184000."
+        )
 
     if (settings.rate_limit_backend or "memory").strip().lower() == "redis":
         if not (settings.redis_url and settings.redis_url.strip()):
@@ -92,6 +110,10 @@ def validate_startup_config() -> None:
         "fail_closed",
     }:
         raise RuntimeError("RATE_LIMIT_FAILURE_MODE must be fail_open or fail_closed.")
+    validate_trusted_proxy_cidrs(
+        settings.trusted_proxy_cidrs,
+        allow_insecure_any=bool(settings.trusted_proxy_allow_insecure_any),
+    )
 
 
 @asynccontextmanager
