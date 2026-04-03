@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWi
 class ActionPopup(QWidget):
     action_selected = Signal(str)
     IDLE_STATUS_TEXT = "בחר פעולה"
+    HELPER_TEXT = "בחר פעולה אחת להדבקה מהירה"
 
     def __init__(self) -> None:
         super().__init__()
@@ -24,7 +25,7 @@ class ActionPopup(QWidget):
             | Qt.WindowType.WindowStaysOnTopHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
-        self.setFixedWidth(360)
+        self.setFixedWidth(380)
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.setStyleSheet(
             """
@@ -93,6 +94,11 @@ class ActionPopup(QWidget):
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.status_label.setStyleSheet("font-size: 13px; color: #9BA8CA;")
         layout.addWidget(self.status_label)
+
+        helper_label = QLabel(self.HELPER_TEXT)
+        helper_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        helper_label.setStyleSheet("font-size: 11px; color: #6D7693;")
+        layout.addWidget(helper_label)
 
         buttons_row_1 = QHBoxLayout()
         buttons_row_2 = QHBoxLayout()

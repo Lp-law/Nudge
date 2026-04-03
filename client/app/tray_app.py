@@ -23,7 +23,7 @@ class TrayApp:
         self.tray = QSystemTrayIcon(QIcon(tray_icon), self.app)
         self.tray.setToolTip("Nudge")
         menu = QMenu()
-        quit_action = menu.addAction("Quit")
+        quit_action = menu.addAction("יציאה")
         quit_action.triggered.connect(self.app.quit)
         self.tray.setContextMenu(menu)
         self.tray.show()
