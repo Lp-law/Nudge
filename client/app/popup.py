@@ -3,6 +3,7 @@ from PySide6.QtGui import QColor, QCursor, QGuiApplication, QIcon, QKeyEvent, QP
 from PySide6.QtWidgets import (
     QFrame,
     QGraphicsDropShadowEffect,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -22,6 +23,9 @@ class ActionPopup(QWidget):
     SUCCESS_AUTO_HIDE_MS = 675
     ERROR_AUTO_HIDE_MS = 1050
     ACTION_ICON_SIZE = QSize(14, 14)
+    POPUP_WIDTH = 428
+    TEXT_HELPER_TEXT = "בחר פעולה אחת להדבקה מהירה"
+    IMAGE_HELPER_TEXT = "חלץ טקסט מהתמונה"
 
     def __init__(self) -> None:
         super().__init__()
@@ -41,7 +45,7 @@ class ActionPopup(QWidget):
             | Qt.WindowType.WindowStaysOnTopHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
-        self.setFixedWidth(392)
+        self.setFixedWidth(self.POPUP_WIDTH)
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.setStyleSheet(
             """
@@ -53,7 +57,7 @@ class ActionPopup(QWidget):
             }
             QPushButton {
                 border-radius: 9px;
-                padding: 8px 10px;
+                padding: 8px 11px;
                 font-size: 12px;
                 font-weight: 600;
                 text-align: right;
@@ -118,8 +122,8 @@ class ActionPopup(QWidget):
         self._apply_shadow()
 
         layout = QVBoxLayout()
-        layout.setContentsMargins(14, 12, 14, 13)
-        layout.setSpacing(8)
+        layout.setContentsMargins(15, 12, 15, 13)
+        layout.setSpacing(9)
 
         header_row = QHBoxLayout()
         header_row.setContentsMargins(0, 0, 0, 0)
@@ -147,21 +151,19 @@ class ActionPopup(QWidget):
         self.status_label.setStyleSheet("font-size: 12px; font-weight: 600; color: #A8B4D3;")
         layout.addWidget(self.status_label)
 
-        helper_label = QLabel(self.HELPER_TEXT)
-        helper_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        helper_label.setStyleSheet("font-size: 11px; color: #7782A1;")
-        layout.addWidget(helper_label)
+        self.helper_label = QLabel(self.TEXT_HELPER_TEXT)
+        self.helper_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.helper_label.setStyleSheet("font-size: 11px; color: #7782A1;")
+        layout.addWidget(self.helper_label)
 
         header_divider = QFrame()
         header_divider.setObjectName("header_divider")
         layout.addWidget(header_divider)
 
-        buttons_row_1 = QHBoxLayout()
-        buttons_row_2 = QHBoxLayout()
-        buttons_row_3 = QHBoxLayout()
-        buttons_row_1.setSpacing(8)
-        buttons_row_2.setSpacing(8)
-        buttons_row_3.setSpacing(8)
+        self.actions_title = QLabel("פעולות טקסט")
+        self.actions_title.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.actions_title.setStyleSheet("font-size: 11px; font-weight: 600; color: #8B99BE;")
+        layout.addWidget(self.actions_title)
 
         self.buttons = {
             "summarize": QPushButton("סיכום"),
@@ -179,27 +181,46 @@ class ActionPopup(QWidget):
         self.buttons["fix_layout_he"].setObjectName("btn_fix_layout_he")
         self.buttons["explain_meaning"].setObjectName("btn_explain_meaning")
         self.buttons["extract_text"].setObjectName("btn_primary")
+        self._text_action_keys = (
+            "summarize",
+            "improve",
+            "make_email",
+            "fix_language",
+            "fix_layout_he",
+            "explain_meaning",
+        )
         for action, button in self.buttons.items():
-            button.setMinimumHeight(37)
+            button.setMinimumHeight(38)
             button.setIcon(self._icon_for_action(action))
             button.setIconSize(self.ACTION_ICON_SIZE)
             button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
             button.setCursor(Qt.CursorShape.PointingHandCursor)
 
-        buttons_row_1.addWidget(self.buttons["summarize"])
-        buttons_row_1.addWidget(self.buttons["improve"])
-        buttons_row_2.addWidget(self.buttons["make_email"])
-        buttons_row_2.addWidget(self.buttons["fix_language"])
-        buttons_row_3.addWidget(self.buttons["fix_layout_he"])
-        buttons_row_3.addWidget(self.buttons["explain_meaning"])
-        buttons_row_3.addWidget(self.buttons["extract_text"])
+        self.text_actions_widget = QWidget()
+        text_grid = QGridLayout()
+        text_grid.setContentsMargins(0, 0, 0, 0)
+        text_grid.setHorizontalSpacing(8)
+        text_grid.setVerticalSpacing(8)
+        text_grid.addWidget(self.buttons["summarize"], 0, 0)
+        text_grid.addWidget(self.buttons["improve"], 0, 1)
+        text_grid.addWidget(self.buttons["make_email"], 1, 0)
+        text_grid.addWidget(self.buttons["fix_language"], 1, 1)
+        text_grid.addWidget(self.buttons["fix_layout_he"], 2, 0)
+        text_grid.addWidget(self.buttons["explain_meaning"], 2, 1)
+        self.text_actions_widget.setLayout(text_grid)
+
+        self.image_actions_widget = QWidget()
+        image_row = QHBoxLayout()
+        image_row.setContentsMargins(0, 0, 0, 0)
+        image_row.setSpacing(0)
+        image_row.addWidget(self.buttons["extract_text"])
+        self.image_actions_widget.setLayout(image_row)
 
         for action, button in self.buttons.items():
             button.clicked.connect(lambda _checked=False, a=action: self._on_action(a))
 
-        layout.addLayout(buttons_row_1)
-        layout.addLayout(buttons_row_2)
-        layout.addLayout(buttons_row_3)
+        layout.addWidget(self.text_actions_widget)
+        layout.addWidget(self.image_actions_widget)
         self.setLayout(layout)
         self._set_mode("text")
 
@@ -217,6 +238,7 @@ class ActionPopup(QWidget):
         self._result_timer.stop()
         self._set_loading(False)
         self._set_status(self.IDLE_STATUS_TEXT, "#9BA8CA")
+        self.helper_label.setText(self.TEXT_HELPER_TEXT)
         self._set_mode("text")
         self.adjustSize()
         cursor_pos = QCursor.pos()
@@ -237,6 +259,7 @@ class ActionPopup(QWidget):
         self._result_timer.stop()
         self._set_loading(False)
         self._set_status("בחר פעולה לתמונה", "#9BA8CA")
+        self.helper_label.setText(self.IMAGE_HELPER_TEXT)
         self._set_mode("image")
         self.adjustSize()
         cursor_pos = QCursor.pos()
@@ -289,16 +312,10 @@ class ActionPopup(QWidget):
         self.status_label.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {color};")
 
     def _set_mode(self, mode: str) -> None:
-        text_actions = {
-            "summarize",
-            "improve",
-            "make_email",
-            "fix_language",
-            "fix_layout_he",
-            "explain_meaning",
-        }
-        for action, button in self.buttons.items():
-            button.setVisible(action == "extract_text" if mode == "image" else action in text_actions)
+        is_image_mode = mode == "image"
+        self.text_actions_widget.setVisible(not is_image_mode)
+        self.image_actions_widget.setVisible(is_image_mode)
+        self.actions_title.setText("פעולת תמונה" if is_image_mode else "פעולות טקסט")
 
     def _load_popup_icon(self) -> QPixmap | None:
         icon_path = Path(__file__).resolve().parents[1] / "assets" / "nudge.ico"
