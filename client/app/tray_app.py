@@ -40,13 +40,10 @@ class TrayApp:
 
     def _load_tray_icon(self) -> QIcon:
         icon_path = Path(__file__).resolve().parents[1] / "assets" / "nudge.ico"
-        print(f"[Nudge Client] tray icon path: {icon_path}")
         if icon_path.exists():
             custom_icon = QIcon(str(icon_path))
             if not custom_icon.isNull():
-                print("[Nudge Client] tray icon source: branded nudge.ico")
                 return custom_icon
-        print("[Nudge Client] tray icon source: Qt fallback icon")
         return self.app.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
 
     def _run_action(self, action: str) -> None:

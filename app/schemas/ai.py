@@ -1,6 +1,10 @@
 from typing import Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
+
+
+MAX_TEXT_CHARS = 12000
+MAX_IMAGE_BASE64_CHARS = 8_000_000
 
 
 ActionType = Literal[
@@ -14,7 +18,7 @@ ActionType = Literal[
 
 
 class AIActionRequest(BaseModel):
-    text: str
+    text: str = Field(max_length=MAX_TEXT_CHARS)
     action: ActionType
 
     @field_validator("text", mode="before")
@@ -30,7 +34,7 @@ class AIActionResponse(BaseModel):
 
 
 class OCRRequest(BaseModel):
-    image_base64: str
+    image_base64: str = Field(max_length=MAX_IMAGE_BASE64_CHARS)
 
     @field_validator("image_base64", mode="before")
     @classmethod

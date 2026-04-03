@@ -14,3 +14,11 @@ services:
         value: 2024-02-15-preview
       - key: AZURE_OPENAI_DEPLOYMENT
         sync: false
+      - key: AZURE_DOC_INTELLIGENCE_ENDPOINT
+        sync: false
+      - key: AZURE_DOC_INTELLIGENCE_API_KEY
+        sync: false
+      - key: AZURE_DOC_INTELLIGENCE_API_VERSION
+        value: 2024-02-29-preview
+      - key: PYTHON_VERSION
+        value: 3.11.10

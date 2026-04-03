@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai", tags=["ai"])
 openai_service = AzureOpenAIService()
 ocr_service = AzureOCRService()
+MAX_OCR_IMAGE_BYTES = 5 * 1024 * 1024
 
 
 @router.post("/action", response_model=AIActionResponse)
@@ -74,6 +75,11 @@ async def extract_ocr(payload: OCRRequest) -> OCRResponse:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Image payload must not be empty.",
+        )
+    if len(image_bytes) > MAX_OCR_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Image is too large. Please use an image up to 5MB.",
         )
 
     try:
