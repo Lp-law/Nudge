@@ -3,7 +3,7 @@ import hashlib
 
 from PySide6.QtCore import QByteArray, QBuffer, QIODevice
 from PySide6.QtGui import QClipboard, QIcon
-from PySide6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
+from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QStyle, QSystemTrayIcon
 
 from .action_contract import (
     ALL_ACTION_KEYS,
@@ -16,6 +16,7 @@ from .api_client import ApiClient
 from .clipboard_monitor import ClipboardMonitor
 from .layout_converter import convert_en_layout_to_hebrew
 from .popup import ActionPopup
+from .sensitive_guard import detect_sensitive_text, image_requires_confirmation
 from .user_guide import UserGuideDialog
 
 
@@ -79,6 +80,8 @@ class TrayApp:
         text = self.popup.current_text
         if not text:
             return
+        if not self._confirm_cloud_send_for_text(text):
+            return
 
         self._request_in_flight = True
         self.popup.set_loading()
@@ -110,6 +113,8 @@ class TrayApp:
     def _handle_ocr_action(self) -> None:
         if self._current_image_png is None:
             self.popup.set_error("לא נמצאה תמונה")
+            return
+        if not self._confirm_cloud_send_for_image():
             return
 
         self._request_in_flight = True
@@ -178,6 +183,35 @@ class TrayApp:
             self._guide_dialog = UserGuideDialog()
         self._guide_dialog.show()
         self._guide_dialog.raise_()
+
+    def _confirm_cloud_send_for_text(self, text: str) -> bool:
+        reasons = detect_sensitive_text(text)
+        if not reasons:
+            return True
+        return self._show_cloud_confirmation(reasons)
+
+    def _confirm_cloud_send_for_image(self) -> bool:
+        reasons = image_requires_confirmation()
+        return self._show_cloud_confirmation(reasons)
+
+    def _show_cloud_confirmation(self, reasons: list[str]) -> bool:
+        reason_text = ", ".join(reasons[:3])
+        if len(reasons) > 3:
+            reason_text += " ועוד"
+        message = (
+            "זוהה תוכן רגיש אפשרי.\n"
+            f"סיבה: {reason_text}\n\n"
+            "הפעולה תשלח את התוכן לשירות ענן של Nudge. להמשיך?"
+        )
+        dialog = QMessageBox(self.popup)
+        dialog.setIcon(QMessageBox.Icon.Warning)
+        dialog.setWindowTitle("אישור שליחה לענן")
+        dialog.setText(message)
+        continue_button = dialog.addButton("המשך", QMessageBox.ButtonRole.AcceptRole)
+        dialog.addButton("ביטול", QMessageBox.ButtonRole.RejectRole)
+        dialog.setDefaultButton(continue_button)
+        dialog.exec()
+        return dialog.clickedButton() is continue_button
 
     def _on_app_shutdown(self) -> None:
         self._is_shutting_down = True

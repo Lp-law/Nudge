@@ -180,6 +180,8 @@ After each click:
 - Backend enforces per-IP in-memory rate limits for action/OCR routes.
 - Backend enforces request body size limits at middleware level (plus model validation).
 - Each request gets `X-Request-ID` in response headers for operational tracing.
+- Client adds a lightweight sensitive-content guard before cloud actions.
+- If likely sensitive text is detected (or before OCR image upload), client asks for explicit user confirmation.
 
 ## Render vs local usage
 

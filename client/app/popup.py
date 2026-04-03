@@ -32,8 +32,9 @@ class ActionPopup(QWidget):
     ERROR_AUTO_HIDE_MS = 1050
     ACTION_ICON_SIZE = QSize(14, 14)
     POPUP_WIDTH = 428
-    TEXT_HELPER_TEXT = "בחר פעולה אחת להדבקה מהירה"
-    IMAGE_HELPER_TEXT = "חלץ טקסט מהתמונה"
+    TEXT_HELPER_TEXT = "בחר פעולה. חלק מהפעולות מעבדות טקסט בענן."
+    IMAGE_HELPER_TEXT = "חלץ טקסט מהתמונה (OCR בענן)."
+    SUCCESS_HELPER_TEXT = "התוצאה הועתקה ללוח והחליפה את התוכן הקודם."
 
     def __init__(self) -> None:
         super().__init__()
@@ -273,6 +274,7 @@ class ActionPopup(QWidget):
         self._idle_timer.stop()
         self._set_status("הועתק", "#6AD49A")
         self._set_loading(False)
+        self.helper_label.setText(self.SUCCESS_HELPER_TEXT)
         self._result_timer.start(self.SUCCESS_AUTO_HIDE_MS)
 
     def set_error(self, message: str = "שגיאה") -> None:
