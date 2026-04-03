@@ -1,6 +1,7 @@
 from PySide6.QtCore import QTimer, Qt, Signal
 from PySide6.QtGui import QCursor, QGuiApplication, QKeyEvent
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from pathlib import Path
 
 
 class ActionPopup(QWidget):
@@ -12,6 +13,9 @@ class ActionPopup(QWidget):
         super().__init__()
         self._current_text = ""
         self._is_loading = False
+        print(
+            f"[Nudge Client] Nudge popup v2 loaded from: {Path(__file__).resolve()} (width=380)"
+        )
         self._idle_timer = QTimer(self)
         self._idle_timer.setSingleShot(True)
         self._idle_timer.timeout.connect(self.hide)

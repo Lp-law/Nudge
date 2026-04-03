@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
 
 from .api_client import ApiClient
 from .clipboard_monitor import ClipboardMonitor
+from . import popup as popup_module
 from .popup import ActionPopup
 
 
@@ -13,6 +14,8 @@ class TrayApp:
         self.app = app
         self.app.setQuitOnLastWindowClosed(False)
         self._request_in_flight = False
+        print(f"[Nudge Client] tray_app loaded from: {Path(__file__).resolve()}")
+        print(f"[Nudge Client] popup module loaded from: {Path(popup_module.__file__).resolve()}")
 
         self.clipboard: QClipboard = self.app.clipboard()
         self.api_client = ApiClient()
@@ -32,10 +35,13 @@ class TrayApp:
 
     def _load_tray_icon(self) -> QIcon:
         icon_path = Path(__file__).resolve().parents[1] / "assets" / "nudge.ico"
+        print(f"[Nudge Client] tray icon path: {icon_path}")
         if icon_path.exists():
             custom_icon = QIcon(str(icon_path))
             if not custom_icon.isNull():
+                print("[Nudge Client] tray icon source: branded nudge.ico")
                 return custom_icon
+        print("[Nudge Client] tray icon source: Qt fallback icon")
         return self.app.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
 
     def _run_action(self, action: str) -> None:
