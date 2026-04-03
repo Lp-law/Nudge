@@ -5,6 +5,13 @@ from PySide6.QtCore import QByteArray, QBuffer, QIODevice
 from PySide6.QtGui import QClipboard, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
 
+from .action_contract import (
+    ALL_ACTION_KEYS,
+    BACKEND_TEXT_ACTION_KEYS,
+    LOCAL_TEXT_ACTION_KEYS,
+    OCR_ACTION_KEY,
+    validate_action_contract,
+)
 from .api_client import ApiClient
 from .clipboard_monitor import ClipboardMonitor
 from .layout_converter import convert_en_layout_to_hebrew
@@ -14,6 +21,7 @@ from .user_guide import UserGuideDialog
 
 class TrayApp:
     def __init__(self, app: QApplication) -> None:
+        validate_action_contract()
         self.app = app
         self.app.setQuitOnLastWindowClosed(False)
         self.app.aboutToQuit.connect(self._on_app_shutdown)
@@ -54,13 +62,18 @@ class TrayApp:
     def _run_action(self, action: str) -> None:
         if self._is_shutting_down or self._request_in_flight:
             return
+        if action not in ALL_ACTION_KEYS:
+            return
 
-        if action == "fix_layout_he":
+        if action in LOCAL_TEXT_ACTION_KEYS:
             self._handle_fix_layout_he()
             return
 
-        if action == "extract_text":
+        if action == OCR_ACTION_KEY:
             self._handle_ocr_action()
+            return
+
+        if action not in BACKEND_TEXT_ACTION_KEYS:
             return
 
         text = self.popup.current_text

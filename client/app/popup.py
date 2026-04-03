@@ -13,6 +13,14 @@ from PySide6.QtWidgets import (
 )
 from pathlib import Path
 
+from .action_contract import (
+    ACTION_LABELS,
+    IMAGE_ACTION_KEYS,
+    TEXT_ACTION_GRID_ROWS,
+    TEXT_ACTION_KEYS,
+    validate_action_contract,
+)
+
 
 class ActionPopup(QWidget):
     action_selected = Signal(str)
@@ -29,6 +37,7 @@ class ActionPopup(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
+        validate_action_contract()
         self._current_text = ""
         self._is_loading = False
         self._mode = "text"
@@ -166,13 +175,7 @@ class ActionPopup(QWidget):
         layout.addWidget(self.actions_title)
 
         self.buttons = {
-            "summarize": QPushButton("סיכום"),
-            "improve": QPushButton("שיפור ניסוח"),
-            "make_email": QPushButton("הפוך למייל"),
-            "fix_language": QPushButton("תיקון שפה"),
-            "fix_layout_he": QPushButton("אנגלית > עברית"),
-            "explain_meaning": QPushButton("הסבר משמעות"),
-            "extract_text": QPushButton("חלץ טקסט"),
+            action: QPushButton(ACTION_LABELS[action]) for action in ACTION_LABELS
         }
         self.buttons["summarize"].setObjectName("btn_primary")
         self.buttons["improve"].setObjectName("btn_improve")
@@ -181,14 +184,8 @@ class ActionPopup(QWidget):
         self.buttons["fix_layout_he"].setObjectName("btn_fix_layout_he")
         self.buttons["explain_meaning"].setObjectName("btn_explain_meaning")
         self.buttons["extract_text"].setObjectName("btn_primary")
-        self._text_action_keys = (
-            "summarize",
-            "improve",
-            "make_email",
-            "fix_language",
-            "fix_layout_he",
-            "explain_meaning",
-        )
+        self._text_action_keys = set(TEXT_ACTION_KEYS)
+        self._image_action_keys = set(IMAGE_ACTION_KEYS)
         for action, button in self.buttons.items():
             button.setMinimumHeight(38)
             button.setIcon(self._icon_for_action(action))
@@ -201,12 +198,9 @@ class ActionPopup(QWidget):
         text_grid.setContentsMargins(0, 0, 0, 0)
         text_grid.setHorizontalSpacing(8)
         text_grid.setVerticalSpacing(8)
-        text_grid.addWidget(self.buttons["summarize"], 0, 0)
-        text_grid.addWidget(self.buttons["improve"], 0, 1)
-        text_grid.addWidget(self.buttons["make_email"], 1, 0)
-        text_grid.addWidget(self.buttons["fix_language"], 1, 1)
-        text_grid.addWidget(self.buttons["fix_layout_he"], 2, 0)
-        text_grid.addWidget(self.buttons["explain_meaning"], 2, 1)
+        for row_index, row_actions in enumerate(TEXT_ACTION_GRID_ROWS):
+            text_grid.addWidget(self.buttons[row_actions[0]], row_index, 0)
+            text_grid.addWidget(self.buttons[row_actions[1]], row_index, 1)
         self.text_actions_widget.setLayout(text_grid)
 
         self.image_actions_widget = QWidget()
@@ -294,6 +288,10 @@ class ActionPopup(QWidget):
 
     def _on_action(self, action: str) -> None:
         if self._is_loading:
+            return
+        if self._mode == "text" and action not in self._text_action_keys:
+            return
+        if self._mode == "image" and action not in self._image_action_keys:
             return
         self.action_selected.emit(action)
 
