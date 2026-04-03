@@ -148,8 +148,8 @@ def _verify_bearer_token(
 def authenticate_request(request: Request, settings) -> AuthContext | None:
     mode = _clean_auth_mode(settings.nudge_auth_mode)
     allow_token = mode in {"token", "token_or_api_key"}
-    allow_api_key = mode in {"api_key", "token_or_api_key"} and bool(
-        settings.nudge_allow_legacy_api_key
+    allow_api_key = mode == "api_key" or (
+        mode == "token_or_api_key" and bool(settings.nudge_allow_legacy_api_key)
     )
 
     if allow_token:

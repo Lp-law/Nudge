@@ -136,6 +136,25 @@ def test_action_accepts_valid_bearer_token(monkeypatch) -> None:
     assert response.json()["result"] == "ok"
 
 
+def test_action_accepts_api_key_mode_without_legacy_flag(monkeypatch) -> None:
+    async def _fake_generate_action(action: str, text: str) -> str:
+        return "ok"
+
+    monkeypatch.setattr(ai_routes.openai_service, "generate_action", _fake_generate_action)
+    monkeypatch.setenv("NUDGE_AUTH_MODE", "api_key")
+    monkeypatch.setenv("NUDGE_ALLOW_LEGACY_API_KEY", "false")
+    monkeypatch.setenv("NUDGE_BACKEND_API_KEY", "test-backend-key")
+    get_settings.cache_clear()
+
+    response = client.post(
+        "/ai/action",
+        headers={API_KEY_HEADER: "test-backend-key", "X-Forwarded-For": "198.51.100.31"},
+        json={"text": "valid request content", "action": "summarize"},
+    )
+    assert response.status_code == 200
+    assert response.json()["result"] == "ok"
+
+
 def test_ocr_invalid_base64_returns_400() -> None:
     response = client.post(
         "/ai/ocr",
