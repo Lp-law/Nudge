@@ -56,12 +56,15 @@ def test_action_rejects_unauthorized() -> None:
     response = client.post("/ai/action", json={"text": "hello world", "action": "summarize"})
     assert response.status_code == 401
     assert response.headers.get("X-Request-ID")
+    assert response.json()["detail"]["request_id"] == response.headers["X-Request-ID"]
 
 
 def test_ocr_rejects_unauthorized() -> None:
     image_payload = base64.b64encode(b"png").decode("ascii")
     response = client.post("/ai/ocr", json={"image_base64": image_payload})
     assert response.status_code == 401
+    assert response.headers.get("X-Request-ID")
+    assert response.json()["detail"]["request_id"] == response.headers["X-Request-ID"]
 
 
 def _encode_b64url(data: bytes) -> str:
@@ -93,6 +96,13 @@ def _make_access_token(sub: str = "test-client") -> str:
     return f"{header_b64}.{payload_b64}.{sig_b64}"
 
 
+def _bearer_headers(*, forwarded_for: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {_make_access_token()}",
+        "X-Forwarded-For": forwarded_for,
+    }
+
+
 def test_action_whitespace_is_400() -> None:
     response = client.post(
         "/ai/action",
@@ -116,14 +126,51 @@ def test_action_accepts_valid_bearer_token(monkeypatch) -> None:
         return "ok"
 
     monkeypatch.setattr(ai_routes.openai_service, "generate_action", _fake_generate_action)
-    token = _make_access_token()
     response = client.post(
         "/ai/action",
-        headers={"Authorization": f"Bearer {token}", "X-Forwarded-For": "198.51.100.24"},
+        headers=_bearer_headers(forwarded_for="198.51.100.24"),
         json={"text": "valid request content", "action": "summarize"},
     )
     assert response.status_code == 200
     assert response.json()["result"] == "ok"
+
+
+def test_ocr_invalid_base64_returns_400() -> None:
+    response = client.post(
+        "/ai/ocr",
+        headers={**AUTH_HEADERS, "X-Forwarded-For": "198.51.100.25"},
+        json={"image_base64": "%%%not_base64%%%"},
+    )
+    assert response.status_code == 400
+    assert response.headers.get("X-Request-ID")
+    assert response.json()["detail"]["request_id"] == response.headers["X-Request-ID"]
+
+
+def test_ocr_empty_decoded_image_returns_400(monkeypatch) -> None:
+    def _fake_decode(_value: str, validate: bool = True) -> bytes:
+        return b""
+
+    monkeypatch.setattr(ai_routes.base64, "b64decode", _fake_decode)
+    response = client.post(
+        "/ai/ocr",
+        headers={**AUTH_HEADERS, "X-Forwarded-For": "198.51.100.26"},
+        json={"image_base64": "dGVzdA=="},
+    )
+    assert response.status_code == 400
+    assert response.headers.get("X-Request-ID")
+    assert response.json()["detail"]["request_id"] == response.headers["X-Request-ID"]
+
+
+def test_ocr_oversized_image_returns_413() -> None:
+    oversized = b"x" * (5 * 1024 * 1024 + 1)
+    response = client.post(
+        "/ai/ocr",
+        headers={**AUTH_HEADERS, "X-Forwarded-For": "198.51.100.27"},
+        json={"image_base64": base64.b64encode(oversized).decode("ascii")},
+    )
+    assert response.status_code == 413
+    assert response.headers.get("X-Request-ID")
+    assert response.json()["detail"]["request_id"] == response.headers["X-Request-ID"]
 
 
 def test_request_size_rejected_for_action() -> None:

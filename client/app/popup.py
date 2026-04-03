@@ -35,6 +35,7 @@ class ActionPopup(QWidget):
     IMAGE_HELPER_TEXT = "חלץ טקסט מהתמונה (OCR בענן)."
     SUCCESS_HELPER_TEXT = "התוצאה הועתקה ללוח והחליפה את התוכן הקודם."
     ACCESSIBILITY_HELPER_TEXT = "מצב נגישות פעיל: ניתן לנווט עם Tab ולהפעיל עם Enter."
+    CONTEXT_CHANGED_HELPER_TEXT = "זוהה תוכן חדש. הוא יוצג אוטומטית בסיום הפעולה הנוכחית."
 
     def __init__(self, accessibility_mode: bool = False) -> None:
         super().__init__()
@@ -276,6 +277,11 @@ class ActionPopup(QWidget):
         self._idle_timer.stop()
         self._set_status("מעבד...", "#8CB6FF")
         self._set_loading(True)
+
+    def set_context_change_pending(self) -> None:
+        if not self._is_loading:
+            return
+        self.helper_label.setText(self.CONTEXT_CHANGED_HELPER_TEXT)
 
     def set_success(self) -> None:
         self._idle_timer.stop()

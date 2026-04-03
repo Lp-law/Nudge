@@ -25,12 +25,6 @@ INSTRUCTIONS_BY_ACTION: dict[ActionType, str] = {
         "include it briefly inside the explanation. Keep it concise and useful, "
         "and return only the explanation text."
     ),
-    "email_check": (
-        "Check the email text for common issues. Prioritize detecting when "
-        "an attachment is mentioned but likely missing. Return only one short "
-        "human-readable result string. If no issues are found, return exactly: "
-        "'Looks good. No obvious email issues found.'"
-    ),
 }
 
 _missing_prompt_actions = set(ACTION_KEYS) - set(INSTRUCTIONS_BY_ACTION)

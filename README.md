@@ -204,6 +204,7 @@ After each click:
 - Each request gets `X-Request-ID` in response headers for operational tracing.
 - Client adds a lightweight sensitive-content guard before cloud actions.
 - If likely sensitive text is detected (or before OCR image upload), client asks for explicit user confirmation.
+- Sensitive-content detection is heuristic/pattern-based and does not guarantee full detection.
 
 ## Deployment posture (production vs compatibility)
 
@@ -239,12 +240,20 @@ Run backend smoke/contract checks:
 py -m pytest -q
 ```
 
+Run lightweight lint/security checks used by CI:
+
+```powershell
+py -m ruff check --select F,E9 app client/app tests
+py -m pip_audit -r requirements.txt --progress-spinner off
+```
+
 What smoke checks cover:
 
 - `GET /health` contract
 - auth protection for `/ai/action` and `/ai/ocr`
 - request validation basics (including invalid action key)
 - request-size rejection
+- OCR edge failures (invalid/empty/oversized image payload)
 - minimal rate-limit enforcement checks
 - upstream timeout error mapping expectation (`504`)
 

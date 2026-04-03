@@ -26,6 +26,14 @@ jobs:
         run: |
           python -m compileall app client/app tests
 
+      - name: Lint (Ruff)
+        run: |
+          ruff check --select F,E9 app client/app tests
+
+      - name: Dependency audit
+        run: |
+          python -m pip_audit -r requirements.txt --progress-spinner off
+
       - name: Run smoke tests
         run: |
           pytest -q

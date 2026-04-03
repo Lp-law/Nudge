@@ -58,14 +58,17 @@ class TrayApp:
         self._active_request_id: int | None = None
         self._active_request_clipboard_signature = ""
         self._current_image_png: bytes | None = None
+        self._queued_kind = ""
+        self._queued_text = ""
+        self._queued_image_png: bytes | None = None
         self._guide_dialog: UserGuideDialog | None = None
 
         self.clipboard: QClipboard = self.app.clipboard()
         self.api_client = ApiClient()
         self.popup = ActionPopup(accessibility_mode=self._accessibility_mode)
         self.monitor = ClipboardMonitor(self.clipboard)
-        self.monitor.text_ready.connect(self.popup.show_for_text)
-        self.monitor.image_ready.connect(self._show_for_image)
+        self.monitor.text_ready.connect(self._on_text_ready)
+        self.monitor.image_ready.connect(self._on_image_ready)
         self.popup.action_selected.connect(self._run_action)
 
         tray_icon = self._load_tray_icon()
@@ -162,9 +165,53 @@ class TrayApp:
             return
         self._active_request_id = request_id
 
-    def _show_for_image(self, image: object) -> None:
+    def _on_text_ready(self, text: str) -> None:
         if self._request_in_flight:
+            self._queue_pending_text(text)
+            self.popup.set_context_change_pending()
             return
+        self.popup.show_for_text(text)
+
+    def _on_image_ready(self, image: object) -> None:
+        png_data = self._qimage_to_png_bytes(image)
+        if not png_data:
+            return
+        if self._request_in_flight:
+            self._queue_pending_image(png_data)
+            self.popup.set_context_change_pending()
+            return
+        self._current_image_png = png_data
+        self.popup.show_for_image()
+
+    def _queue_pending_text(self, text: str) -> None:
+        self._queued_kind = "text"
+        self._queued_text = text
+        self._queued_image_png = None
+
+    def _queue_pending_image(self, image_png: bytes) -> None:
+        self._queued_kind = "image"
+        self._queued_image_png = image_png
+        self._queued_text = ""
+
+    def _present_queued_context_if_any(self) -> None:
+        if self._is_shutting_down:
+            return
+        queued_kind = self._queued_kind
+        queued_text = self._queued_text
+        queued_image = self._queued_image_png
+        self._queued_kind = ""
+        self._queued_text = ""
+        self._queued_image_png = None
+
+        if queued_kind == "text" and queued_text:
+            self.popup.show_for_text(queued_text)
+            return
+        if queued_kind == "image" and queued_image:
+            self._current_image_png = queued_image
+            self.popup.show_for_image()
+
+    def _show_for_image(self, image: object) -> None:
+        # Backward-compatible wrapper; current flow uses _on_image_ready.
         png_data = self._qimage_to_png_bytes(image)
         if not png_data:
             return
@@ -188,12 +235,14 @@ class TrayApp:
         if self._clipboard_signature() != self._active_request_clipboard_signature:
             self._clear_active_request_state(clear_image=True)
             self.popup.set_error(ERROR_CANCELLED)
+            self._present_queued_context_if_any()
             return
 
         self._clear_active_request_state(clear_image=True)
         self.monitor.suppress_next_change()
         self.clipboard.setText(result, mode=QClipboard.Clipboard)
         self.popup.set_success()
+        self._present_queued_context_if_any()
 
     def _handle_error(self, request_id: int, message: str) -> None:
         if self._is_shutting_down or self._active_request_id != request_id:
@@ -201,6 +250,7 @@ class TrayApp:
         self._clear_active_request_state(clear_image=False)
         display_message = STATUS_TEXT_BY_ERROR.get(message, message or ERROR_GENERIC)
         self.popup.set_error(display_message)
+        self._present_queued_context_if_any()
 
     def _open_user_guide(self) -> None:
         if self._guide_dialog is None:
