@@ -183,6 +183,39 @@ After each click:
 - Client adds a lightweight sensitive-content guard before cloud actions.
 - If likely sensitive text is detected (or before OCR image upload), client asks for explicit user confirmation.
 
+## Local vs cloud behavior
+
+- Local action (no cloud call): `אנגלית > עברית` (`fix_layout_he`).
+- Cloud actions (backend + Azure): text AI actions and OCR image extraction.
+- On success, client replaces clipboard content with result and shows a short success state.
+
+## Local smoke checks
+
+Install dev test dependency once:
+
+```powershell
+pip install -r requirements-dev.txt
+```
+
+Run backend smoke/contract checks:
+
+```powershell
+py -m pytest -q
+```
+
+What smoke checks cover:
+
+- `GET /health` contract
+- auth protection for `/ai/action` and `/ai/ocr`
+- request validation basics (including invalid action key)
+- request-size rejection
+- minimal rate-limit enforcement checks
+- upstream timeout error mapping expectation (`504`)
+
+## Operations runbook
+
+- See `docs/OPERATIONS_RUNBOOK.md` for deploy/update checklist, rollback, and incident handling.
+
 ## Render vs local usage
 
 - `render.yaml` is for deployed backend startup on Render.
