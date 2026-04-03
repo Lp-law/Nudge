@@ -1,4 +1,5 @@
 from pathlib import Path
+import hashlib
 
 from PySide6.QtCore import QByteArray, QBuffer, QIODevice
 from PySide6.QtGui import QClipboard, QIcon
@@ -15,7 +16,11 @@ class TrayApp:
     def __init__(self, app: QApplication) -> None:
         self.app = app
         self.app.setQuitOnLastWindowClosed(False)
+        self.app.aboutToQuit.connect(self._on_app_shutdown)
         self._request_in_flight = False
+        self._is_shutting_down = False
+        self._active_request_id: int | None = None
+        self._active_request_clipboard_signature = ""
         self._current_image_png: bytes | None = None
         self._guide_dialog: UserGuideDialog | None = None
 
@@ -47,7 +52,7 @@ class TrayApp:
         return self.app.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
 
     def _run_action(self, action: str) -> None:
-        if self._request_in_flight:
+        if self._is_shutting_down or self._request_in_flight:
             return
 
         if action == "fix_layout_he":
@@ -64,12 +69,18 @@ class TrayApp:
 
         self._request_in_flight = True
         self.popup.set_loading()
-        self.api_client.request_action(
+        self._active_request_clipboard_signature = self._clipboard_signature()
+        request_id = self.api_client.request_action(
             text=text,
             action=action,
             on_success=self._handle_success,
             on_error=self._handle_error,
         )
+        if request_id < 0:
+            self._clear_active_request_state()
+            self.popup.set_error("שגיאה")
+            return
+        self._active_request_id = request_id
 
     def _handle_fix_layout_he(self) -> None:
         text = self.popup.current_text
@@ -90,11 +101,17 @@ class TrayApp:
 
         self._request_in_flight = True
         self.popup.set_loading()
-        self.api_client.request_ocr(
+        self._active_request_clipboard_signature = self._clipboard_signature()
+        request_id = self.api_client.request_ocr(
             image_png=self._current_image_png,
             on_success=self._handle_success,
             on_error=self._handle_error,
         )
+        if request_id < 0:
+            self._clear_active_request_state()
+            self.popup.set_error("שגיאה")
+            return
+        self._active_request_id = request_id
 
     def _show_for_image(self, image: object) -> None:
         if self._request_in_flight:
@@ -116,16 +133,23 @@ class TrayApp:
         qt_buffer.close()
         return bytes(buffer)
 
-    def _handle_success(self, result: str) -> None:
-        self._request_in_flight = False
-        self._current_image_png = None
+    def _handle_success(self, request_id: int, result: str) -> None:
+        if self._is_shutting_down or self._active_request_id != request_id:
+            return
+        if self._clipboard_signature() != self._active_request_clipboard_signature:
+            self._clear_active_request_state()
+            self.popup.set_error("הפעולה בוטלה")
+            return
+
+        self._clear_active_request_state()
         self.monitor.suppress_next_change()
         self.clipboard.setText(result, mode=QClipboard.Clipboard)
         self.popup.set_success()
 
-    def _handle_error(self, message: str) -> None:
-        self._request_in_flight = False
-        self._current_image_png = None
+    def _handle_error(self, request_id: int, message: str) -> None:
+        if self._is_shutting_down or self._active_request_id != request_id:
+            return
+        self._clear_active_request_state()
         display_message = {
             "Timeout": "תם הזמן",
             "Network error": "שגיאת רשת",
@@ -141,3 +165,24 @@ class TrayApp:
             self._guide_dialog = UserGuideDialog()
         self._guide_dialog.show()
         self._guide_dialog.raise_()
+
+    def _on_app_shutdown(self) -> None:
+        self._is_shutting_down = True
+        self._clear_active_request_state()
+        self.api_client.cancel_all_requests()
+
+    def _clear_active_request_state(self) -> None:
+        self._request_in_flight = False
+        self._active_request_id = None
+        self._active_request_clipboard_signature = ""
+        self._current_image_png = None
+
+    def _clipboard_signature(self) -> str:
+        mime_data = self.clipboard.mimeData(mode=QClipboard.Clipboard)
+        if mime_data is not None and mime_data.hasImage():
+            image = self.clipboard.image(mode=QClipboard.Clipboard)
+            if not image.isNull():
+                png_data = self._qimage_to_png_bytes(image)
+                return f"image:{hashlib.sha1(png_data).hexdigest()}" if png_data else "image:empty"
+        text = self.clipboard.text(mode=QClipboard.Clipboard) or ""
+        return f"text:{hashlib.sha1(text.encode('utf-8', errors='ignore')).hexdigest()}"

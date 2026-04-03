@@ -15,15 +15,24 @@ class ApiClient(QObject):
         self._network = QNetworkAccessManager(self)
         self._endpoint = f"{self.settings.backend_base_url.rstrip('/')}/ai/action"
         self._ocr_endpoint = f"{self.settings.backend_base_url.rstrip('/')}/ai/ocr"
+        self._next_request_id = 0
+        self._active_replies: set[QNetworkReply] = set()
+        self._is_shutting_down = False
 
     def request_action(
         self,
         text: str,
         action: str,
-        on_success: Callable[[str], None],
-        on_error: Callable[[str], None],
-    ) -> None:
+        on_success: Callable[[int, str], None],
+        on_error: Callable[[int, str], None],
+    ) -> int:
+        if self._is_shutting_down:
+            return -1
+        request_id = self._next_request_id
+        self._next_request_id += 1
         reply = self._post_json(self._endpoint, {"text": text, "action": action})
+        reply.setProperty("request_id", request_id)
+        self._active_replies.add(reply)
 
         timeout_timer = QTimer(reply)
         timeout_timer.setSingleShot(True)
@@ -38,15 +47,23 @@ class ApiClient(QObject):
                 on_error=on_error,
             )
         )
+        reply.destroyed.connect(lambda _obj=None, r=reply: self._active_replies.discard(r))
+        return request_id
 
     def request_ocr(
         self,
         image_png: bytes,
-        on_success: Callable[[str], None],
-        on_error: Callable[[str], None],
-    ) -> None:
+        on_success: Callable[[int, str], None],
+        on_error: Callable[[int, str], None],
+    ) -> int:
+        if self._is_shutting_down:
+            return -1
+        request_id = self._next_request_id
+        self._next_request_id += 1
         encoded_image = base64.b64encode(image_png).decode("ascii")
         reply = self._post_json(self._ocr_endpoint, {"image_base64": encoded_image})
+        reply.setProperty("request_id", request_id)
+        self._active_replies.add(reply)
 
         timeout_timer = QTimer(reply)
         timeout_timer.setSingleShot(True)
@@ -61,6 +78,16 @@ class ApiClient(QObject):
                 on_error=on_error,
             )
         )
+        reply.destroyed.connect(lambda _obj=None, r=reply: self._active_replies.discard(r))
+        return request_id
+
+    def cancel_all_requests(self) -> None:
+        self._is_shutting_down = True
+        for reply in list(self._active_replies):
+            if reply.isFinished():
+                continue
+            reply.setProperty("cancelled", True)
+            reply.abort()
 
     def _post_json(self, endpoint: str, payload: dict[str, str]) -> QNetworkReply:
         request = QNetworkRequest(QUrl(endpoint))
@@ -111,20 +138,23 @@ class ApiClient(QObject):
     def _handle_reply(
         self,
         reply: QNetworkReply,
-        on_success: Callable[[str], None],
-        on_error: Callable[[str], None],
+        on_success: Callable[[int, str], None],
+        on_error: Callable[[int, str], None],
     ) -> None:
         try:
+            request_id = int(reply.property("request_id") or -1)
             timeout_timer = reply.property("timeout_timer")
             if isinstance(timeout_timer, QTimer):
                 timeout_timer.stop()
 
+            if self._is_shutting_down or bool(reply.property("cancelled")):
+                return
             if bool(reply.property("timed_out")):
-                on_error("Timeout")
+                on_error(request_id, "Timeout")
                 return
 
             if reply.error() != QNetworkReply.NetworkError.NoError:
-                on_error("Network error")
+                on_error(request_id, "Network error")
                 return
 
             status_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
@@ -136,24 +166,25 @@ class ApiClient(QObject):
                     detail = data.get("detail")
                     message = self._extract_detail_message(detail)
                     if message:
-                        on_error(self._short_message(message))
+                        on_error(request_id, self._short_message(message))
                     else:
-                        on_error("Request failed")
+                        on_error(request_id, "Request failed")
                 except json.JSONDecodeError:
-                    on_error("Request failed")
+                    on_error(request_id, "Request failed")
                 return
 
             try:
                 data = json.loads(body)
             except json.JSONDecodeError:
-                on_error("Bad response")
+                on_error(request_id, "Bad response")
                 return
 
             result = (data.get("result") or "").strip()
             if not result:
-                on_error("Empty result")
+                on_error(request_id, "Empty result")
                 return
 
-            on_success(result)
+            on_success(request_id, result)
         finally:
+            self._active_replies.discard(reply)
             reply.deleteLater()
