@@ -2,7 +2,7 @@ services:
   - type: web
     name: nudge-mvp-backend
     env: python
-    plan: free
+    plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
@@ -23,7 +23,7 @@ services:
       - key: NUDGE_BACKEND_API_KEY
         sync: false
       - key: NUDGE_AUTH_MODE
-        value: token_or_api_key
+        value: token
       - key: NUDGE_TOKEN_SIGNING_KEY
         sync: false
       - key: NUDGE_TOKEN_ISSUER
@@ -33,7 +33,7 @@ services:
       - key: NUDGE_REQUIRED_SCOPE
         value: nudge.api
       - key: NUDGE_ALLOW_LEGACY_API_KEY
-        value: "true"
+        value: "false"
       - key: NUDGE_REVOKED_TOKEN_JTIS
         value: ""
       - key: RATE_LIMIT_WINDOW_SECONDS
@@ -43,7 +43,7 @@ services:
       - key: RATE_LIMIT_OCR_REQUESTS
         value: "10"
       - key: RATE_LIMIT_BACKEND
-        value: memory
+        value: redis
       - key: REDIS_URL
         sync: false
       - key: MAX_REQUEST_BODY_BYTES

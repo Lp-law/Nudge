@@ -23,6 +23,11 @@
 - `REDIS_URL` (required when `RATE_LIMIT_BACKEND=redis`)
 - `MAX_REQUEST_BODY_BYTES`
 
+## Deployment mode expectations
+- **Production-intended:** `NUDGE_AUTH_MODE=token`, `NUDGE_ALLOW_LEGACY_API_KEY=false`, `RATE_LIMIT_BACKEND=redis`, non-free Render plan.
+- **Internal/dev compatibility:** `token_or_api_key` and legacy API key fallback are allowed only for controlled migration/testing.
+- **Trust boundary caveat:** per-IP limiting uses forwarded client IP and assumes trusted proxy/edge behavior.
+
 ## Deploy/update checklist
 1. Ensure CI is green on `main`.
 2. Confirm Render env vars match this runbook.
@@ -37,6 +42,7 @@
    - `POST /ai/action` without valid auth returns `401`.
 3. Authorized action:
    - `POST /ai/action` with valid bearer token returns `200` and `{ "result": "..." }`.
+   - Ensure legacy fallback is disabled in production (`NUDGE_ALLOW_LEGACY_API_KEY=false`).
 4. OCR route:
    - `POST /ai/ocr` without auth returns `401`.
 5. Request ID:
@@ -73,18 +79,24 @@
 5. If persistent, switch traffic to fallback communications (status notice) and escalate.
 
 ## If auth/rate limit blocks legitimate users
-1. Confirm client sends `X-Nudge-API-Key`.
-2. Confirm primary auth path (`Authorization: Bearer`) is configured correctly.
-3. If legacy fallback is enabled, validate backend key value in environment matches client deployment.
-3. Check current limits:
+1. Confirm primary auth path (`Authorization: Bearer`) is configured correctly.
+2. Confirm production toggle state:
+   - `NUDGE_AUTH_MODE=token`
+   - `NUDGE_ALLOW_LEGACY_API_KEY=false`
+3. If running compatibility mode internally, validate backend key value matches client deployment.
+4. Check current limits:
    - `RATE_LIMIT_WINDOW_SECONDS`
    - `RATE_LIMIT_ACTION_REQUESTS`
    - `RATE_LIMIT_OCR_REQUESTS`
-4. Check limiter backend:
+5. Check limiter backend:
    - `RATE_LIMIT_BACKEND=redis` for multi-instance scale
    - `REDIS_URL` reachable from runtime
-5. If limits are too strict for real usage, raise carefully and redeploy.
-6. Re-test with repeated calls from one IP.
+6. If limits are too strict for real usage, raise carefully and redeploy.
+7. Re-test with repeated calls from one IP.
+
+## Auth architecture status
+- Already implemented: bearer token validation, scope/audience/issuer checks, revocation list via `jti`, optional compatibility fallback.
+- Still out of scope for this batch: full token issuance/refresh lifecycle and per-user/install identity provisioning authority.
 
 ## Local smoke command
 Run from repo root:

@@ -24,6 +24,7 @@ os.environ.setdefault("NUDGE_ALLOW_LEGACY_API_KEY", "true")
 os.environ.setdefault("RATE_LIMIT_WINDOW_SECONDS", "60")
 os.environ.setdefault("RATE_LIMIT_ACTION_REQUESTS", "2")
 os.environ.setdefault("RATE_LIMIT_OCR_REQUESTS", "2")
+os.environ.setdefault("RATE_LIMIT_BACKEND", "memory")
 os.environ.setdefault("MAX_REQUEST_BODY_BYTES", "1024")
 
 from app.core.config import get_settings

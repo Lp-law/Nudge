@@ -48,18 +48,18 @@ Edit `.env` with your real Azure values.
 - `AZURE_DOC_INTELLIGENCE_ENDPOINT` (example: `https://<resource>.cognitiveservices.azure.com`)
 - `AZURE_DOC_INTELLIGENCE_API_KEY`
 - `AZURE_DOC_INTELLIGENCE_API_VERSION` (optional override; default in app is `2024-02-29-preview`)
-- `NUDGE_AUTH_MODE` (`token`, `api_key`, or `token_or_api_key`)
-- `NUDGE_TOKEN_SIGNING_KEY` (required for `token` mode; recommended for `token_or_api_key`)
+- `NUDGE_AUTH_MODE` (`token`, `api_key`, or `token_or_api_key`; **production: `token`**)
+- `NUDGE_TOKEN_SIGNING_KEY` (required for `token` mode)
 - `NUDGE_TOKEN_ISSUER` (default `nudge`)
 - `NUDGE_TOKEN_AUDIENCE` (default `nudge-client`)
 - `NUDGE_REQUIRED_SCOPE` (default `nudge.api`)
-- `NUDGE_ALLOW_LEGACY_API_KEY` (default `true`, set `false` in production rollout)
+- `NUDGE_ALLOW_LEGACY_API_KEY` (**production: `false`**)
 - `NUDGE_REVOKED_TOKEN_JTIS` (comma-separated token `jti` values)
 - `NUDGE_BACKEND_API_KEY` (legacy fallback key; avoid as final production model)
 - `RATE_LIMIT_WINDOW_SECONDS` (default `60`)
 - `RATE_LIMIT_ACTION_REQUESTS` (default `30`)
 - `RATE_LIMIT_OCR_REQUESTS` (default `10`)
-- `RATE_LIMIT_BACKEND` (`memory` or `redis`)
+- `RATE_LIMIT_BACKEND` (`memory` or `redis`; **production: `redis`**)
 - `REDIS_URL` (required when `RATE_LIMIT_BACKEND=redis`)
 - `MAX_REQUEST_BODY_BYTES` (default `10485760`, 10MB)
 - `PORT` (optional locally, default app behavior is `8000`)
@@ -94,6 +94,7 @@ Optional backend override:
 ```powershell
 $env:NUDGE_BACKEND_BASE_URL="http://127.0.0.1:8000"
 $env:NUDGE_BACKEND_ACCESS_TOKEN="replace_with_short_lived_access_token"
+# Legacy internal compatibility only:
 $env:NUDGE_BACKEND_API_KEY="replace_with_shared_backend_api_key"
 $env:NUDGE_ACCESSIBILITY_MODE="1"
 ```
@@ -203,6 +204,20 @@ After each click:
 - Each request gets `X-Request-ID` in response headers for operational tracing.
 - Client adds a lightweight sensitive-content guard before cloud actions.
 - If likely sensitive text is detected (or before OCR image upload), client asks for explicit user confirmation.
+
+## Deployment posture (production vs compatibility)
+
+- **Production-intended path**
+  - `NUDGE_AUTH_MODE=token`
+  - `NUDGE_ALLOW_LEGACY_API_KEY=false`
+  - `RATE_LIMIT_BACKEND=redis`
+  - non-free Render plan
+- **Internal/dev compatibility path**
+  - optional `token_or_api_key` mode and legacy API key fallback for migration/testing only
+- **Important caveat**
+  - per-IP rate limiting relies on trusted proxy forwarding (`X-Forwarded-For`) behavior; keep deployment behind trusted edge/proxy only.
+- **Still future architecture work**
+  - token issuance/refresh and full identity lifecycle are intentionally out of this backend-only validation layer.
 
 ## Local vs cloud behavior
 
