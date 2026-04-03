@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWi
 
 class ActionPopup(QWidget):
     action_selected = Signal(str)
+    IDLE_STATUS_TEXT = "בחר פעולה"
 
     def __init__(self) -> None:
         super().__init__()
@@ -23,23 +24,55 @@ class ActionPopup(QWidget):
             | Qt.WindowType.WindowStaysOnTopHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
-        self.setFixedWidth(280)
+        self.setFixedWidth(360)
+        self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.setStyleSheet(
             """
             QWidget {
-                background: #1f1f1f;
-                color: #f5f5f5;
-                border: 1px solid #333;
-                border-radius: 8px;
+                background: #161B2A;
+                color: #F2F5FF;
+                border: 1px solid #2E3650;
+                border-radius: 12px;
             }
             QPushButton {
-                background: #2b2b2b;
-                border: 1px solid #444;
-                border-radius: 6px;
-                padding: 6px 8px;
+                border-radius: 10px;
+                padding: 9px 10px;
+                font-size: 13px;
+                font-weight: 600;
+                color: #F5F7FF;
+            }
+            QPushButton#btn_summarize {
+                background: #29496D;
+                border: 1px solid #3A5D85;
+            }
+            QPushButton#btn_summarize:hover {
+                background: #325A87;
+            }
+            QPushButton#btn_improve {
+                background: #2A5C4A;
+                border: 1px solid #3A705C;
+            }
+            QPushButton#btn_improve:hover {
+                background: #336B57;
+            }
+            QPushButton#btn_make_email {
+                background: #624A80;
+                border: 1px solid #755E95;
+            }
+            QPushButton#btn_make_email:hover {
+                background: #715A91;
+            }
+            QPushButton#btn_fix_language {
+                background: #7A4738;
+                border: 1px solid #8E5949;
+            }
+            QPushButton#btn_fix_language:hover {
+                background: #8A5443;
             }
             QPushButton:disabled {
-                color: #999;
+                color: #A7AFC4;
+                background: #283048;
+                border: 1px solid #3A435E;
             }
             QLabel {
                 border: none;
@@ -48,28 +81,37 @@ class ActionPopup(QWidget):
         )
 
         layout = QVBoxLayout()
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(8)
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(10)
 
         title = QLabel("Nudge")
-        title.setStyleSheet("font-weight: 600;")
+        title.setAlignment(Qt.AlignmentFlag.AlignRight)
+        title.setStyleSheet("font-weight: 700; font-size: 16px; color: #F7F9FF;")
         layout.addWidget(title)
 
-        self.status_label = QLabel("Pick an action")
-        self.status_label.setStyleSheet("color: #bbbbbb;")
+        self.status_label = QLabel(self.IDLE_STATUS_TEXT)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.status_label.setStyleSheet("font-size: 13px; color: #9BA8CA;")
         layout.addWidget(self.status_label)
 
         buttons_row_1 = QHBoxLayout()
         buttons_row_2 = QHBoxLayout()
-        buttons_row_1.setSpacing(6)
-        buttons_row_2.setSpacing(6)
+        buttons_row_1.setSpacing(8)
+        buttons_row_2.setSpacing(8)
 
         self.buttons = {
-            "summarize": QPushButton("Summarize"),
-            "improve": QPushButton("Improve"),
-            "make_email": QPushButton("Make Email"),
-            "fix_language": QPushButton("Fix Language"),
+            "summarize": QPushButton("סיכום"),
+            "improve": QPushButton("שיפור ניסוח"),
+            "make_email": QPushButton("הפוך למייל"),
+            "fix_language": QPushButton("תיקון שפה"),
         }
+        self.buttons["summarize"].setObjectName("btn_summarize")
+        self.buttons["improve"].setObjectName("btn_improve")
+        self.buttons["make_email"].setObjectName("btn_make_email")
+        self.buttons["fix_language"].setObjectName("btn_fix_language")
+        for button in self.buttons.values():
+            button.setMinimumHeight(40)
+
         buttons_row_1.addWidget(self.buttons["summarize"])
         buttons_row_1.addWidget(self.buttons["improve"])
         buttons_row_2.addWidget(self.buttons["make_email"])
@@ -94,7 +136,7 @@ class ActionPopup(QWidget):
         self._idle_timer.stop()
         self._result_timer.stop()
         self._set_loading(False)
-        self.status_label.setText("Pick an action")
+        self._set_status(self.IDLE_STATUS_TEXT, "#9BA8CA")
         self.adjustSize()
         cursor_pos = QCursor.pos()
         x = cursor_pos.x() + 12
@@ -102,22 +144,22 @@ class ActionPopup(QWidget):
         x, y = self._bounded_position(x, y)
         self.move(x, y)
         self.show()
-        self._idle_timer.start(4500)
+        self._idle_timer.start(7000)
 
     def set_loading(self) -> None:
         self._idle_timer.stop()
-        self.status_label.setText("Working...")
+        self._set_status("מעבד...", "#8CB6FF")
         self._set_loading(True)
 
     def set_success(self) -> None:
         self._idle_timer.stop()
-        self.status_label.setText("Copied")
+        self._set_status("הועתק", "#6AD49A")
         self._set_loading(False)
         self._result_timer.start(900)
 
-    def set_error(self, message: str = "Error") -> None:
+    def set_error(self, message: str = "שגיאה") -> None:
         self._idle_timer.stop()
-        self.status_label.setText(message)
+        self._set_status(message, "#FF9A9A")
         self._set_loading(False)
         self._result_timer.start(1400)
 
@@ -136,10 +178,14 @@ class ActionPopup(QWidget):
             self._idle_timer.stop()
             self._result_timer.stop()
             self._set_loading(False)
-            self.status_label.setText("Pick an action")
+            self._set_status(self.IDLE_STATUS_TEXT, "#9BA8CA")
             self.hide()
             return
         super().keyPressEvent(event)
+
+    def _set_status(self, text: str, color: str) -> None:
+        self.status_label.setText(text)
+        self.status_label.setStyleSheet(f"font-size: 13px; color: {color};")
 
     def _bounded_position(self, x: int, y: int) -> tuple[int, int]:
         screen = QGuiApplication.screenAt(QCursor.pos())

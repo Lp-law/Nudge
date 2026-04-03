@@ -54,10 +54,10 @@ class TrayApp:
     def _handle_error(self, message: str) -> None:
         self._request_in_flight = False
         display_message = {
-            "Timeout": "Timed out",
-            "Network error": "Network error",
-            "Request failed": "Request failed",
-            "Bad response": "Bad response",
-            "Empty result": "Empty result",
-        }.get(message, message or "Error")
+            "Timeout": "תם הזמן",
+            "Network error": "שגיאת רשת",
+            "Request failed": "הבקשה נכשלה",
+            "Bad response": "תגובה לא תקינה",
+            "Empty result": "תוצאה ריקה",
+        }.get(message, message or "שגיאה")
         self.popup.set_error(display_message)
