@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 from typing import Any, Callable
 
 from PySide6.QtCore import QObject, QTimer, QUrl
@@ -7,6 +8,11 @@ from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequ
 
 from .session_state import ClientSession
 from .settings import get_settings
+
+
+logger = logging.getLogger(__name__)
+
+_TRANSPORT_RETRY_DELAY_MS = 450
 
 
 class ApiClient(QObject):
@@ -217,6 +223,53 @@ class ApiClient(QObject):
             return False
         return bool((self.session.refresh_token or "").strip())
 
+    @staticmethod
+    def _retryable_transport_error(err: QNetworkReply.NetworkError) -> bool:
+        """Transient Qt network errors worth one automatic replay (cold host, flaky Wi‑Fi)."""
+        if err == QNetworkReply.NetworkError.NoError:
+            return False
+        if err == QNetworkReply.NetworkError.OperationCanceledError:
+            return False
+        retryable = {
+            QNetworkReply.NetworkError.ConnectionRefusedError,
+            QNetworkReply.NetworkError.RemoteHostClosedError,
+            QNetworkReply.NetworkError.HostNotFoundError,
+            QNetworkReply.NetworkError.TimeoutError,
+            QNetworkReply.NetworkError.TemporaryNetworkFailureError,
+            QNetworkReply.NetworkError.NetworkSessionFailedError,
+            QNetworkReply.NetworkError.UnknownNetworkError,
+            QNetworkReply.NetworkError.ProxyConnectionRefusedError,
+            QNetworkReply.NetworkError.ProxyConnectionClosedError,
+            QNetworkReply.NetworkError.ProxyTimeoutError,
+        }
+        return err in retryable
+
+    def _start_replayed_json_request(self, request_id: int) -> None:
+        if self._is_shutting_down:
+            self._replay_contexts.pop(request_id, None)
+            return
+        ctx = self._replay_contexts.get(request_id)
+        if not ctx:
+            return
+        reply = self._post_json(
+            str(ctx["endpoint"]),
+            ctx["payload"],  # type: ignore[arg-type]
+            include_auth=True,
+        )
+        reply.setProperty("request_id", request_id)
+        self._active_replies.add(reply)
+        timeout_timer = QTimer(reply)
+        timeout_timer.setSingleShot(True)
+        timeout_timer.timeout.connect(lambda r=reply: self._on_timeout(r))
+        timeout_timer.start(self.settings.request_timeout_ms)
+        reply.setProperty("timeout_timer", timeout_timer)
+        on_success = ctx["on_success"]
+        on_error_cb = ctx["on_error"]
+        reply.finished.connect(
+            lambda r=reply, os_cb=on_success, oe_cb=on_error_cb: self._handle_reply(r, os_cb, oe_cb),
+        )
+        reply.destroyed.connect(lambda _obj=None, r=reply: self._active_replies.discard(r))
+
     def _replay_after_refresh(
         self,
         request_id: int,
@@ -237,24 +290,7 @@ class ApiClient(QObject):
         if at and rt:
             self.session.persist_tokens(at, rt)
             self._notify_tokens_persisted()
-        reply = self._post_json(
-            str(ctx["endpoint"]),
-            ctx["payload"],  # type: ignore[arg-type]
-            include_auth=True,
-        )
-        reply.setProperty("request_id", request_id)
-        self._active_replies.add(reply)
-        timeout_timer = QTimer(reply)
-        timeout_timer.setSingleShot(True)
-        timeout_timer.timeout.connect(lambda r=reply: self._on_timeout(r))
-        timeout_timer.start(self.settings.request_timeout_ms)
-        reply.setProperty("timeout_timer", timeout_timer)
-        on_success = ctx["on_success"]
-        on_error_cb = ctx["on_error"]
-        reply.finished.connect(
-            lambda r=reply, os_cb=on_success, oe_cb=on_error_cb: self._handle_reply(r, os_cb, oe_cb),
-        )
-        reply.destroyed.connect(lambda _obj=None, r=reply: self._active_replies.discard(r))
+        self._start_replayed_json_request(request_id)
 
     def cancel_all_requests(self) -> None:
         self._is_shutting_down = True
@@ -400,6 +436,27 @@ class ApiClient(QObject):
                 return
 
             if reply.error() != QNetworkReply.NetworkError.NoError:
+                ctx = self._replay_contexts.get(request_id)
+                if (
+                    ctx
+                    and not ctx.get("transport_retry_attempted")
+                    and self._retryable_transport_error(reply.error())
+                ):
+                    ctx["transport_retry_attempted"] = True
+                    err_name = reply.errorString() or str(reply.error())
+                    logger.info(
+                        "Retrying request_id=%s after transport error: %s",
+                        request_id,
+                        err_name,
+                    )
+                    cleanup_reply = False
+                    self._active_replies.discard(reply)
+                    reply.deleteLater()
+                    QTimer.singleShot(
+                        _TRANSPORT_RETRY_DELAY_MS,
+                        lambda rid=request_id: self._start_replayed_json_request(rid),
+                    )
+                    return
                 self._replay_contexts.pop(request_id, None)
                 on_error(request_id, "Network error")
                 return

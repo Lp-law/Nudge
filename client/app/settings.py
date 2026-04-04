@@ -5,6 +5,17 @@ from dataclasses import dataclass
 from .runtime_paths import resource_path
 
 
+def _env_int(name: str, default: int, *, min_v: int, max_v: int) -> int:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return max(min_v, min(max_v, value))
+
+
 def _env_flag(name: str, default: bool = False) -> bool:
     value = (os.getenv(name, "") or "").strip().lower()
     if not value:
@@ -64,7 +75,12 @@ class Settings:
             onboarding_enabled=_env_flag("NUDGE_ONBOARDING_ENABLED", True),
             popup_delay_ms=700,
             minimum_non_space_chars=8,
-            request_timeout_ms=12000,
+            request_timeout_ms=_env_int(
+                "NUDGE_REQUEST_TIMEOUT_MS",
+                30000,
+                min_v=8000,
+                max_v=120000,
+            ),
             duplicate_cooldown_ms=8000,
         )
 
