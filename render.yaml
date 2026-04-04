@@ -1,3 +1,7 @@
+# Full Nudge backend environment for Render Blueprint sync.
+# Secrets (sync: false): paste values in the Render dashboard after deploy or sync.
+# See docs/RENDER_AZURE_VALUES.md for Azure Portal copy locations.
+
 services:
   - type: web
     name: nudge-mvp-backend
@@ -5,7 +9,13 @@ services:
     plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
     envVars:
+      # --- Python ---
+      - key: PYTHON_VERSION
+        value: 3.11.10
+
+      # --- Azure OpenAI (text actions) — paste from Azure Portal ---
       - key: AZURE_OPENAI_API_KEY
         sync: false
       - key: AZURE_OPENAI_ENDPOINT
@@ -14,6 +24,8 @@ services:
         value: 2024-02-15-preview
       - key: AZURE_OPENAI_DEPLOYMENT
         sync: false
+
+      # --- Azure Document Intelligence (OCR) — paste from Azure Portal ---
       - key: AZURE_DOC_INTELLIGENCE_ENDPOINT
         sync: false
       - key: AZURE_DOC_INTELLIGENCE_API_KEY
@@ -22,8 +34,8 @@ services:
         value: 2024-02-29-preview
       - key: OCR_POLL_TIMEOUT_SECONDS
         value: "25"
-      - key: NUDGE_BACKEND_API_KEY
-        sync: false
+
+      # --- Auth (production token mode) ---
       - key: NUDGE_AUTH_MODE
         value: token
       - key: NUDGE_TOKEN_SIGNING_KEY
@@ -42,6 +54,17 @@ services:
         value: nudge-client
       - key: NUDGE_REQUIRED_SCOPE
         value: nudge.api
+      - key: NUDGE_ALLOW_LEGACY_API_KEY
+        value: "false"
+      - key: NUDGE_BACKEND_API_KEY
+        sync: false
+      - key: NUDGE_REVOKED_TOKEN_JTIS
+        value: ""
+      # Ephemeral signing keys on Render only if unset; keep false in production once keys are set.
+      - key: NUDGE_ALLOW_EPHEMERAL_AUTH_SECRETS
+        value: "false"
+
+      # --- License / trial activation (POST /auth/activate) ---
       - key: NUDGE_CUSTOMER_LICENSE_KEYS
         sync: false
       - key: NUDGE_TRIAL_LICENSE_KEYS
@@ -50,10 +73,8 @@ services:
         value: "20"
       - key: NUDGE_LICENSE_DEVICE_BINDING_ENABLED
         value: "true"
-      - key: NUDGE_ALLOW_LEGACY_API_KEY
-        value: "false"
-      - key: NUDGE_REVOKED_TOKEN_JTIS
-        value: ""
+
+      # --- Rate limits & token state (memory on starter; add Redis for scale) ---
       - key: RATE_LIMIT_WINDOW_SECONDS
         value: "60"
       - key: RATE_LIMIT_ACTION_REQUESTS
@@ -64,18 +85,22 @@ services:
         value: memory
       - key: RATE_LIMIT_FAILURE_MODE
         value: fail_closed
-      - key: TRUSTED_PROXY_CIDRS
-        value: ""
-      - key: TRUSTED_PROXY_ALLOW_INSECURE_ANY
-        value: "false"
       - key: TOKEN_STATE_BACKEND
         value: memory
       - key: TOKEN_STATE_PREFIX
         value: nudge:auth
       - key: REDIS_URL
         sync: false
+
+      # --- HTTP / proxy / body ---
+      - key: TRUSTED_PROXY_CIDRS
+        value: ""
+      - key: TRUSTED_PROXY_ALLOW_INSECURE_ANY
+        value: "false"
       - key: MAX_REQUEST_BODY_BYTES
         value: "10485760"
+
+      # --- Data & optional admin dashboard ---
       - key: LEADS_DB_PATH
         value: data/nudge_leads.db
       - key: ADMIN_DASHBOARD_ENABLED
@@ -84,5 +109,3 @@ services:
         sync: false
       - key: ADMIN_DASHBOARD_PASSWORD
         sync: false
-      - key: PYTHON_VERSION
-        value: 3.11.10
