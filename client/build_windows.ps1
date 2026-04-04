@@ -41,6 +41,12 @@ if (-not $iscc) {
         $iscc = Get-Item $defaultIscc
     }
 }
+if (-not $iscc) {
+    $userIscc = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+    if (Test-Path $userIscc) {
+        $iscc = Get-Item $userIscc
+    }
+}
 
 if (-not $iscc) {
     throw "Inno Setup compiler (ISCC.exe) not found. Install Inno Setup 6 or run with -SkipInstaller."
