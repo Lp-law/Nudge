@@ -53,7 +53,7 @@ services:
       - key: RATE_LIMIT_OCR_REQUESTS
         value: "10"
       - key: RATE_LIMIT_BACKEND
-        value: redis
+        value: memory
       - key: RATE_LIMIT_FAILURE_MODE
         value: fail_closed
       - key: TRUSTED_PROXY_CIDRS
@@ -61,7 +61,7 @@ services:
       - key: TRUSTED_PROXY_ALLOW_INSECURE_ANY
         value: "false"
       - key: TOKEN_STATE_BACKEND
-        value: redis
+        value: memory
       - key: TOKEN_STATE_PREFIX
         value: nudge:auth
       - key: REDIS_URL
