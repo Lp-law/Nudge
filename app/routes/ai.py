@@ -44,6 +44,10 @@ def _detail(message: str, request: Request) -> dict[str, str]:
     return {"message": message, "request_id": _request_id(request)}
 
 
+def _ocr_is_configured() -> bool:
+    return bool(settings.azure_doc_intel_endpoint and settings.azure_doc_intel_api_key)
+
+
 async def _enforce_auth(request: Request) -> None:
     context = getattr(request.state, "auth_context", None)
     if isinstance(context, AuthContext):
@@ -171,6 +175,11 @@ async def create_action(payload: AIActionRequest, request: Request) -> AIActionR
 async def extract_ocr(payload: OCRRequest, request: Request) -> OCRResponse:
     await _enforce_auth(request)
     await _enforce_rate_limit(request, "ocr", settings.rate_limit_ocr_requests)
+    if not _ocr_is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_detail("OCR service is not configured.", request),
+        )
 
     if not payload.image_base64:
         raise HTTPException(

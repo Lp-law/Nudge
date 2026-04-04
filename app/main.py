@@ -41,8 +41,6 @@ def validate_startup_config() -> None:
         "AZURE_OPENAI_ENDPOINT": settings.azure_openai_endpoint,
         "AZURE_OPENAI_API_VERSION": settings.azure_openai_api_version,
         "AZURE_OPENAI_DEPLOYMENT": settings.azure_openai_deployment,
-        "AZURE_DOC_INTELLIGENCE_ENDPOINT": settings.azure_doc_intel_endpoint,
-        "AZURE_DOC_INTELLIGENCE_API_KEY": settings.azure_doc_intel_api_key,
     }
     missing = [name for name, value in required.items() if not (value and str(value).strip())]
     if missing:
@@ -53,6 +51,11 @@ def validate_startup_config() -> None:
         raise RuntimeError(
             "Missing required Azure AI environment variables. "
             "Check server configuration."
+        )
+    if not (settings.azure_doc_intel_endpoint and settings.azure_doc_intel_api_key):
+        logging.warning(
+            "OCR is not fully configured. /ai/ocr will return 503 until "
+            "AZURE_DOC_INTELLIGENCE_ENDPOINT and AZURE_DOC_INTELLIGENCE_API_KEY are set."
         )
 
     auth_mode = (settings.nudge_auth_mode or "token_or_api_key").strip().lower()
