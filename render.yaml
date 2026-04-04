@@ -27,11 +27,11 @@ services:
       - key: NUDGE_AUTH_MODE
         value: token
       - key: NUDGE_TOKEN_SIGNING_KEY
-        sync: false
+        generateValue: true
       - key: NUDGE_AUTH_ISSUER_ENABLED
         value: "true"
       - key: NUDGE_AUTH_BOOTSTRAP_KEY
-        sync: false
+        generateValue: true
       - key: NUDGE_ACCESS_TOKEN_TTL_SECONDS
         value: "900"
       - key: NUDGE_REFRESH_TOKEN_TTL_SECONDS
