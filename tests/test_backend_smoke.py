@@ -45,6 +45,7 @@ os.environ.setdefault("ADMIN_DASHBOARD_PASSWORD", "admin-password-123")
 from app.core.config import get_settings
 from app.core.security import (
     API_KEY_HEADER,
+    RateLimitDecision,
     get_client_ip,
     validate_trusted_proxy_cidrs,
 )
@@ -401,6 +402,25 @@ def test_ocr_oversized_image_returns_413() -> None:
         json={"image_base64": base64.b64encode(oversized).decode("ascii")},
     )
     assert response.status_code == 413
+    assert response.headers.get("X-Request-ID")
+    assert response.json()["detail"]["request_id"] == response.headers["X-Request-ID"]
+
+
+def test_ocr_unconfigured_returns_503(monkeypatch) -> None:
+    async def _allow(*_args, **_kwargs):
+        return RateLimitDecision(allowed=True, retry_after_seconds=0)
+
+    monkeypatch.setattr(ai_routes.rate_limiter, "allow", _allow)
+    monkeypatch.setattr(ai_routes.settings, "azure_doc_intel_endpoint", None)
+    monkeypatch.setattr(ai_routes.settings, "azure_doc_intel_api_key", None)
+    _patch_forwarded_ip(monkeypatch)
+
+    response = client.post(
+        "/ai/ocr",
+        headers={**AUTH_HEADERS, "X-Forwarded-For": "198.51.100.30"},
+        json={"image_base64": base64.b64encode(b"png").decode("ascii")},
+    )
+    assert response.status_code == 503
     assert response.headers.get("X-Request-ID")
     assert response.json()["detail"]["request_id"] == response.headers["X-Request-ID"]
 
