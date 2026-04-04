@@ -412,6 +412,7 @@ class TrayApp:
             session=self._session,
             accessibility_mode=self._accessibility_mode,
             tray_available=bool(QSystemTrayIcon.isSystemTrayAvailable()),
+            last_qnetwork_transport_error=self.api_client.last_transport_error_summary(),
         )
         dialog = QMessageBox(self.popup)
         dialog.setIcon(QMessageBox.Icon.Information)

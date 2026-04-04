@@ -31,6 +31,19 @@ class ApiClient(QObject):
         self._active_replies: set[QNetworkReply] = set()
         self._replay_contexts: dict[int, dict[str, Any]] = {}
         self._is_shutting_down = False
+        self._last_transport_error: str = ""
+
+    def last_transport_error_summary(self) -> str:
+        """Last Qt transport failure (for diagnostics). Cleared after a successful API response."""
+        return (self._last_transport_error or "").strip()
+
+    def _record_transport_failure(self, reply: QNetworkReply) -> None:
+        err_s = (reply.errorString() or "").strip()
+        code = int(reply.error())
+        if err_s:
+            self._last_transport_error = f"{err_s} (code={code})"
+        else:
+            self._last_transport_error = f"code={code}"
 
     def _base(self) -> str:
         return self.settings.backend_base_url.rstrip("/")
@@ -383,6 +396,7 @@ class ApiClient(QObject):
                 on_complete(False, None, "Timeout")
                 return
             if reply.error() != QNetworkReply.NetworkError.NoError:
+                self._record_transport_failure(reply)
                 on_complete(False, None, "Network error")
                 return
 
@@ -398,6 +412,7 @@ class ApiClient(QObject):
                     at = str(data.get("access_token", "")).strip()
                     rt = str(data.get("refresh_token", "")).strip()
                     if at and rt:
+                        self._last_transport_error = ""
                         on_complete(True, data, "")
                         return
                 on_complete(False, None, "Bad response")
@@ -457,6 +472,7 @@ class ApiClient(QObject):
                         lambda rid=request_id: self._start_replayed_json_request(rid),
                     )
                     return
+                self._record_transport_failure(reply)
                 self._replay_contexts.pop(request_id, None)
                 on_error(request_id, "Network error")
                 return
@@ -507,6 +523,7 @@ class ApiClient(QObject):
                 return
 
             self._replay_contexts.pop(request_id, None)
+            self._last_transport_error = ""
             on_success(request_id, result)
         finally:
             if cleanup_reply:
@@ -531,6 +548,7 @@ class ApiClient(QObject):
                 on_error(request_id, "Timeout")
                 return
             if reply.error() != QNetworkReply.NetworkError.NoError:
+                self._record_transport_failure(reply)
                 on_error(request_id, "Network error")
                 return
 
@@ -546,6 +564,7 @@ class ApiClient(QObject):
                     on_error(request_id, "Request failed")
                 return
 
+            self._last_transport_error = ""
             on_success(request_id, "ok")
         finally:
             self._active_replies.discard(reply)

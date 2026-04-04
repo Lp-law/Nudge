@@ -54,6 +54,7 @@ def build_diagnostics_summary(
     session=None,
     accessibility_mode: bool,
     tray_available: bool,
+    last_qnetwork_transport_error: str = "",
 ) -> str:
     version = (app.applicationVersion() or "").strip() or "unknown"
     channel = str(app.property("nudge_release_channel") or "stable").strip().lower() or "stable"
@@ -93,6 +94,8 @@ def build_diagnostics_summary(
         f"popup_delay_ms: {int(getattr(settings, 'popup_delay_ms', 0) or 0)}",
         f"minimum_non_space_chars: {int(getattr(settings, 'minimum_non_space_chars', 0) or 0)}",
         f"duplicate_cooldown_ms: {int(getattr(settings, 'duplicate_cooldown_ms', 0) or 0)}",
+        "--- last_transport_error (qt, not http) ---",
+        (last_qnetwork_transport_error or "none").strip() or "none",
     ]
 
     if warnings:
