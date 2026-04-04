@@ -1,6 +1,24 @@
 # Render: איפה למלא כל ערך (Azure + ידני)
 
-הקובץ `render.yaml` מגדיר את **כל** משתני הסביבה. אי אפשר למלא עבורך מפתחות סודיים מהמחשב הזה — צריך להדביק אותם ב־**Render Dashboard → Environment** (או לסנכרן Blueprint ואז למלא שורות עם `sync: false`).
+הקובץ `render.yaml` מגדיר את **כל** משתני הסביבה. Cursor/העוזר **לא** יכול להתחבר ל-Azure או ל-Render בשמך.
+
+### מילוי אוטומטי מ-Azure (במחשב שלך)
+
+1. התקן [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli-windows) והרץ `az login`.
+2. משורש הריפו:
+
+```powershell
+.\scripts\Export-RenderEnvFromAzure.ps1 `
+  -ResourceGroup "YOUR_RG" `
+  -OpenAIResourceName "YOUR_OPENAI_ACCOUNT" `
+  -DocumentIntelligenceResourceName "YOUR_DOC_INTEL_ACCOUNT" `
+  -OpenAIDeployment "YOUR_DEPLOYMENT_NAME" `
+  -OutFile "$env:TEMP\nudge-render-azure.env.txt"
+```
+
+3. פתח את קובץ הפלט והעתק כל שורה ל־**Render → Environment** (שם משתנה = לפני `=`, ערך = אחרי).
+
+אם אין משאב Document Intelligence נפרד, השמט `-DocumentIntelligenceResourceName` והשלם ידנית מ־Portal.
 
 ## Azure OpenAI (חובה לפעולות טקסט)
 

@@ -446,5 +446,6 @@ What smoke checks cover:
 ## Render vs local usage
 
 - `render.yaml` lists **all** backend environment variables for Blueprint sync; paste Azure and other secrets in the Render dashboard (`sync: false` keys). Where each Azure value comes from: **`docs/RENDER_AZURE_VALUES.md`**.
+- After `az login` on your PC, **`scripts/Export-RenderEnvFromAzure.ps1`** can print `AZURE_OPENAI_*` and `AZURE_DOC_INTELLIGENCE_*` lines ready for Render (see doc above).
 - Local client testing should point to local backend by default (`http://127.0.0.1:8000`).
 - If backend is deployed on Render, set `NUDGE_BACKEND_BASE_URL` in client terminal to the Render URL.
