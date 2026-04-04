@@ -35,7 +35,8 @@ from .ui_strings import (
 class ActionPopup(QWidget):
     action_selected = Signal(str)
     ICON_SIZE = 18
-    IDLE_AUTO_HIDE_MS = 5250
+    # Idle: time to read helper text and pick an action before auto-hide.
+    IDLE_AUTO_HIDE_MS = 10250  # was 5250 ms; +5000 ms polish pass
     SUCCESS_AUTO_HIDE_MS = 675
     ERROR_AUTO_HIDE_MS = 1050
     ACTION_ICON_SIZE = QSize(14, 14)
