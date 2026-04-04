@@ -113,6 +113,14 @@ def validate_startup_config() -> None:
             logging.warning(
                 "TOKEN_STATE_BACKEND=redis but REDIS_URL is missing; startup will continue with in-memory token-state fallback."
             )
+    if settings.nudge_license_device_binding_enabled and (
+        settings.token_state_backend or "memory"
+    ).strip().lower() != "redis":
+        logging.warning(
+            "License device binding is on but TOKEN_STATE_BACKEND is not redis: "
+            "bindings are in-memory per server process only. Use Redis for production "
+            "with multiple instances."
+        )
     if (settings.rate_limit_failure_mode or "fail_closed").strip().lower() not in {
         "fail_open",
         "fail_closed",

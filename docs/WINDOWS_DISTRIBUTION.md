@@ -59,6 +59,10 @@ If Inno Setup is not installed yet, create only the packaged app:
 7. Start app twice, confirm second instance exits immediately.
 8. Install via `Nudge-Setup.exe`, then repeat checks from installed path.
 
+## License seats (server)
+
+With default backend settings, each **license key** is bound to one **device_id** after first successful `/auth/activate`. For multiple app instances behind load balancers, run **Redis** for `TOKEN_STATE_BACKEND` (and `REDIS_URL`) so binding is shared. Internal testing can set `NUDGE_LICENSE_DEVICE_BINDING_ENABLED=false`.
+
 ## Notes
 
 - Build bundles `client/assets/nudge.ico` and `client/app/user_guide_content.json`.

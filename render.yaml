@@ -46,6 +46,8 @@ services:
         sync: false
       - key: NUDGE_ACTIVATION_RATE_LIMIT_PER_MINUTE
         value: "20"
+      - key: NUDGE_LICENSE_DEVICE_BINDING_ENABLED
+        value: "true"
       - key: NUDGE_ALLOW_LEGACY_API_KEY
         value: "false"
       - key: NUDGE_REVOKED_TOKEN_JTIS

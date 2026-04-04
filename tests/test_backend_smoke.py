@@ -609,6 +609,67 @@ def test_auth_activate_unconfigured_returns_503(monkeypatch) -> None:
     get_settings.cache_clear()
 
 
+def test_auth_activate_same_device_twice_ok(monkeypatch) -> None:
+    key = "same-device-license-key-00000001"
+    monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", key)
+    get_settings.cache_clear()
+    from app.main import app
+
+    with TestClient(app) as client:
+        r1 = client.post(
+            "/auth/activate",
+            json={"license_key": key, "device_id": "device-same-machine-1"},
+        )
+        r2 = client.post(
+            "/auth/activate",
+            json={"license_key": key, "device_id": "device-same-machine-1"},
+        )
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    get_settings.cache_clear()
+
+
+def test_auth_activate_second_device_forbidden(monkeypatch) -> None:
+    key = "binding-conflict-license-key-00002"
+    monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", key)
+    get_settings.cache_clear()
+    from app.main import app
+
+    with TestClient(app) as client:
+        r1 = client.post(
+            "/auth/activate",
+            json={"license_key": key, "device_id": "device-first-pc-aaaa"},
+        )
+        r2 = client.post(
+            "/auth/activate",
+            json={"license_key": key, "device_id": "device-second-pc-bbb"},
+        )
+    assert r1.status_code == 200
+    assert r2.status_code == 403
+    get_settings.cache_clear()
+
+
+def test_auth_activate_binding_disabled_allows_two_devices(monkeypatch) -> None:
+    key = "binding-off-license-key-00000003"
+    monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", key)
+    monkeypatch.setenv("NUDGE_LICENSE_DEVICE_BINDING_ENABLED", "false")
+    get_settings.cache_clear()
+    from app.main import app
+
+    with TestClient(app) as client:
+        r1 = client.post(
+            "/auth/activate",
+            json={"license_key": key, "device_id": "device-first-pc-aaaa"},
+        )
+        r2 = client.post(
+            "/auth/activate",
+            json={"license_key": key, "device_id": "device-second-pc-bbb"},
+        )
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    get_settings.cache_clear()
+
+
 def test_ocr_poll_timeout_is_bounded(monkeypatch) -> None:
     monkeypatch.setenv("OCR_POLL_TIMEOUT_SECONDS", "1")
     get_settings.cache_clear()

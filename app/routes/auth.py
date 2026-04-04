@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.core.metrics import record_auth_failure, record_rate_limit_denial, record_token_event
 from app.core.security import create_rate_limiter, get_client_ip
 from app.services.auth_issuer import AuthIssuerService
+from app.services.license_binding_store import get_license_binding_store
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -122,7 +123,20 @@ async def activate_customer(payload: ActivateRequest, request: Request) -> Token
             detail="Invalid license key.",
         )
 
-    digest = hashlib.sha256(payload.license_key.strip().encode("utf-8")).hexdigest()[:24]
+    license_hash = hashlib.sha256(payload.license_key.strip().encode("utf-8")).hexdigest()
+    if live.nudge_license_device_binding_enabled:
+        bind_ok = await get_license_binding_store(live).ensure_device_binding(
+            license_hash,
+            payload.device_id.strip(),
+        )
+        if not bind_ok:
+            record_auth_failure("/auth/activate", "license_device")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This license is already active on another device.",
+            )
+
+    digest = license_hash[:24]
     subject = f"lic:{digest}"
     pair = await auth_issuer.issue_token_pair(
         subject=subject,

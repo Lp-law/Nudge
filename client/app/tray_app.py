@@ -29,6 +29,7 @@ from .onboarding_dialog import OnboardingDialog
 from .runtime_paths import resource_path
 from .session_state import ClientSession
 from .settings import get_settings
+from .token_schedule import access_token_expiry_unix, ms_until_proactive_refresh
 from .sensitive_guard import detect_sensitive_text, image_requires_confirmation
 from .ui_strings import (
     ACTIVATION_FAILED_GENERIC,
@@ -75,9 +76,13 @@ class TrayApp:
         self._queued_context = QueuedClipboardContext()
         self._guide_dialog: UserGuideDialog | None = None
         self._onboarding_dialog: OnboardingDialog | None = None
+        self._proactive_refresh_timer: QTimer | None = None
 
         self.clipboard: QClipboard = self.app.clipboard()
-        self.api_client = ApiClient(self._session)
+        self.api_client = ApiClient(
+            self._session,
+            on_tokens_persisted=self._arm_proactive_refresh_timer,
+        )
         self.popup = ActionPopup(accessibility_mode=self._accessibility_mode)
         self.monitor = ClipboardMonitor(self.clipboard)
         self.monitor.text_ready.connect(self._on_text_ready)
@@ -149,6 +154,8 @@ class TrayApp:
 
         self.api_client.request_refresh_token(rt, done)
         loop.exec()
+        if outcome["ok"]:
+            self._arm_proactive_refresh_timer()
         return bool(outcome["ok"])
 
     def _blocking_activation_dialog(self, *, mandatory: bool) -> bool:
@@ -176,12 +183,51 @@ class TrayApp:
             self.api_client.request_activate(key, self._session.installation_id(), done)
             loop.exec()
             if outcome["ok"]:
+                self._arm_proactive_refresh_timer()
                 return True
             QMessageBox.warning(self.popup, ACTIVATION_TITLE, str(outcome["err"]))
+
+    def _arm_proactive_refresh_timer(self) -> None:
+        if self._is_shutting_down:
+            return
+        st = self.settings
+        if (st.backend_access_token or "").strip() or (st.backend_api_key or "").strip():
+            return
+        if not (self._session.refresh_token or "").strip():
+            return
+        token = (self._session.access_token or "").strip()
+        if not token:
+            return
+        exp = access_token_expiry_unix(token)
+        delay_ms = ms_until_proactive_refresh(exp) if exp is not None else 12 * 60 * 1000
+        if self._proactive_refresh_timer is None:
+            self._proactive_refresh_timer = QTimer(self.app)
+            self._proactive_refresh_timer.setSingleShot(True)
+            self._proactive_refresh_timer.timeout.connect(self._on_proactive_refresh_tick)
+        self._proactive_refresh_timer.stop()
+        self._proactive_refresh_timer.start(int(delay_ms))
+
+    def _on_proactive_refresh_tick(self) -> None:
+        if self._is_shutting_down:
+            return
+        rt = (self._session.refresh_token or "").strip()
+        if not rt:
+            return
+
+        def done(success: bool, data: dict[str, object] | None, _err: str) -> None:
+            if success and data:
+                at = str(data.get("access_token", "")).strip()
+                nr = str(data.get("refresh_token", "")).strip()
+                if at and nr:
+                    self._session.persist_tokens(at, nr)
+            self._arm_proactive_refresh_timer()
+
+        self.api_client.request_refresh_token(rt, done)
 
     def _on_reactivate(self) -> None:
         self._session.clear_auth()
         self._blocking_activation_dialog(mandatory=False)
+        self._arm_proactive_refresh_timer()
 
     def _load_tray_icon(self) -> QIcon:
         icon_path = resource_path("assets", "nudge.ico")
@@ -443,6 +489,8 @@ class TrayApp:
 
     def _on_app_shutdown(self) -> None:
         self._is_shutting_down = True
+        if self._proactive_refresh_timer is not None:
+            self._proactive_refresh_timer.stop()
         self._clear_active_request_state(clear_image=True)
         self.api_client.cancel_all_requests()
 

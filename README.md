@@ -62,6 +62,7 @@ Edit `.env` with your real Azure values.
 - `NUDGE_REVOKED_TOKEN_JTIS` (comma-separated token `jti` values)
 - `NUDGE_CUSTOMER_LICENSE_KEYS` (comma/newline-separated **license keys** for paying customers; powers `POST /auth/activate`; empty = customer activation disabled with `503`)
 - `NUDGE_ACTIVATION_RATE_LIMIT_PER_MINUTE` (default `20`; per-IP limit on `/auth/activate`)
+- `NUDGE_LICENSE_DEVICE_BINDING_ENABLED` (default `true`; one `device_id` per license key; use Redis-backed `TOKEN_STATE_BACKEND` in multi-instance production)
 - `NUDGE_BACKEND_API_KEY` (legacy fallback key; avoid as final production model)
 - `RATE_LIMIT_WINDOW_SECONDS` (default `60`)
 - `RATE_LIMIT_ACTION_REQUESTS` (default `30`)
@@ -103,6 +104,8 @@ That overwrites `release/client_runtime.json` before PyInstaller runs (commit th
 - The app calls `POST /auth/activate` on your backend; the server must have `NUDGE_CUSTOMER_LICENSE_KEYS` populated with the same key(s). The response returns normal access + refresh JWTs; the client stores the **refresh token** in Windows `QSettings` (user registry hive) and keeps the access token in memory.
 - Next launches: the client refreshes tokens automatically when possible. Tray menu **«החלפת מפתח הפעלה…»** clears the session and allows entering a new key (optional flow).
 - During a long session, if the short-lived access token expires, the next cloud action **automatically refreshes** via the saved refresh token and retries once (no restart required).
+- The client also schedules a **background refresh** before JWT expiry (from the access token’s `exp` claim) so the access token stays warm during long work sessions.
+- **License seats:** with default server settings, the same license key cannot activate a second physical install (different `device_id`). Reinstalls on the same machine keep the same stored `installation_id` in normal cases; wiping that storage or moving to a new PC requires a new seat/key or ops help. Set `NUDGE_LICENSE_DEVICE_BINDING_ENABLED=false` only for internal testing.
 
 **Developer / internal auth (unchanged)**
 

@@ -10,9 +10,15 @@ from .settings import get_settings
 
 
 class ApiClient(QObject):
-    def __init__(self, session: ClientSession) -> None:
+    def __init__(
+        self,
+        session: ClientSession,
+        *,
+        on_tokens_persisted: Callable[[], None] | None = None,
+    ) -> None:
         super().__init__()
         self.session = session
+        self._on_tokens_persisted = on_tokens_persisted
         self.settings = get_settings()
         self._network = QNetworkAccessManager(self)
         self._next_request_id = 0
@@ -200,6 +206,10 @@ class ApiClient(QObject):
         reply.destroyed.connect(lambda _obj=None, r=reply: self._active_replies.discard(r))
         return request_id
 
+    def _notify_tokens_persisted(self) -> None:
+        if self._on_tokens_persisted:
+            self._on_tokens_persisted()
+
     def _session_supports_refresh_retry(self) -> bool:
         if (self.settings.backend_access_token or "").strip():
             return False
@@ -226,6 +236,7 @@ class ApiClient(QObject):
         rt = str(data.get("refresh_token", "")).strip()
         if at and rt:
             self.session.persist_tokens(at, rt)
+            self._notify_tokens_persisted()
         reply = self._post_json(
             str(ctx["endpoint"]),
             ctx["payload"],  # type: ignore[arg-type]

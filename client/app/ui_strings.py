@@ -55,6 +55,8 @@ def resolve_status_text(message: str) -> str:
         return "ההתחברות פגה או נדחתה. נסו שוב או החליפו מפתח הפעלה מתפריט המגש."
     if "invalid license" in lowered:
         return "מפתח הפעלה שגוי."
+    if "already active on another device" in lowered:
+        return "מפתח זה כבר פעיל במחשב אחר. לעזרה צרו קשר עם התמיכה."
     if "customer activation is not available" in lowered:
         return "ההפעלה לא זמינה כרגע. צרו קשר עם התמיכה."
     if "too many activation" in lowered:

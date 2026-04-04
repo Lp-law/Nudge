@@ -110,6 +110,11 @@ class Settings(BaseSettings):
         ge=1,
         le=1000,
     )
+    nudge_license_device_binding_enabled: bool = Field(
+        default=True,
+        alias="NUDGE_LICENSE_DEVICE_BINDING_ENABLED",
+        description="If true, each customer license key may activate only one device_id.",
+    )
     nudge_access_token_ttl_seconds: int = Field(
         default=900, alias="NUDGE_ACCESS_TOKEN_TTL_SECONDS"
     )
