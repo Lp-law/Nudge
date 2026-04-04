@@ -26,6 +26,13 @@ if (-not (Test-Path $venvPython)) {
     $venvPython = Join-Path $ClientDir ".venv\Scripts\python.exe"
 }
 
+# Existing venvs may miss newer dependencies after updates.
+& $venvPython -c "import cryptography, PySide6" *> $null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Updating client dependencies..." -ForegroundColor Yellow
+    & (Join-Path $ClientDir ".venv\Scripts\pip.exe") install -r requirements.txt
+}
+
 Write-Host "Starting Nudge client (tray). Backend: $env:NUDGE_BACKEND_BASE_URL" -ForegroundColor Green
 Write-Host "If prompted, enter trial key from server .env (NUDGE_TRIAL_LICENSE_KEYS)." -ForegroundColor DarkGray
 & $venvPython -m app.main

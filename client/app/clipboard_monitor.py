@@ -27,6 +27,9 @@ class ClipboardMonitor(QObject):
         self._delay_timer = QTimer(self)
         self._delay_timer.setSingleShot(True)
         self._delay_timer.timeout.connect(self._emit_if_valid)
+        self._read_timer = QTimer(self)
+        self._read_timer.setSingleShot(True)
+        self._read_timer.timeout.connect(self._capture_clipboard_payload)
 
         self.clipboard.dataChanged.connect(self._on_clipboard_changed)
 
@@ -37,7 +40,11 @@ class ClipboardMonitor(QObject):
         if self._suppress_next_change:
             self._suppress_next_change = False
             return
+        # Some Windows apps publish clipboard payload a bit after dataChanged.
+        # Read shortly after the signal to avoid missing legitimate copies.
+        self._read_timer.start(70)
 
+    def _capture_clipboard_payload(self) -> None:
         mime_data = self.clipboard.mimeData(mode=QClipboard.Clipboard)
         if mime_data is not None and mime_data.hasImage():
             image = self.clipboard.image(mode=QClipboard.Clipboard)
