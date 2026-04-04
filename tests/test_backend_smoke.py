@@ -532,6 +532,34 @@ def test_metrics_endpoint_returns_prometheus_payload() -> None:
     assert "nudge_rate_limit_failure_mode_events_total" in body
 
 
+def test_render_fills_missing_token_secrets(monkeypatch) -> None:
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setenv("NUDGE_AUTH_MODE", "token")
+    monkeypatch.delenv("NUDGE_TOKEN_SIGNING_KEY", raising=False)
+    monkeypatch.delenv("NUDGE_AUTH_BOOTSTRAP_KEY", raising=False)
+    get_settings.cache_clear()
+    from app.main import validate_startup_config
+
+    validate_startup_config()
+    assert os.environ.get("NUDGE_TOKEN_SIGNING_KEY", "").strip()
+    assert os.environ.get("NUDGE_AUTH_BOOTSTRAP_KEY", "").strip()
+    assert len(os.environ["NUDGE_AUTH_BOOTSTRAP_KEY"]) >= 24
+    get_settings.cache_clear()
+
+
+def test_missing_token_signing_key_raises_without_render_ephemeral(monkeypatch) -> None:
+    monkeypatch.setenv("NUDGE_AUTH_MODE", "token")
+    monkeypatch.delenv("NUDGE_TOKEN_SIGNING_KEY", raising=False)
+    monkeypatch.delenv("RENDER", raising=False)
+    monkeypatch.delenv("NUDGE_ALLOW_EPHEMERAL_AUTH_SECRETS", raising=False)
+    get_settings.cache_clear()
+    from app.main import validate_startup_config
+
+    with pytest.raises(RuntimeError, match="NUDGE_TOKEN_SIGNING_KEY"):
+        validate_startup_config()
+    get_settings.cache_clear()
+
+
 def test_ocr_poll_timeout_is_bounded(monkeypatch) -> None:
     monkeypatch.setenv("OCR_POLL_TIMEOUT_SECONDS", "1")
     get_settings.cache_clear()

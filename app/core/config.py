@@ -1,7 +1,57 @@
+import logging
+import os
+import secrets
 from functools import lru_cache
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.core.security import is_strong_bootstrap_key
+
+_log = logging.getLogger(__name__)
+
+
+def _truthy_env(name: str, default: str = "") -> bool:
+    return (os.environ.get(name) or default).strip().lower() in ("true", "1", "yes")
+
+
+def _maybe_fill_ephemeral_auth_secrets() -> None:
+    """Fill missing token/bootstrap secrets when explicitly allowed (Render or opt-in).
+
+    Render Blueprint `generateValue` does not backfill existing empty env rows; Git-only
+    deploys also omit these. Ephemeral secrets are per-process — set real env vars for
+    multiple workers/instances.
+    """
+    if not _truthy_env("RENDER") and not _truthy_env("NUDGE_ALLOW_EPHEMERAL_AUTH_SECRETS"):
+        return
+
+    auth_mode = (os.environ.get("NUDGE_AUTH_MODE") or "token").strip().lower()
+    signing = (os.environ.get("NUDGE_TOKEN_SIGNING_KEY") or "").strip()
+    backend = (os.environ.get("NUDGE_BACKEND_API_KEY") or "").strip()
+    allow_legacy = _truthy_env("NUDGE_ALLOW_LEGACY_API_KEY")
+    issuer_on = _truthy_env("NUDGE_AUTH_ISSUER_ENABLED", "true")
+    bootstrap = (os.environ.get("NUDGE_AUTH_BOOTSTRAP_KEY") or "").strip()
+
+    need_signing = False
+    if auth_mode == "token":
+        need_signing = not signing
+    elif auth_mode == "token_or_api_key":
+        need_signing = not signing and not (allow_legacy and backend)
+
+    if need_signing:
+        os.environ["NUDGE_TOKEN_SIGNING_KEY"] = secrets.token_urlsafe(64)
+        _log.warning(
+            "NUDGE_TOKEN_SIGNING_KEY was unset; generated an ephemeral secret. "
+            "Set NUDGE_TOKEN_SIGNING_KEY in your host environment for stable auth "
+            "across restarts and multiple instances."
+        )
+
+    if issuer_on and (not bootstrap or not is_strong_bootstrap_key(bootstrap)):
+        os.environ["NUDGE_AUTH_BOOTSTRAP_KEY"] = secrets.token_urlsafe(48)
+        _log.warning(
+            "NUDGE_AUTH_BOOTSTRAP_KEY missing or weak; generated an ephemeral secret. "
+            "Set a strong NUDGE_AUTH_BOOTSTRAP_KEY for production."
+        )
 
 
 class Settings(BaseSettings):
@@ -80,4 +130,5 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    _maybe_fill_ephemeral_auth_secrets()
     return Settings()
