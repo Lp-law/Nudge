@@ -597,6 +597,7 @@ def test_auth_activate_rejects_bad_license(monkeypatch) -> None:
 
 def test_auth_activate_unconfigured_returns_503(monkeypatch) -> None:
     monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", "")
+    monkeypatch.setenv("NUDGE_TRIAL_LICENSE_KEYS", "")
     get_settings.cache_clear()
     from app.main import app
 
@@ -606,6 +607,22 @@ def test_auth_activate_unconfigured_returns_503(monkeypatch) -> None:
             json={"license_key": "any-key-xxxxxxxxxxxxxxxx", "device_id": "device-id-12345678"},
         )
     assert response.status_code == 503
+    get_settings.cache_clear()
+
+
+def test_auth_activate_trial_key_without_customer_keys(monkeypatch) -> None:
+    monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", "")
+    monkeypatch.setenv("NUDGE_TRIAL_LICENSE_KEYS", "trial-only-key-abcdefghij")
+    get_settings.cache_clear()
+    from app.main import app
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/auth/activate",
+            json={"license_key": "trial-only-key-abcdefghij", "device_id": "device-trial-user-1"},
+        )
+    assert response.status_code == 200
+    assert response.json().get("token_type") == "Bearer"
     get_settings.cache_clear()
 
 

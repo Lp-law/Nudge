@@ -44,6 +44,8 @@ services:
         value: nudge.api
       - key: NUDGE_CUSTOMER_LICENSE_KEYS
         sync: false
+      - key: NUDGE_TRIAL_LICENSE_KEYS
+        sync: false
       - key: NUDGE_ACTIVATION_RATE_LIMIT_PER_MINUTE
         value: "20"
       - key: NUDGE_LICENSE_DEVICE_BINDING_ENABLED

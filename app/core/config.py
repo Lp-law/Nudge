@@ -102,7 +102,12 @@ class Settings(BaseSettings):
     nudge_customer_license_keys: str = Field(
         default="",
         alias="NUDGE_CUSTOMER_LICENSE_KEYS",
-        description="Comma/newline-separated license keys for POST /auth/activate (end users).",
+        description="Comma/newline-separated paid license keys for POST /auth/activate.",
+    )
+    nudge_trial_license_keys: str = Field(
+        default="",
+        alias="NUDGE_TRIAL_LICENSE_KEYS",
+        description="Comma/newline-separated trial/beta keys; same activation flow, JWT subject prefix tlic:.",
     )
     nudge_activation_rate_limit_per_minute: int = Field(
         default=20,

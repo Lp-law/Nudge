@@ -60,7 +60,9 @@ Edit `.env` with your real Azure values.
 - `NUDGE_REQUIRED_SCOPE` (default `nudge.api`)
 - `NUDGE_ALLOW_LEGACY_API_KEY` (**production: `false`**)
 - `NUDGE_REVOKED_TOKEN_JTIS` (comma-separated token `jti` values)
-- `NUDGE_CUSTOMER_LICENSE_KEYS` (comma/newline-separated **license keys** for paying customers; powers `POST /auth/activate`; empty = customer activation disabled with `503`)
+- `NUDGE_CUSTOMER_LICENSE_KEYS` (comma/newline-separated **paid** license keys for `POST /auth/activate`)
+- `NUDGE_TRIAL_LICENSE_KEYS` (optional comma/newline-separated **beta/trial** keys for testers you choose — same activation dialog; tokens carry subject prefix `tlic:` for later analytics; can be used **without** any paid keys for a free beta)
+- Activation is available if **either** list is non-empty; `503` only when **both** are empty
 - `NUDGE_ACTIVATION_RATE_LIMIT_PER_MINUTE` (default `20`; per-IP limit on `/auth/activate`)
 - `NUDGE_LICENSE_DEVICE_BINDING_ENABLED` (default `true`; one `device_id` per license key; use Redis-backed `TOKEN_STATE_BACKEND` in multi-instance production)
 - `NUDGE_BACKEND_API_KEY` (legacy fallback key; avoid as final production model)
@@ -97,6 +99,12 @@ cd client
 ```
 
 That overwrites `release/client_runtime.json` before PyInstaller runs (commit the result only if you intend to pin a URL in-repo).
+
+**Free beta (hand-picked testers, no payment)**
+
+- Put one opaque key per tester in **`NUDGE_TRIAL_LICENSE_KEYS`** on the server (comma-separated). Leave **`NUDGE_CUSTOMER_LICENSE_KEYS`** empty if everyone in this phase is trial-only, or use both lists if some users are paid and some are beta.
+- Send each tester their key; the app experience is the same as paid activation. Revoke a tester by removing their key and redeploying (or rotating keys).
+- Trial users get JWT subjects prefixed with **`tlic:`** (paid keys use **`lic:`**) so you can tell them apart in logs or future analytics.
 
 **First-run activation (customers)**
 

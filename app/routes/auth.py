@@ -52,7 +52,7 @@ def _ensure_issuer_enabled() -> None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found.")
 
 
-def _parse_customer_license_keys(raw: str) -> list[str]:
+def _parse_license_key_list(raw: str) -> list[str]:
     items: list[str] = []
     for chunk in (raw or "").replace("\r", "\n").replace("\n", ",").split(","):
         item = chunk.strip()
@@ -97,8 +97,9 @@ async def activate_customer(payload: ActivateRequest, request: Request) -> Token
     """Exchange a customer license key for access + refresh tokens (end-user installs)."""
     live = get_settings()
     _ensure_issuer_enabled()
-    keys = _parse_customer_license_keys(live.nudge_customer_license_keys)
-    if not keys:
+    customer_keys = _parse_license_key_list(live.nudge_customer_license_keys)
+    trial_keys = _parse_license_key_list(live.nudge_trial_license_keys)
+    if not customer_keys and not trial_keys:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Customer activation is not available.",
@@ -116,7 +117,9 @@ async def activate_customer(payload: ActivateRequest, request: Request) -> Token
             headers={"Retry-After": str(decision.retry_after_seconds)},
         )
 
-    if not _license_key_is_authorized(payload.license_key, keys):
+    is_customer = _license_key_is_authorized(payload.license_key, customer_keys)
+    is_trial = _license_key_is_authorized(payload.license_key, trial_keys)
+    if not is_customer and not is_trial:
         record_auth_failure("/auth/activate", "license")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -137,12 +140,12 @@ async def activate_customer(payload: ActivateRequest, request: Request) -> Token
             )
 
     digest = license_hash[:24]
-    subject = f"lic:{digest}"
+    subject = f"tlic:{digest}" if is_trial and not is_customer else f"lic:{digest}"
     pair = await auth_issuer.issue_token_pair(
         subject=subject,
         device_id=payload.device_id.strip(),
     )
-    record_token_event("activated")
+    record_token_event("activated_trial" if subject.startswith("tlic:") else "activated")
     return TokenResponse(**pair.__dict__)
 
 
