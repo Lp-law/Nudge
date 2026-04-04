@@ -51,6 +51,8 @@ def resolve_status_text(message: str) -> str:
         return "התמונה לא תקינה לחילוץ טקסט."
     if "image is too large" in lowered:
         return "התמונה גדולה מדי לחילוץ טקסט."
+    if "unauthorized" in lowered and "request" in lowered:
+        return "ההתחברות פגה או נדחתה. נסו שוב או החליפו מפתח הפעלה מתפריט המגש."
     if "invalid license" in lowered:
         return "מפתח הפעלה שגוי."
     if "customer activation is not available" in lowered:

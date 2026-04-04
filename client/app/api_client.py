@@ -1,6 +1,6 @@
-import json
 import base64
-from typing import Callable
+import json
+from typing import Any, Callable
 
 from PySide6.QtCore import QObject, QTimer, QUrl
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
@@ -17,6 +17,7 @@ class ApiClient(QObject):
         self._network = QNetworkAccessManager(self)
         self._next_request_id = 0
         self._active_replies: set[QNetworkReply] = set()
+        self._replay_contexts: dict[int, dict[str, Any]] = {}
         self._is_shutting_down = False
 
     def _base(self) -> str:
@@ -48,7 +49,15 @@ class ApiClient(QObject):
             return -1
         request_id = self._next_request_id
         self._next_request_id += 1
-        reply = self._post_json(self._endpoint_ai_action(), {"text": text, "action": action})
+        payload = {"text": text, "action": action}
+        self._replay_contexts[request_id] = {
+            "endpoint": self._endpoint_ai_action(),
+            "payload": payload,
+            "on_success": on_success,
+            "on_error": on_error,
+            "auth_refresh_attempted": False,
+        }
+        reply = self._post_json(self._endpoint_ai_action(), payload)
         reply.setProperty("request_id", request_id)
         self._active_replies.add(reply)
 
@@ -79,7 +88,15 @@ class ApiClient(QObject):
         request_id = self._next_request_id
         self._next_request_id += 1
         encoded_image = base64.b64encode(image_png).decode("ascii")
-        reply = self._post_json(self._endpoint_ai_ocr(), {"image_base64": encoded_image})
+        payload = {"image_base64": encoded_image}
+        self._replay_contexts[request_id] = {
+            "endpoint": self._endpoint_ai_ocr(),
+            "payload": payload,
+            "on_success": on_success,
+            "on_error": on_error,
+            "auth_refresh_attempted": False,
+        }
+        reply = self._post_json(self._endpoint_ai_ocr(), payload)
         reply.setProperty("request_id", request_id)
         self._active_replies.add(reply)
 
@@ -183,8 +200,54 @@ class ApiClient(QObject):
         reply.destroyed.connect(lambda _obj=None, r=reply: self._active_replies.discard(r))
         return request_id
 
+    def _session_supports_refresh_retry(self) -> bool:
+        if (self.settings.backend_access_token or "").strip():
+            return False
+        if (self.settings.backend_api_key or "").strip():
+            return False
+        return bool((self.session.refresh_token or "").strip())
+
+    def _replay_after_refresh(
+        self,
+        request_id: int,
+        ok: bool,
+        data: dict[str, object] | None,
+        err: str,
+    ) -> None:
+        ctx = self._replay_contexts.get(request_id)
+        if not ctx:
+            return
+        if not ok or not data:
+            self._replay_contexts.pop(request_id, None)
+            on_error = ctx["on_error"]
+            on_error(request_id, (err or "").strip() or "Request failed")
+            return
+        at = str(data.get("access_token", "")).strip()
+        rt = str(data.get("refresh_token", "")).strip()
+        if at and rt:
+            self.session.persist_tokens(at, rt)
+        reply = self._post_json(
+            str(ctx["endpoint"]),
+            ctx["payload"],  # type: ignore[arg-type]
+            include_auth=True,
+        )
+        reply.setProperty("request_id", request_id)
+        self._active_replies.add(reply)
+        timeout_timer = QTimer(reply)
+        timeout_timer.setSingleShot(True)
+        timeout_timer.timeout.connect(lambda r=reply: self._on_timeout(r))
+        timeout_timer.start(self.settings.request_timeout_ms)
+        reply.setProperty("timeout_timer", timeout_timer)
+        on_success = ctx["on_success"]
+        on_error_cb = ctx["on_error"]
+        reply.finished.connect(
+            lambda r=reply, os_cb=on_success, oe_cb=on_error_cb: self._handle_reply(r, os_cb, oe_cb),
+        )
+        reply.destroyed.connect(lambda _obj=None, r=reply: self._active_replies.discard(r))
+
     def cancel_all_requests(self) -> None:
         self._is_shutting_down = True
+        self._replay_contexts.clear()
         for reply in list(self._active_replies):
             if reply.isFinished():
                 continue
@@ -310,26 +373,46 @@ class ApiClient(QObject):
         on_success: Callable[[int, str], None],
         on_error: Callable[[int, str], None],
     ) -> None:
-        try:
-            request_id = int(reply.property("request_id") or -1)
-            timeout_timer = reply.property("timeout_timer")
-            if isinstance(timeout_timer, QTimer):
-                timeout_timer.stop()
+        request_id = int(reply.property("request_id") or -1)
+        timeout_timer = reply.property("timeout_timer")
+        if isinstance(timeout_timer, QTimer):
+            timeout_timer.stop()
 
+        cleanup_reply = True
+        try:
             if self._is_shutting_down or bool(reply.property("cancelled")):
+                self._replay_contexts.pop(request_id, None)
                 return
             if bool(reply.property("timed_out")):
+                self._replay_contexts.pop(request_id, None)
                 on_error(request_id, "Timeout")
                 return
 
             if reply.error() != QNetworkReply.NetworkError.NoError:
+                self._replay_contexts.pop(request_id, None)
                 on_error(request_id, "Network error")
                 return
 
             status_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
             body = bytes(reply.readAll()).decode("utf-8", errors="replace")
 
+            if status_code == 401 and request_id in self._replay_contexts:
+                ctx = self._replay_contexts[request_id]
+                if not ctx.get("auth_refresh_attempted") and self._session_supports_refresh_retry():
+                    rt = (self.session.refresh_token or "").strip()
+                    if rt:
+                        ctx["auth_refresh_attempted"] = True
+                        cleanup_reply = False
+                        self._active_replies.discard(reply)
+                        reply.deleteLater()
+                        self.request_refresh_token(
+                            rt,
+                            lambda ok, d, e, rid=request_id: self._replay_after_refresh(rid, ok, d, e),
+                        )
+                        return
+
             if status_code != 200:
+                self._replay_contexts.pop(request_id, None)
                 try:
                     data = json.loads(body)
                     detail = data.get("detail")
@@ -345,18 +428,22 @@ class ApiClient(QObject):
             try:
                 data = json.loads(body)
             except json.JSONDecodeError:
+                self._replay_contexts.pop(request_id, None)
                 on_error(request_id, "Bad response")
                 return
 
             result = (data.get("result") or "").strip()
             if not result:
+                self._replay_contexts.pop(request_id, None)
                 on_error(request_id, "Empty result")
                 return
 
+            self._replay_contexts.pop(request_id, None)
             on_success(request_id, result)
         finally:
-            self._active_replies.discard(reply)
-            reply.deleteLater()
+            if cleanup_reply:
+                self._active_replies.discard(reply)
+                reply.deleteLater()
 
     def _handle_onboarding_reply(
         self,

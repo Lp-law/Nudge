@@ -102,6 +102,7 @@ That overwrites `release/client_runtime.json` before PyInstaller runs (commit th
 - On first launch, if there is no saved session and no dev env auth, the client shows a short **Hebrew** dialog asking for the **license key** you issued.
 - The app calls `POST /auth/activate` on your backend; the server must have `NUDGE_CUSTOMER_LICENSE_KEYS` populated with the same key(s). The response returns normal access + refresh JWTs; the client stores the **refresh token** in Windows `QSettings` (user registry hive) and keeps the access token in memory.
 - Next launches: the client refreshes tokens automatically when possible. Tray menu **«החלפת מפתח הפעלה…»** clears the session and allows entering a new key (optional flow).
+- During a long session, if the short-lived access token expires, the next cloud action **automatically refreshes** via the saved refresh token and retries once (no restart required).
 
 **Developer / internal auth (unchanged)**
 
