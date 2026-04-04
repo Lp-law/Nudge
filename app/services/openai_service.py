@@ -30,6 +30,8 @@ class AzureOpenAIService:
     def __init__(self) -> None:
         self.settings = get_settings()
         self.client: Any = None
+        # Newer Azure deployments reject max_tokens; switch after first 400.
+        self._chat_use_max_completion_tokens = False
 
     def _validate_settings(self) -> None:
         required: dict[str, Any] = {
@@ -66,6 +68,50 @@ class AzureOpenAIService:
                 )
         return self.client
 
+    def _raw_chat_create_coro(self, client: Any, messages: list[dict[str, str]]) -> Any:
+        kw: dict[str, Any] = {
+            "model": self.settings.azure_openai_deployment,
+            "messages": messages,
+            "temperature": 0.2,
+        }
+        if self._chat_use_max_completion_tokens:
+            kw["max_completion_tokens"] = 300
+        else:
+            kw["max_tokens"] = 300
+        return client.chat.completions.create(**kw)
+
+    @staticmethod
+    def _is_max_tokens_unsupported(exc: APIStatusError) -> bool:
+        if int(getattr(exc, "status_code", 0) or 0) != 400:
+            return False
+        body = getattr(exc, "body", None)
+        if not isinstance(body, dict):
+            return False
+        return (
+            body.get("code") == "unsupported_parameter"
+            and body.get("param") == "max_tokens"
+        )
+
+    async def _invoke_chat_completion(
+        self, client: Any, messages: list[dict[str, str]]
+    ) -> Any:
+        try:
+            return await asyncio.wait_for(
+                self._raw_chat_create_coro(client, messages),
+                timeout=REQUEST_TIMEOUT_SECONDS,
+            )
+        except APIStatusError as exc:
+            if self._is_max_tokens_unsupported(exc) and not self._chat_use_max_completion_tokens:
+                logger.info(
+                    "Azure OpenAI rejected max_tokens; retrying with max_completion_tokens"
+                )
+                self._chat_use_max_completion_tokens = True
+                return await asyncio.wait_for(
+                    self._raw_chat_create_coro(client, messages),
+                    timeout=REQUEST_TIMEOUT_SECONDS,
+                )
+            raise
+
     async def generate_action(self, action: ActionType, text: str) -> str:
         client = self._get_client()
         messages = build_messages(action=action, text=text)
@@ -73,15 +119,7 @@ class AzureOpenAIService:
         response = None
         for attempt in range(1, MAX_RETRIES + 2):
             try:
-                response = await asyncio.wait_for(
-                    client.chat.completions.create(
-                        model=self.settings.azure_openai_deployment,
-                        messages=messages,
-                        temperature=0.2,
-                        max_tokens=300,
-                    ),
-                    timeout=REQUEST_TIMEOUT_SECONDS,
-                )
+                response = await self._invoke_chat_completion(client, messages)
                 break
             except asyncio.TimeoutError as exc:
                 record_upstream_timeout("openai")
