@@ -37,6 +37,10 @@ os.environ.setdefault("RATE_LIMIT_BACKEND", "memory")
 os.environ.setdefault("RATE_LIMIT_FAILURE_MODE", "fail_closed")
 os.environ.setdefault("TRUSTED_PROXY_CIDRS", "127.0.0.1/32")
 os.environ.setdefault("MAX_REQUEST_BODY_BYTES", "1024")
+os.environ.setdefault("LEADS_DB_PATH", "data/test_nudge_leads.db")
+os.environ.setdefault("ADMIN_DASHBOARD_ENABLED", "true")
+os.environ.setdefault("ADMIN_DASHBOARD_USERNAME", "admin")
+os.environ.setdefault("ADMIN_DASHBOARD_PASSWORD", "admin-password-123")
 
 from app.core.config import get_settings
 from app.core.security import (
@@ -84,6 +88,48 @@ def test_ocr_rejects_unauthorized() -> None:
     assert response.json()["detail"]["request_id"] == response.headers["X-Request-ID"]
 
 
+def test_lead_registration_and_admin_auth_gate() -> None:
+    created = client.post(
+        "/leads/register",
+        json={
+            "full_name": "Dana Levi",
+            "email": "dana@example.com",
+            "phone": "0501234567",
+            "occupation": "lawyer",
+            "source": "website",
+            "app_version": "0.1.0",
+        },
+    )
+    assert created.status_code == 200
+    payload = created.json()
+    assert payload["lead_id"].startswith("lead_")
+
+    denied = client.get("/admin/api/stats")
+    assert denied.status_code == 401
+
+    allowed = client.get("/admin/api/stats", headers=_admin_headers())
+    assert allowed.status_code == 200
+    assert "total_users" in allowed.json()
+
+
+def test_admin_users_filtering() -> None:
+    client.post(
+        "/leads/register",
+        json={
+            "full_name": "Nir Cohen",
+            "email": "nir@example.com",
+            "occupation": "software",
+            "source": "direct",
+            "app_version": "0.1.0",
+        },
+    )
+    users = client.get("/admin/api/users?occupation=software", headers=_admin_headers())
+    assert users.status_code == 200
+    data = users.json()
+    assert data["total"] >= 1
+    assert any(item["occupation"] == "software" for item in data["items"])
+
+
 def _encode_b64url(data: bytes) -> str:
     return urlsafe_b64encode(data).decode("ascii").rstrip("=")
 
@@ -118,6 +164,11 @@ def _bearer_headers(*, forwarded_for: str) -> dict[str, str]:
         "Authorization": f"Bearer {_make_access_token()}",
         "X-Forwarded-For": forwarded_for,
     }
+
+
+def _admin_headers() -> dict[str, str]:
+    token = base64.b64encode(b"admin:admin-password-123").decode("ascii")
+    return {"Authorization": f"Basic {token}"}
 
 
 def _patch_forwarded_ip(monkeypatch) -> None:

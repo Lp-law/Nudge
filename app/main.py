@@ -24,6 +24,7 @@ from app.core.security import (
 )
 from app.routes.auth import router as auth_router
 from app.routes.ai import router as ai_router
+from app.routes.admin import lead_store, router as admin_router
 
 
 logging.basicConfig(
@@ -114,17 +115,26 @@ def validate_startup_config() -> None:
         settings.trusted_proxy_cidrs,
         allow_insecure_any=bool(settings.trusted_proxy_allow_insecure_any),
     )
+    if settings.admin_dashboard_enabled:
+        username = (settings.admin_dashboard_username or "").strip()
+        password = (settings.admin_dashboard_password or "").strip()
+        if not username or len(username) < 3:
+            raise RuntimeError("ADMIN_DASHBOARD_USERNAME is required when admin dashboard is enabled.")
+        if not password or len(password) < 10:
+            raise RuntimeError("ADMIN_DASHBOARD_PASSWORD must be at least 10 characters.")
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     validate_startup_config()
+    lead_store.initialize()
     yield
 
 
 app = FastAPI(title="Nudge MVP Backend", version="0.1.0", lifespan=lifespan)
 app.include_router(ai_router)
 app.include_router(auth_router)
+app.include_router(admin_router)
 
 
 @app.middleware("http")

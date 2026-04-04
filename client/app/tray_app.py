@@ -1,8 +1,8 @@
 import hashlib
 
-from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QSettings
+from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QSettings, QTimer
 from PySide6.QtGui import QClipboard, QIcon
-from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QStyle, QSystemTrayIcon
+from PySide6.QtWidgets import QApplication, QDialog, QMenu, QMessageBox, QStyle, QSystemTrayIcon
 
 from .action_contract import (
     ALL_ACTION_KEYS,
@@ -24,6 +24,7 @@ from .lifecycle_logic import (
     should_ignore_response,
 )
 from .popup import ActionPopup
+from .onboarding_dialog import OnboardingDialog
 from .runtime_paths import resource_path
 from .settings import get_settings
 from .sensitive_guard import detect_sensitive_text, image_requires_confirmation
@@ -39,6 +40,7 @@ from .ui_strings import (
     ERROR_GENERIC,
     ERROR_INVALID_TEXT,
     ERROR_NO_IMAGE,
+    ONBOARDING_ERROR_FAILED,
     resolve_status_text,
     TRAY_MENU_ACCESSIBILITY_MODE,
     TRAY_MENU_DIAGNOSTICS,
@@ -66,6 +68,7 @@ class TrayApp:
         self._current_image_png: bytes | None = None
         self._queued_context = QueuedClipboardContext()
         self._guide_dialog: UserGuideDialog | None = None
+        self._onboarding_dialog: OnboardingDialog | None = None
 
         self.clipboard: QClipboard = self.app.clipboard()
         self.api_client = ApiClient()
@@ -98,6 +101,7 @@ class TrayApp:
         quit_action.triggered.connect(self.app.quit)
         self.tray.setContextMenu(menu)
         self.tray.show()
+        QTimer.singleShot(450, self._maybe_show_onboarding)
 
     def _load_tray_icon(self) -> QIcon:
         icon_path = resource_path("assets", "nudge.ico")
@@ -295,6 +299,35 @@ class TrayApp:
         if dialog.clickedButton() is copy_button:
             self.clipboard.setText(summary, mode=QClipboard.Clipboard)
             self.tray.showMessage("Nudge", DIAGNOSTICS_COPIED_MESSAGE, QSystemTrayIcon.MessageIcon.Information, 1800)
+
+    def _maybe_show_onboarding(self) -> None:
+        if self._is_shutting_down:
+            return
+        if not bool(self.settings.onboarding_enabled):
+            return
+        if str(self._preferences.value("onboarding_completed", "false")).strip().lower() == "true":
+            return
+        dialog = OnboardingDialog(self.popup)
+        self._onboarding_dialog = dialog
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        payload = dict(dialog.payload)
+        payload["source"] = self.settings.onboarding_source
+        payload["app_version"] = (self.app.applicationVersion() or "").strip()
+        request_id = self.api_client.request_onboarding(
+            payload=payload,
+            on_success=self._on_onboarding_success,
+            on_error=self._on_onboarding_error,
+        )
+        if request_id < 0:
+            self.tray.showMessage("Nudge", ONBOARDING_ERROR_FAILED, QSystemTrayIcon.MessageIcon.Warning, 2200)
+
+    def _on_onboarding_success(self, _request_id: int, _result: str) -> None:
+        self._preferences.setValue("onboarding_completed", "true")
+        self._preferences.sync()
+
+    def _on_onboarding_error(self, _request_id: int, _message: str) -> None:
+        self.tray.showMessage("Nudge", ONBOARDING_ERROR_FAILED, QSystemTrayIcon.MessageIcon.Warning, 2200)
 
     def _confirm_cloud_send_for_text(self, text: str) -> bool:
         reasons = detect_sensitive_text(text)

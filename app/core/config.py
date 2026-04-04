@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     )
     redis_url: str | None = Field(default=None, alias="REDIS_URL")
     max_request_body_bytes: int = Field(default=10 * 1024 * 1024, alias="MAX_REQUEST_BODY_BYTES")
+    leads_db_path: str = Field(default="data/nudge_leads.db", alias="LEADS_DB_PATH")
+    admin_dashboard_enabled: bool = Field(default=False, alias="ADMIN_DASHBOARD_ENABLED")
+    admin_dashboard_username: str | None = Field(default=None, alias="ADMIN_DASHBOARD_USERNAME")
+    admin_dashboard_password: str | None = Field(default=None, alias="ADMIN_DASHBOARD_PASSWORD")
     port: int = Field(default=8000, alias="PORT")
 
 

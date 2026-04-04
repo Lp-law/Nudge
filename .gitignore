@@ -27,3 +27,6 @@ Thumbs.db
 client/build/
 client/dist/
 client/installer/Output/
+
+# Runtime data
+data/

@@ -15,6 +15,8 @@ class Settings:
     backend_api_key: str = os.getenv("NUDGE_BACKEND_API_KEY", "").strip()
     backend_access_token: str = os.getenv("NUDGE_BACKEND_ACCESS_TOKEN", "").strip()
     accessibility_mode: bool = _env_flag("NUDGE_ACCESSIBILITY_MODE", False)
+    onboarding_source: str = os.getenv("NUDGE_ONBOARDING_SOURCE", "unknown").strip().lower() or "unknown"
+    onboarding_enabled: bool = _env_flag("NUDGE_ONBOARDING_ENABLED", True)
     popup_delay_ms: int = 700
     minimum_non_space_chars: int = 8
     request_timeout_ms: int = 12000

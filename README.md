@@ -72,6 +72,10 @@ Edit `.env` with your real Azure values.
 - `TOKEN_STATE_PREFIX` (default `nudge:auth`)
 - `REDIS_URL` (required when `RATE_LIMIT_BACKEND=redis` and/or `TOKEN_STATE_BACKEND=redis`)
 - `MAX_REQUEST_BODY_BYTES` (default `10485760`, 10MB)
+- `LEADS_DB_PATH` (default `data/nudge_leads.db`; stores onboarding lead/user metadata only)
+- `ADMIN_DASHBOARD_ENABLED` (`true` enables internal lead dashboard)
+- `ADMIN_DASHBOARD_USERNAME` (required when dashboard enabled)
+- `ADMIN_DASHBOARD_PASSWORD` (required when dashboard enabled; min 10 chars)
 - `PORT` (optional locally, default app behavior is `8000`)
 
 ## Backend local run
@@ -107,10 +111,14 @@ $env:NUDGE_BACKEND_ACCESS_TOKEN="replace_with_short_lived_access_token"
 # Legacy internal compatibility only:
 $env:NUDGE_BACKEND_API_KEY="replace_with_shared_backend_api_key"
 $env:NUDGE_ACCESSIBILITY_MODE="1"
+$env:NUDGE_ONBOARDING_ENABLED="1"
+$env:NUDGE_ONBOARDING_SOURCE="website"
 ```
 
 `NUDGE_BACKEND_ACCESS_TOKEN` is the preferred auth path (`Authorization: Bearer ...`).  
 `NUDGE_BACKEND_API_KEY` remains for controlled dev/internal compatibility only.
+`NUDGE_ONBOARDING_ENABLED` controls first-run lead capture prompt (default on).  
+`NUDGE_ONBOARDING_SOURCE` tags signup source for segmentation (`website`, `direct`, `referral`, `unknown`).
 
 `NUDGE_ACCESSIBILITY_MODE` is optional. When enabled, popup focuses itself for full keyboard navigation (Tab/Shift+Tab, Enter/Space, Escape).  
 You can also toggle accessibility mode from the tray menu (`מצב נגישות`).  
@@ -159,7 +167,7 @@ python -m venv .venv
 Build outputs:
 
 - App folder: `client\dist\Nudge\`
-- Installer: `client\installer\Output\Nudge-Setup.exe`
+- Installer: `client\installer\Output\Nudge-Setup-<version>.exe`
 
 If you only want the app folder and not the installer:
 
@@ -177,7 +185,7 @@ Installer behavior:
 
 ### Installer smoke test checklist
 
-1. Install `Nudge-Setup.exe`.
+1. Install `Nudge-Setup-<version>.exe`.
 2. Launch Nudge from Start Menu and verify tray icon appears.
 3. Launch again and verify second instance exits (single-instance guard).
 4. Open tray user guide and verify multilingual content loads.
@@ -216,6 +224,17 @@ Copy text and click:
 - `אנגלית > עברית`: expect keyboard-layout text converted to Hebrew (client-side)
 - `הסבר משמעות`: expect concise meaning explanation in Hebrew
 - For copied image: click `חלץ טקסט` to extract OCR text via Azure Document Intelligence Read OCR
+
+### Onboarding + admin dashboard checks
+
+- On first client run, onboarding dialog asks for: full name, email, optional phone, occupation.
+- Confirm submission succeeds and onboarding is not shown again on next launch.
+- Open dashboard at `GET /admin` (when enabled) with Basic auth credentials.
+- Verify cards and filters:
+  - total users
+  - joined today/week/month
+  - filtering by occupation/source/date range
+  - search by name/email/phone
 
 After each click:
 
@@ -270,6 +289,8 @@ The summary intentionally excludes clipboard content, OCR images, secrets, and u
 ## Security and request control notes
 
 - `POST /ai/action` and `POST /ai/ocr` require auth: preferred `Authorization: Bearer <token>`.
+- `POST /leads/register` stores onboarding metadata only (name/contact/occupation/source/version/joined_at) and does not store clipboard/OCR/user-content payloads.
+- `GET /admin` and `/admin/api/*` are internal-only and protected by HTTP Basic auth when dashboard is enabled.
 - Legacy fallback `X-Nudge-API-Key` is supported only when `NUDGE_ALLOW_LEGACY_API_KEY=true`.
 - Internal auth issuer lifecycle endpoints:
   - `POST /auth/token` (bootstrap-gated issuance of short-lived access + refresh token; send bootstrap secret in `X-Nudge-Bootstrap-Key`, body fallback kept for internal compatibility)
@@ -320,6 +341,7 @@ The summary intentionally excludes clipboard content, OCR images, secrets, and u
 - Local action (no cloud call): `אנגלית > עברית` (`fix_layout_he`).
 - Cloud actions (backend + Azure): text AI actions and OCR image extraction.
 - On success, client replaces clipboard content with result and shows a short success state.
+- Lead dashboard data is strictly account/lead metadata and intentionally excludes clipboard text, OCR image content, and AI input/output content.
 
 ## Local smoke checks
 

@@ -68,5 +68,13 @@ services:
         sync: false
       - key: MAX_REQUEST_BODY_BYTES
         value: "10485760"
+      - key: LEADS_DB_PATH
+        value: data/nudge_leads.db
+      - key: ADMIN_DASHBOARD_ENABLED
+        value: "false"
+      - key: ADMIN_DASHBOARD_USERNAME
+        sync: false
+      - key: ADMIN_DASHBOARD_PASSWORD
+        sync: false
       - key: PYTHON_VERSION
         value: 3.11.10

@@ -15,6 +15,7 @@ class ApiClient(QObject):
         self._network = QNetworkAccessManager(self)
         self._endpoint = f"{self.settings.backend_base_url.rstrip('/')}/ai/action"
         self._ocr_endpoint = f"{self.settings.backend_base_url.rstrip('/')}/ai/ocr"
+        self._onboarding_endpoint = f"{self.settings.backend_base_url.rstrip('/')}/leads/register"
         self._next_request_id = 0
         self._active_replies: set[QNetworkReply] = set()
         self._is_shutting_down = False
@@ -81,6 +82,33 @@ class ApiClient(QObject):
         reply.destroyed.connect(lambda _obj=None, r=reply: self._active_replies.discard(r))
         return request_id
 
+    def request_onboarding(
+        self,
+        payload: dict[str, str | None],
+        on_success: Callable[[int, str], None],
+        on_error: Callable[[int, str], None],
+    ) -> int:
+        if self._is_shutting_down:
+            return -1
+        request_id = self._next_request_id
+        self._next_request_id += 1
+        reply = self._post_json(
+            self._onboarding_endpoint,
+            payload,  # type: ignore[arg-type]
+            include_auth=False,
+        )
+        reply.setProperty("request_id", request_id)
+        self._active_replies.add(reply)
+
+        timeout_timer = QTimer(reply)
+        timeout_timer.setSingleShot(True)
+        timeout_timer.timeout.connect(lambda r=reply: self._on_timeout(r))
+        timeout_timer.start(self.settings.request_timeout_ms)
+        reply.setProperty("timeout_timer", timeout_timer)
+        reply.finished.connect(lambda r=reply: self._handle_onboarding_reply(r, on_success, on_error))
+        reply.destroyed.connect(lambda _obj=None, r=reply: self._active_replies.discard(r))
+        return request_id
+
     def cancel_all_requests(self) -> None:
         self._is_shutting_down = True
         for reply in list(self._active_replies):
@@ -89,13 +117,19 @@ class ApiClient(QObject):
             reply.setProperty("cancelled", True)
             reply.abort()
 
-    def _post_json(self, endpoint: str, payload: dict[str, str]) -> QNetworkReply:
+    def _post_json(
+        self,
+        endpoint: str,
+        payload: dict[str, str | None],
+        *,
+        include_auth: bool = True,
+    ) -> QNetworkReply:
         request = QNetworkRequest(QUrl(endpoint))
         request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json")
-        if self.settings.backend_access_token:
+        if include_auth and self.settings.backend_access_token:
             header_value = f"Bearer {self.settings.backend_access_token}".encode("utf-8")
             request.setRawHeader(b"Authorization", header_value)
-        elif self.settings.backend_api_key:
+        elif include_auth and self.settings.backend_api_key:
             request.setRawHeader(b"X-Nudge-API-Key", self.settings.backend_api_key.encode("utf-8"))
         raw_payload = json.dumps(payload).encode("utf-8")
         return self._network.post(request, raw_payload)
@@ -188,6 +222,44 @@ class ApiClient(QObject):
                 return
 
             on_success(request_id, result)
+        finally:
+            self._active_replies.discard(reply)
+            reply.deleteLater()
+
+    def _handle_onboarding_reply(
+        self,
+        reply: QNetworkReply,
+        on_success: Callable[[int, str], None],
+        on_error: Callable[[int, str], None],
+    ) -> None:
+        try:
+            request_id = int(reply.property("request_id") or -1)
+            timeout_timer = reply.property("timeout_timer")
+            if isinstance(timeout_timer, QTimer):
+                timeout_timer.stop()
+
+            if self._is_shutting_down or bool(reply.property("cancelled")):
+                return
+            if bool(reply.property("timed_out")):
+                on_error(request_id, "Timeout")
+                return
+            if reply.error() != QNetworkReply.NetworkError.NoError:
+                on_error(request_id, "Network error")
+                return
+
+            status_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+            body = bytes(reply.readAll()).decode("utf-8", errors="replace")
+            if status_code != 200:
+                try:
+                    data = json.loads(body)
+                    detail = data.get("detail")
+                    message = self._extract_detail_message(detail)
+                    on_error(request_id, self._short_message(message or "Request failed"))
+                except json.JSONDecodeError:
+                    on_error(request_id, "Request failed")
+                return
+
+            on_success(request_id, "ok")
         finally:
             self._active_replies.discard(reply)
             reply.deleteLater()

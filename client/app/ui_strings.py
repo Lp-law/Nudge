@@ -66,6 +66,16 @@ DIAGNOSTICS_TITLE = "אבחון Nudge"
 DIAGNOSTICS_COPY_BUTTON = "העתק דוח"
 DIAGNOSTICS_CLOSE_BUTTON = "סגירה"
 DIAGNOSTICS_COPIED_MESSAGE = "דוח האבחון הועתק ללוח."
+ONBOARDING_TITLE = "השלמת פרטי משתמש"
+ONBOARDING_SUBTITLE = "כדי לשפר תמיכה ושירות, נשמח למספר פרטים קצרים."
+ONBOARDING_NAME_LABEL = "שם מלא"
+ONBOARDING_EMAIL_LABEL = "אימייל"
+ONBOARDING_PHONE_LABEL = "טלפון (אופציונלי)"
+ONBOARDING_OCCUPATION_LABEL = "תחום עיסוק"
+ONBOARDING_SUBMIT = "שמירה והמשך"
+ONBOARDING_LATER = "מאוחר יותר"
+ONBOARDING_ERROR_REQUIRED = "יש למלא שם, אימייל ותחום עיסוק."
+ONBOARDING_ERROR_FAILED = "שמירת הפרטים נכשלה. אפשר לנסות שוב מאוחר יותר."
 
 
 def cloud_confirm_message(reason_text: str) -> str:

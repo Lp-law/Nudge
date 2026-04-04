@@ -32,6 +32,9 @@
 - `TOKEN_STATE_PREFIX`
 - `REDIS_URL` (required when `RATE_LIMIT_BACKEND=redis` and/or `TOKEN_STATE_BACKEND=redis`)
 - `MAX_REQUEST_BODY_BYTES`
+- `LEADS_DB_PATH`
+- `ADMIN_DASHBOARD_ENABLED`
+- `ADMIN_DASHBOARD_USERNAME` / `ADMIN_DASHBOARD_PASSWORD` (required when dashboard enabled)
 
 ## Deployment mode expectations
 - **Production-intended:** `NUDGE_AUTH_MODE=token`, `NUDGE_ALLOW_LEGACY_API_KEY=false`, `RATE_LIMIT_BACKEND=redis`, `TOKEN_STATE_BACKEND=redis`, non-free Render plan.
@@ -78,6 +81,8 @@
    - `POST /auth/refresh` rotates refresh token.
 7. Metrics:
    - `GET /metrics` with valid auth returns Prometheus payload including `nudge_http_requests_total`.
+8. Admin dashboard (optional internal):
+   - if enabled, `GET /admin` must require Basic auth and load lead statistics/users table.
 
 ## Rollback guidance
 1. In Render, redeploy last known-good commit.
@@ -96,6 +101,7 @@
    - upstream Azure failure
    - payload/validation failure
    - deployment/config issue
+   - onboarding/dashboard access issue
 
 ## Metrics and alerts baseline
 Monitor `/metrics` (auth-protected) and alert on:
