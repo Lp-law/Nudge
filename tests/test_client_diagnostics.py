@@ -17,9 +17,13 @@ def test_classify_backend_url_variants() -> None:
 
 
 def test_classify_auth_mode() -> None:
-    assert classify_auth_mode(SimpleNamespace(backend_access_token="abc", backend_api_key="")) == "bearer_token"
+    assert classify_auth_mode(SimpleNamespace(backend_access_token="abc", backend_api_key="")) == "bearer_env"
     assert classify_auth_mode(SimpleNamespace(backend_access_token="", backend_api_key="abc")) == "api_key"
     assert classify_auth_mode(SimpleNamespace(backend_access_token="", backend_api_key="")) == "none"
+    sess = SimpleNamespace(access_token="", refresh_token="rt")
+    assert (
+        classify_auth_mode(SimpleNamespace(backend_access_token="", backend_api_key=""), sess) == "refresh_token_saved"
+    )
 
 
 def test_build_diagnostics_summary_excludes_sensitive_content() -> None:
@@ -43,5 +47,5 @@ def test_build_diagnostics_summary_excludes_sensitive_content() -> None:
         tray_available=True,
     )
     assert "token-secret" not in report
-    assert "backend_auth_mode: bearer_token" in report
+    assert "backend_auth_mode: bearer_env" in report
     assert "backend_url_class: render_https" in report

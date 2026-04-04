@@ -5,20 +5,37 @@ from typing import Callable
 from PySide6.QtCore import QObject, QTimer, QUrl
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 
+from .session_state import ClientSession
 from .settings import get_settings
 
 
 class ApiClient(QObject):
-    def __init__(self) -> None:
+    def __init__(self, session: ClientSession) -> None:
         super().__init__()
+        self.session = session
         self.settings = get_settings()
         self._network = QNetworkAccessManager(self)
-        self._endpoint = f"{self.settings.backend_base_url.rstrip('/')}/ai/action"
-        self._ocr_endpoint = f"{self.settings.backend_base_url.rstrip('/')}/ai/ocr"
-        self._onboarding_endpoint = f"{self.settings.backend_base_url.rstrip('/')}/leads/register"
         self._next_request_id = 0
         self._active_replies: set[QNetworkReply] = set()
         self._is_shutting_down = False
+
+    def _base(self) -> str:
+        return self.settings.backend_base_url.rstrip("/")
+
+    def _endpoint_ai_action(self) -> str:
+        return f"{self._base()}/ai/action"
+
+    def _endpoint_ai_ocr(self) -> str:
+        return f"{self._base()}/ai/ocr"
+
+    def _endpoint_onboarding(self) -> str:
+        return f"{self._base()}/leads/register"
+
+    def _endpoint_auth_activate(self) -> str:
+        return f"{self._base()}/auth/activate"
+
+    def _endpoint_auth_refresh(self) -> str:
+        return f"{self._base()}/auth/refresh"
 
     def request_action(
         self,
@@ -31,7 +48,7 @@ class ApiClient(QObject):
             return -1
         request_id = self._next_request_id
         self._next_request_id += 1
-        reply = self._post_json(self._endpoint, {"text": text, "action": action})
+        reply = self._post_json(self._endpoint_ai_action(), {"text": text, "action": action})
         reply.setProperty("request_id", request_id)
         self._active_replies.add(reply)
 
@@ -62,7 +79,7 @@ class ApiClient(QObject):
         request_id = self._next_request_id
         self._next_request_id += 1
         encoded_image = base64.b64encode(image_png).decode("ascii")
-        reply = self._post_json(self._ocr_endpoint, {"image_base64": encoded_image})
+        reply = self._post_json(self._endpoint_ai_ocr(), {"image_base64": encoded_image})
         reply.setProperty("request_id", request_id)
         self._active_replies.add(reply)
 
@@ -93,7 +110,7 @@ class ApiClient(QObject):
         request_id = self._next_request_id
         self._next_request_id += 1
         reply = self._post_json(
-            self._onboarding_endpoint,
+            self._endpoint_onboarding(),
             payload,  # type: ignore[arg-type]
             include_auth=False,
         )
@@ -109,6 +126,63 @@ class ApiClient(QObject):
         reply.destroyed.connect(lambda _obj=None, r=reply: self._active_replies.discard(r))
         return request_id
 
+    def request_activate(
+        self,
+        license_key: str,
+        device_id: str,
+        on_complete: Callable[[bool, dict[str, object] | None, str], None],
+    ) -> int:
+        if self._is_shutting_down:
+            return -1
+        request_id = self._next_request_id
+        self._next_request_id += 1
+        reply = self._post_json(
+            self._endpoint_auth_activate(),
+            {"license_key": license_key, "device_id": device_id},
+            include_auth=False,
+        )
+        reply.setProperty("request_id", request_id)
+        reply.setProperty("auth_flow", True)
+        self._active_replies.add(reply)
+        timeout_timer = QTimer(reply)
+        timeout_timer.setSingleShot(True)
+        timeout_timer.timeout.connect(lambda r=reply: self._on_timeout(r))
+        timeout_timer.start(self.settings.request_timeout_ms)
+        reply.setProperty("timeout_timer", timeout_timer)
+        reply.finished.connect(
+            lambda r=reply: self._handle_token_exchange_reply(r, on_complete),
+        )
+        reply.destroyed.connect(lambda _obj=None, r=reply: self._active_replies.discard(r))
+        return request_id
+
+    def request_refresh_token(
+        self,
+        refresh_token: str,
+        on_complete: Callable[[bool, dict[str, object] | None, str], None],
+    ) -> int:
+        if self._is_shutting_down:
+            return -1
+        request_id = self._next_request_id
+        self._next_request_id += 1
+        reply = self._post_json(
+            self._endpoint_auth_refresh(),
+            {"refresh_token": refresh_token},
+            include_auth=False,
+        )
+        reply.setProperty("request_id", request_id)
+        reply.setProperty("auth_flow", True)
+        self._active_replies.add(reply)
+        timeout_timer = QTimer(reply)
+        timeout_timer.setSingleShot(True)
+        timeout_timer.timeout.connect(lambda r=reply: self._on_timeout(r))
+        timeout_timer.start(self.settings.request_timeout_ms)
+        reply.setProperty("timeout_timer", timeout_timer)
+        reply.finished.connect(
+            lambda r=reply: self._handle_token_exchange_reply(r, on_complete),
+        )
+        reply.destroyed.connect(lambda _obj=None, r=reply: self._active_replies.discard(r))
+        return request_id
+
     def cancel_all_requests(self) -> None:
         self._is_shutting_down = True
         for reply in list(self._active_replies):
@@ -116,6 +190,19 @@ class ApiClient(QObject):
                 continue
             reply.setProperty("cancelled", True)
             reply.abort()
+
+    def _auth_header_pairs(self, *, include_auth: bool) -> list[tuple[bytes, bytes]]:
+        if not include_auth:
+            return []
+        env_tok = (self.settings.backend_access_token or "").strip()
+        if env_tok:
+            return [(b"Authorization", f"Bearer {env_tok}".encode("utf-8"))]
+        if (self.session.access_token or "").strip():
+            return [(b"Authorization", f"Bearer {self.session.access_token}".encode("utf-8"))]
+        api_key = (self.settings.backend_api_key or "").strip()
+        if api_key:
+            return [(b"X-Nudge-API-Key", api_key.encode("utf-8"))]
+        return []
 
     def _post_json(
         self,
@@ -126,11 +213,8 @@ class ApiClient(QObject):
     ) -> QNetworkReply:
         request = QNetworkRequest(QUrl(endpoint))
         request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json")
-        if include_auth and self.settings.backend_access_token:
-            header_value = f"Bearer {self.settings.backend_access_token}".encode("utf-8")
-            request.setRawHeader(b"Authorization", header_value)
-        elif include_auth and self.settings.backend_api_key:
-            request.setRawHeader(b"X-Nudge-API-Key", self.settings.backend_api_key.encode("utf-8"))
+        for name, value in self._auth_header_pairs(include_auth=include_auth):
+            request.setRawHeader(name, value)
         raw_payload = json.dumps(payload).encode("utf-8")
         return self._network.post(request, raw_payload)
 
@@ -171,6 +255,54 @@ class ApiClient(QObject):
             return ""
 
         return ""
+
+    def _handle_token_exchange_reply(
+        self,
+        reply: QNetworkReply,
+        on_complete: Callable[[bool, dict[str, object] | None, str], None],
+    ) -> None:
+        try:
+            timeout_timer = reply.property("timeout_timer")
+            if isinstance(timeout_timer, QTimer):
+                timeout_timer.stop()
+
+            if self._is_shutting_down or bool(reply.property("cancelled")):
+                on_complete(False, None, "")
+                return
+            if bool(reply.property("timed_out")):
+                on_complete(False, None, "Timeout")
+                return
+            if reply.error() != QNetworkReply.NetworkError.NoError:
+                on_complete(False, None, "Network error")
+                return
+
+            status_code = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+            body = bytes(reply.readAll()).decode("utf-8", errors="replace")
+            if status_code == 200:
+                try:
+                    data = json.loads(body)
+                except json.JSONDecodeError:
+                    on_complete(False, None, "Bad response")
+                    return
+                if isinstance(data, dict):
+                    at = str(data.get("access_token", "")).strip()
+                    rt = str(data.get("refresh_token", "")).strip()
+                    if at and rt:
+                        on_complete(True, data, "")
+                        return
+                on_complete(False, None, "Bad response")
+                return
+
+            try:
+                data = json.loads(body)
+                detail = data.get("detail")
+                message = self._extract_detail_message(detail)
+                on_complete(False, None, self._short_message(message or "Request failed"))
+            except json.JSONDecodeError:
+                on_complete(False, None, "Request failed")
+        finally:
+            self._active_replies.discard(reply)
+            reply.deleteLater()
 
     def _handle_reply(
         self,

@@ -10,6 +10,7 @@ a = Analysis(
         ("app/user_guide_content.json", "app"),
         ("release/version.json", "release"),
         ("release/release_metadata.example.json", "release"),
+        ("release/client_runtime.json", "release"),
     ],
     hiddenimports=[],
     hookspath=[],

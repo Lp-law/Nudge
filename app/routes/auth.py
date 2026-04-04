@@ -1,16 +1,19 @@
+import hashlib
 import hmac
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
-from app.core.metrics import record_auth_failure, record_token_event
+from app.core.metrics import record_auth_failure, record_rate_limit_denial, record_token_event
+from app.core.security import create_rate_limiter, get_client_ip
 from app.services.auth_issuer import AuthIssuerService
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
 auth_issuer = AuthIssuerService()
+_rate_limiter = create_rate_limiter(settings)
 
 
 BOOTSTRAP_HEADER = "X-Nudge-Bootstrap-Key"
@@ -30,6 +33,11 @@ class TokenRevokeRequest(BaseModel):
     token: str = Field(min_length=16)
 
 
+class ActivateRequest(BaseModel):
+    license_key: str = Field(min_length=8, max_length=512)
+    device_id: str = Field(min_length=8, max_length=256)
+
+
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
@@ -39,12 +47,37 @@ class TokenResponse(BaseModel):
 
 
 def _ensure_issuer_enabled() -> None:
-    if not settings.nudge_auth_issuer_enabled:
+    if not get_settings().nudge_auth_issuer_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found.")
 
 
+def _parse_customer_license_keys(raw: str) -> list[str]:
+    items: list[str] = []
+    for chunk in (raw or "").replace("\r", "\n").replace("\n", ",").split(","):
+        item = chunk.strip()
+        if item:
+            items.append(item)
+    return items
+
+
+def _license_key_is_authorized(provided: str, authorized: list[str]) -> bool:
+    candidate = (provided or "").strip()
+    if not candidate or not authorized:
+        return False
+    c_bytes = candidate.encode("utf-8")
+    for key in authorized:
+        if not key:
+            continue
+        k_bytes = key.encode("utf-8")
+        if len(c_bytes) != len(k_bytes):
+            continue
+        if hmac.compare_digest(c_bytes, k_bytes):
+            return True
+    return False
+
+
 def _validate_bootstrap_key(provided: str) -> None:
-    expected = (settings.nudge_auth_bootstrap_key or "").strip()
+    expected = (get_settings().nudge_auth_bootstrap_key or "").strip()
     provided_clean = (provided or "").strip()
     if (
         not expected
@@ -56,6 +89,47 @@ def _validate_bootstrap_key(provided: str) -> None:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized request.",
         )
+
+
+@router.post("/activate", response_model=TokenResponse)
+async def activate_customer(payload: ActivateRequest, request: Request) -> TokenResponse:
+    """Exchange a customer license key for access + refresh tokens (end-user installs)."""
+    live = get_settings()
+    _ensure_issuer_enabled()
+    keys = _parse_customer_license_keys(live.nudge_customer_license_keys)
+    if not keys:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Customer activation is not available.",
+        )
+
+    client_ip = get_client_ip(request, live)
+    window = 60
+    limit = int(live.nudge_activation_rate_limit_per_minute)
+    decision = await _rate_limiter.allow(f"activate:{client_ip}", limit, window)
+    if not decision.allowed:
+        record_rate_limit_denial("/auth/activate")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many activation attempts. Try again later.",
+            headers={"Retry-After": str(decision.retry_after_seconds)},
+        )
+
+    if not _license_key_is_authorized(payload.license_key, keys):
+        record_auth_failure("/auth/activate", "license")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid license key.",
+        )
+
+    digest = hashlib.sha256(payload.license_key.strip().encode("utf-8")).hexdigest()[:24]
+    subject = f"lic:{digest}"
+    pair = await auth_issuer.issue_token_pair(
+        subject=subject,
+        device_id=payload.device_id.strip(),
+    )
+    record_token_event("activated")
+    return TokenResponse(**pair.__dict__)
 
 
 @router.post("/token", response_model=TokenResponse)

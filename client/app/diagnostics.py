@@ -35,20 +35,31 @@ def classify_backend_url(url: str) -> str:
     return "http_non_tls"
 
 
-def classify_auth_mode(settings) -> str:
+def classify_auth_mode(settings, session=None) -> str:
     if bool(getattr(settings, "backend_access_token", "").strip()):
-        return "bearer_token"
+        return "bearer_env"
+    if session is not None and bool((getattr(session, "access_token", "") or "").strip()):
+        return "bearer_session"
     if bool(getattr(settings, "backend_api_key", "").strip()):
         return "api_key"
+    if session is not None and bool((getattr(session, "refresh_token", "") or "").strip()):
+        return "refresh_token_saved"
     return "none"
 
 
-def build_diagnostics_summary(*, app, settings, accessibility_mode: bool, tray_available: bool) -> str:
+def build_diagnostics_summary(
+    *,
+    app,
+    settings,
+    session=None,
+    accessibility_mode: bool,
+    tray_available: bool,
+) -> str:
     version = (app.applicationVersion() or "").strip() or "unknown"
     channel = str(app.property("nudge_release_channel") or "stable").strip().lower() or "stable"
     metadata_url = str(app.property("nudge_release_metadata_url") or "").strip()
     backend_url_class = classify_backend_url(getattr(settings, "backend_base_url", ""))
-    auth_mode = classify_auth_mode(settings)
+    auth_mode = classify_auth_mode(settings, session)
 
     warnings: list[str] = []
     if version == "unknown" or version == "0.0.0":
@@ -77,6 +88,7 @@ def build_diagnostics_summary(*, app, settings, accessibility_mode: bool, tray_a
         "--- client_config_safe ---",
         f"backend_url_class: {backend_url_class}",
         f"backend_auth_mode: {auth_mode}",
+        f"activation_session: {'yes' if session is not None else 'no'}",
         f"request_timeout_ms: {int(getattr(settings, 'request_timeout_ms', 0) or 0)}",
         f"popup_delay_ms: {int(getattr(settings, 'popup_delay_ms', 0) or 0)}",
         f"minimum_non_space_chars: {int(getattr(settings, 'minimum_non_space_chars', 0) or 0)}",

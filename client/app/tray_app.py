@@ -1,9 +1,10 @@
 import hashlib
 
-from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QSettings, QTimer
+from PySide6.QtCore import QByteArray, QBuffer, QEventLoop, QIODevice, QSettings, QTimer
 from PySide6.QtGui import QClipboard, QIcon
 from PySide6.QtWidgets import QApplication, QDialog, QMenu, QMessageBox, QStyle, QSystemTrayIcon
 
+from .activation_dialog import ActivationDialog
 from .action_contract import (
     ALL_ACTION_KEYS,
     BACKEND_TEXT_ACTION_KEYS,
@@ -26,9 +27,12 @@ from .lifecycle_logic import (
 from .popup import ActionPopup
 from .onboarding_dialog import OnboardingDialog
 from .runtime_paths import resource_path
+from .session_state import ClientSession
 from .settings import get_settings
 from .sensitive_guard import detect_sensitive_text, image_requires_confirmation
 from .ui_strings import (
+    ACTIVATION_FAILED_GENERIC,
+    ACTIVATION_TITLE,
     CLOUD_CONFIRM_CANCEL,
     CLOUD_CONFIRM_CONTINUE,
     CLOUD_CONFIRM_TITLE,
@@ -45,6 +49,7 @@ from .ui_strings import (
     TRAY_MENU_ACCESSIBILITY_MODE,
     TRAY_MENU_DIAGNOSTICS,
     TRAY_MENU_EXIT,
+    TRAY_MENU_REACTIVATE,
     TRAY_MENU_USER_GUIDE,
     cloud_confirm_message,
 )
@@ -55,8 +60,9 @@ class TrayApp:
     def __init__(self, app: QApplication) -> None:
         validate_action_contract()
         self.app = app
-        self.settings = get_settings()
         self._preferences = QSettings("Nudge", "NudgeClient")
+        self._session = ClientSession(self._preferences)
+        self.settings = get_settings()
         self._accessibility_mode = self._load_accessibility_mode()
         self.app.setQuitOnLastWindowClosed(False)
         self.app.aboutToQuit.connect(self._on_app_shutdown)
@@ -71,7 +77,7 @@ class TrayApp:
         self._onboarding_dialog: OnboardingDialog | None = None
 
         self.clipboard: QClipboard = self.app.clipboard()
-        self.api_client = ApiClient()
+        self.api_client = ApiClient(self._session)
         self.popup = ActionPopup(accessibility_mode=self._accessibility_mode)
         self.monitor = ClipboardMonitor(self.clipboard)
         self.monitor.text_ready.connect(self._on_text_ready)
@@ -97,11 +103,85 @@ class TrayApp:
         accessibility_action.setCheckable(True)
         accessibility_action.setChecked(self._accessibility_mode)
         accessibility_action.toggled.connect(self._on_accessibility_toggled)
+        reactivate_action = menu.addAction(TRAY_MENU_REACTIVATE)
+        reactivate_action.triggered.connect(self._on_reactivate)
         quit_action = menu.addAction(TRAY_MENU_EXIT)
         quit_action.triggered.connect(self.app.quit)
         self.tray.setContextMenu(menu)
         self.tray.show()
-        QTimer.singleShot(450, self._maybe_show_onboarding)
+        QTimer.singleShot(300, self._run_initial_setup_flow)
+
+    def _run_initial_setup_flow(self) -> None:
+        if self._is_shutting_down:
+            return
+        if not self._ensure_cloud_auth_ready():
+            return
+        QTimer.singleShot(150, self._maybe_show_onboarding)
+
+    def _ensure_cloud_auth_ready(self) -> bool:
+        st = self.settings
+        if (st.backend_access_token or "").strip():
+            self._session.update_access_only(st.backend_access_token.strip())
+            return True
+        if (st.backend_api_key or "").strip():
+            return True
+        if (self._session.refresh_token or "").strip():
+            if self._blocking_refresh_tokens():
+                return True
+            self._session.clear_auth()
+        return self._blocking_activation_dialog(mandatory=True)
+
+    def _blocking_refresh_tokens(self) -> bool:
+        rt = self._session.refresh_token
+        if not rt:
+            return False
+        loop = QEventLoop()
+        outcome: dict[str, bool] = {"ok": False}
+
+        def done(success: bool, data: dict[str, object] | None, _err: str) -> None:
+            if success and data:
+                at = str(data.get("access_token", "")).strip()
+                nr = str(data.get("refresh_token", "")).strip()
+                if at and nr:
+                    self._session.persist_tokens(at, nr)
+                    outcome["ok"] = True
+            loop.quit()
+
+        self.api_client.request_refresh_token(rt, done)
+        loop.exec()
+        return bool(outcome["ok"])
+
+    def _blocking_activation_dialog(self, *, mandatory: bool) -> bool:
+        while True:
+            dialog = ActivationDialog(self.popup, mandatory=mandatory)
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                if mandatory:
+                    self.app.quit()
+                return False
+            key = dialog.license_key.strip()
+            loop = QEventLoop()
+            outcome: dict[str, str | bool] = {"ok": False, "err": ""}
+
+            def done(success: bool, data: dict[str, object] | None, err: str) -> None:
+                if success and data:
+                    at = str(data.get("access_token", "")).strip()
+                    rt = str(data.get("refresh_token", "")).strip()
+                    if at and rt:
+                        self._session.persist_tokens(at, rt)
+                        outcome["ok"] = True
+                if not outcome["ok"]:
+                    outcome["err"] = (err or "").strip() or ACTIVATION_FAILED_GENERIC
+                loop.quit()
+
+            self.api_client.request_activate(key, self._session.installation_id(), done)
+            loop.exec()
+            if outcome["ok"]:
+                return True
+            QMessageBox.warning(self.popup, ACTIVATION_TITLE, str(outcome["err"]))
+
+    def _on_reactivate(self) -> None:
+        self._session.clear_auth()
+        self._blocking_activation_dialog(mandatory=False)
 
     def _load_tray_icon(self) -> QIcon:
         icon_path = resource_path("assets", "nudge.ico")
@@ -280,6 +360,7 @@ class TrayApp:
         summary = build_diagnostics_summary(
             app=self.app,
             settings=self.settings,
+            session=self._session,
             accessibility_mode=self._accessibility_mode,
             tray_available=bool(QSystemTrayIcon.isSystemTrayAvailable()),
         )

@@ -1,5 +1,6 @@
 param(
-    [switch]$SkipInstaller
+    [switch]$SkipInstaller,
+    [string]$ProductionBackendUrl = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,6 +20,16 @@ $versionInfo = Get-Content $versionInfoPath -Raw | ConvertFrom-Json
 $appVersion = [string]$versionInfo.version
 if ([string]::IsNullOrWhiteSpace($appVersion)) {
     throw "release/version.json must include a non-empty version"
+}
+
+$runtimePath = Join-Path $root "release\client_runtime.json"
+if ($ProductionBackendUrl -and -not [string]::IsNullOrWhiteSpace($ProductionBackendUrl)) {
+    $url = $ProductionBackendUrl.Trim().TrimEnd("/")
+    $payload = @{ backend_base_url = $url } | ConvertTo-Json -Compress
+    Set-Content -Path $runtimePath -Value $payload -Encoding utf8
+    Write-Host "Wrote backend URL to release\client_runtime.json"
+} else {
+    Write-Warning "No -ProductionBackendUrl: using release\client_runtime.json as-is (null URL falls back to localhost unless users set NUDGE_BACKEND_BASE_URL)."
 }
 
 & ".venv\Scripts\python.exe" -m pip install --upgrade pip

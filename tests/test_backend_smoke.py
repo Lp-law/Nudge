@@ -560,6 +560,55 @@ def test_missing_token_signing_key_raises_without_render_ephemeral(monkeypatch) 
     get_settings.cache_clear()
 
 
+def test_auth_activate_success(monkeypatch) -> None:
+    monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", "customer-license-key-abcdefgh")
+    get_settings.cache_clear()
+    from app.main import app
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/auth/activate",
+            json={
+                "license_key": "customer-license-key-abcdefgh",
+                "device_id": "device-id-12345678",
+            },
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("token_type") == "Bearer"
+    assert len(data.get("access_token", "")) > 20
+    assert len(data.get("refresh_token", "")) > 20
+    get_settings.cache_clear()
+
+
+def test_auth_activate_rejects_bad_license(monkeypatch) -> None:
+    monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", "good-key-xxxxxxxxxxxxxxxx")
+    get_settings.cache_clear()
+    from app.main import app
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/auth/activate",
+            json={"license_key": "bad-key-xxxxxxxxxxxxxxxx", "device_id": "device-id-12345678"},
+        )
+    assert response.status_code == 401
+    get_settings.cache_clear()
+
+
+def test_auth_activate_unconfigured_returns_503(monkeypatch) -> None:
+    monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", "")
+    get_settings.cache_clear()
+    from app.main import app
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/auth/activate",
+            json={"license_key": "any-key-xxxxxxxxxxxxxxxx", "device_id": "device-id-12345678"},
+        )
+    assert response.status_code == 503
+    get_settings.cache_clear()
+
+
 def test_ocr_poll_timeout_is_bounded(monkeypatch) -> None:
     monkeypatch.setenv("OCR_POLL_TIMEOUT_SECONDS", "1")
     get_settings.cache_clear()

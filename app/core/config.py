@@ -99,6 +99,17 @@ class Settings(BaseSettings):
     nudge_auth_bootstrap_key: str | None = Field(
         default=None, alias="NUDGE_AUTH_BOOTSTRAP_KEY"
     )
+    nudge_customer_license_keys: str = Field(
+        default="",
+        alias="NUDGE_CUSTOMER_LICENSE_KEYS",
+        description="Comma/newline-separated license keys for POST /auth/activate (end users).",
+    )
+    nudge_activation_rate_limit_per_minute: int = Field(
+        default=20,
+        alias="NUDGE_ACTIVATION_RATE_LIMIT_PER_MINUTE",
+        ge=1,
+        le=1000,
+    )
     nudge_access_token_ttl_seconds: int = Field(
         default=900, alias="NUDGE_ACCESS_TOKEN_TTL_SECONDS"
     )

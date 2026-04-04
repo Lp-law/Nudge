@@ -60,6 +60,8 @@ Edit `.env` with your real Azure values.
 - `NUDGE_REQUIRED_SCOPE` (default `nudge.api`)
 - `NUDGE_ALLOW_LEGACY_API_KEY` (**production: `false`**)
 - `NUDGE_REVOKED_TOKEN_JTIS` (comma-separated token `jti` values)
+- `NUDGE_CUSTOMER_LICENSE_KEYS` (comma/newline-separated **license keys** for paying customers; powers `POST /auth/activate`; empty = customer activation disabled with `503`)
+- `NUDGE_ACTIVATION_RATE_LIMIT_PER_MINUTE` (default `20`; per-IP limit on `/auth/activate`)
 - `NUDGE_BACKEND_API_KEY` (legacy fallback key; avoid as final production model)
 - `RATE_LIMIT_WINDOW_SECONDS` (default `60`)
 - `RATE_LIMIT_ACTION_REQUESTS` (default `30`)
@@ -77,6 +79,44 @@ Edit `.env` with your real Azure values.
 - `ADMIN_DASHBOARD_USERNAME` (required when dashboard enabled)
 - `ADMIN_DASHBOARD_PASSWORD` (required when dashboard enabled; min 10 chars)
 - `PORT` (optional locally, default app behavior is `8000`)
+
+## End-user distribution (Windows client)
+
+**What paying customers get:** an installer (`Nudge-Setup-<version>.exe`) built from `client/build_windows.ps1`. They do **not** set environment variables.
+
+**How the packaged client finds the backend**
+
+1. Optional override: `NUDGE_BACKEND_BASE_URL` (developers / power users only).
+2. Otherwise: `client/release/client_runtime.json` bundled into the app (`backend_base_url`). The file in git uses `null` → packaged dev builds fall back to `http://127.0.0.1:8000`.
+3. **Release builds:** pass your public API URL when packaging:
+
+```powershell
+cd client
+.\build_windows.ps1 -ProductionBackendUrl "https://your-backend.example.com"
+```
+
+That overwrites `release/client_runtime.json` before PyInstaller runs (commit the result only if you intend to pin a URL in-repo).
+
+**First-run activation (customers)**
+
+- On first launch, if there is no saved session and no dev env auth, the client shows a short **Hebrew** dialog asking for the **license key** you issued.
+- The app calls `POST /auth/activate` on your backend; the server must have `NUDGE_CUSTOMER_LICENSE_KEYS` populated with the same key(s). The response returns normal access + refresh JWTs; the client stores the **refresh token** in Windows `QSettings` (user registry hive) and keeps the access token in memory.
+- Next launches: the client refreshes tokens automatically when possible. Tray menu **«החלפת מפתח הפעלה…»** clears the session and allows entering a new key (optional flow).
+
+**Developer / internal auth (unchanged)**
+
+- `NUDGE_BACKEND_ACCESS_TOKEN` or `NUDGE_BACKEND_API_KEY` still skip the activation dialog for local development.
+
+**Internal vs end-user**
+
+| Area | End-user | Internal / admin |
+|------|----------|-------------------|
+| Azure keys | Never on the client; only on the server | `.env` / Render secrets |
+| License keys | Shown in activation UI; stored hashed server-side only as JWT subject prefix | `NUDGE_CUSTOMER_LICENSE_KEYS` on the server |
+| Bootstrap issuer key | Not used by customers | `NUDGE_AUTH_BOOTSTRAP_KEY` for `POST /auth/token` |
+| Admin dashboard | Not exposed in the client | `GET /admin` when enabled |
+
+**Still out of scope:** full SaaS accounts, self-service billing, enterprise SSO, automated in-app updater delivery, multi-tenant license admin UI.
 
 ## Backend local run
 
@@ -116,7 +156,8 @@ $env:NUDGE_ONBOARDING_SOURCE="website"
 ```
 
 `NUDGE_BACKEND_ACCESS_TOKEN` is the preferred auth path (`Authorization: Bearer ...`).  
-`NUDGE_BACKEND_API_KEY` remains for controlled dev/internal compatibility only.
+`NUDGE_BACKEND_API_KEY` remains for controlled dev/internal compatibility only.  
+If neither is set, the **activation dialog** runs (license key → `/auth/activate`) unless a refresh token was saved from a previous run.
 `NUDGE_ONBOARDING_ENABLED` controls first-run lead capture prompt (default on).  
 `NUDGE_ONBOARDING_SOURCE` tags signup source for segmentation (`website`, `direct`, `referral`, `unknown`).
 
@@ -293,6 +334,7 @@ The summary intentionally excludes clipboard content, OCR images, secrets, and u
 - `GET /admin` and `/admin/api/*` are internal-only and protected by HTTP Basic auth when dashboard is enabled.
 - Legacy fallback `X-Nudge-API-Key` is supported only when `NUDGE_ALLOW_LEGACY_API_KEY=true`.
 - Internal auth issuer lifecycle endpoints:
+  - `POST /auth/activate` (customer license key → access + refresh JWT pair; rate-limited; requires `NUDGE_CUSTOMER_LICENSE_KEYS` on the server)
   - `POST /auth/token` (bootstrap-gated issuance of short-lived access + refresh token; send bootstrap secret in `X-Nudge-Bootstrap-Key`, body fallback kept for internal compatibility)
   - `POST /auth/refresh` (refresh rotation)
   - `POST /auth/revoke` (persisted revocation by token `jti`)

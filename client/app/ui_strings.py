@@ -51,6 +51,12 @@ def resolve_status_text(message: str) -> str:
         return "התמונה לא תקינה לחילוץ טקסט."
     if "image is too large" in lowered:
         return "התמונה גדולה מדי לחילוץ טקסט."
+    if "invalid license" in lowered:
+        return "מפתח הפעלה שגוי."
+    if "customer activation is not available" in lowered:
+        return "ההפעלה לא זמינה כרגע. צרו קשר עם התמיכה."
+    if "too many activation" in lowered:
+        return "ניסיונות הפעלה רבים מדי. נסו שוב בעוד כמה דקות."
     if "rate limit exceeded" in lowered:
         return "יותר מדי בקשות ברצף. נסה שוב בעוד רגע."
     if "request body is too large" in lowered:
@@ -76,6 +82,24 @@ ONBOARDING_SUBMIT = "שמירה והמשך"
 ONBOARDING_LATER = "מאוחר יותר"
 ONBOARDING_ERROR_REQUIRED = "יש למלא שם, אימייל ותחום עיסוק."
 ONBOARDING_ERROR_FAILED = "שמירת הפרטים נכשלה. אפשר לנסות שוב מאוחר יותר."
+
+TRAY_MENU_REACTIVATE = "החלפת מפתח הפעלה…"
+
+ACTIVATION_TITLE = "הפעלת Nudge"
+ACTIVATION_SUBTITLE = (
+    "הזינו את מפתח ההפעלה שקיבלתם ברכישה. "
+    "החיבור לשרת מאובטח, ואין צורך בהגדרות נוספות."
+)
+ACTIVATION_SUBTITLE_OPTIONAL = (
+    "הזינו מפתח הפעלה חדש כדי לחדש את הגישה לשירות. "
+    "אפשר לבטל ולהמשיך בלי לשנות."
+)
+ACTIVATION_LICENSE_LABEL = "מפתח הפעלה"
+ACTIVATION_SUBMIT = "הפעלה"
+ACTIVATION_EXIT_APP = "יציאה מהתוכנה"
+ACTIVATION_CANCEL = "ביטול"
+ACTIVATION_ERROR_EMPTY = "מפתח ההפעלה קצר מדי. נא להדביק את המפתח המלא."
+ACTIVATION_FAILED_GENERIC = "ההפעלה נכשלה. בדקו את המפתח או את החיבור לאינטרנט."
 
 
 def cloud_confirm_message(reason_text: str) -> str:
