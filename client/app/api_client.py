@@ -81,6 +81,7 @@ class ApiClient(QObject):
             "on_success": on_success,
             "on_error": on_error,
             "auth_refresh_attempted": False,
+            "timeout_ms": self.settings.ai_request_timeout_ms,
         }
         reply = self._post_json(self._endpoint_ai_action(), payload)
         reply.setProperty("request_id", request_id)
@@ -89,7 +90,7 @@ class ApiClient(QObject):
         timeout_timer = QTimer(reply)
         timeout_timer.setSingleShot(True)
         timeout_timer.timeout.connect(lambda r=reply: self._on_timeout(r))
-        timeout_timer.start(self.settings.request_timeout_ms)
+        timeout_timer.start(self.settings.ai_request_timeout_ms)
         reply.setProperty("timeout_timer", timeout_timer)
 
         reply.finished.connect(
@@ -120,6 +121,7 @@ class ApiClient(QObject):
             "on_success": on_success,
             "on_error": on_error,
             "auth_refresh_attempted": False,
+            "timeout_ms": self.settings.ai_request_timeout_ms,
         }
         reply = self._post_json(self._endpoint_ai_ocr(), payload)
         reply.setProperty("request_id", request_id)
@@ -128,7 +130,7 @@ class ApiClient(QObject):
         timeout_timer = QTimer(reply)
         timeout_timer.setSingleShot(True)
         timeout_timer.timeout.connect(lambda r=reply: self._on_timeout(r))
-        timeout_timer.start(self.settings.request_timeout_ms)
+        timeout_timer.start(self.settings.ai_request_timeout_ms)
         reply.setProperty("timeout_timer", timeout_timer)
 
         reply.finished.connect(
@@ -271,10 +273,11 @@ class ApiClient(QObject):
         )
         reply.setProperty("request_id", request_id)
         self._active_replies.add(reply)
+        timeout_ms = int(ctx.get("timeout_ms") or self.settings.request_timeout_ms)
         timeout_timer = QTimer(reply)
         timeout_timer.setSingleShot(True)
         timeout_timer.timeout.connect(lambda r=reply: self._on_timeout(r))
-        timeout_timer.start(self.settings.request_timeout_ms)
+        timeout_timer.start(timeout_ms)
         reply.setProperty("timeout_timer", timeout_timer)
         on_success = ctx["on_success"]
         on_error_cb = ctx["on_error"]

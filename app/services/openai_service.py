@@ -21,7 +21,8 @@ from app.services.upstream_errors import UpstreamServiceError
 
 
 logger = logging.getLogger(__name__)
-REQUEST_TIMEOUT_SECONDS = 20.0
+# Long inputs + Azure latency; client allows ~90s for /ai/action.
+REQUEST_TIMEOUT_SECONDS = 35.0
 MAX_RETRIES = 2
 BACKOFF_BASE_SECONDS = 0.5
 

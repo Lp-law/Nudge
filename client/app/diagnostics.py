@@ -91,6 +91,7 @@ def build_diagnostics_summary(
         f"backend_auth_mode: {auth_mode}",
         f"activation_session: {'yes' if session is not None else 'no'}",
         f"request_timeout_ms: {int(getattr(settings, 'request_timeout_ms', 0) or 0)}",
+        f"ai_request_timeout_ms: {int(getattr(settings, 'ai_request_timeout_ms', 0) or 0)}",
         f"popup_delay_ms: {int(getattr(settings, 'popup_delay_ms', 0) or 0)}",
         f"minimum_non_space_chars: {int(getattr(settings, 'minimum_non_space_chars', 0) or 0)}",
         f"duplicate_cooldown_ms: {int(getattr(settings, 'duplicate_cooldown_ms', 0) or 0)}",
