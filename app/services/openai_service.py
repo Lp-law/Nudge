@@ -1,3 +1,4 @@
+import json
 import logging
 import asyncio
 from typing import Any
@@ -112,6 +113,22 @@ class AzureOpenAIService:
                 raise error from exc
             except APIStatusError as exc:
                 status_code = int(getattr(exc, "status_code", 0) or 0)
+                body = getattr(exc, "body", None)
+                if body is not None:
+                    try:
+                        detail = (
+                            json.dumps(body, ensure_ascii=False)
+                            if isinstance(body, dict)
+                            else str(body)
+                        )
+                    except (TypeError, ValueError):
+                        detail = str(body)
+                    logger.warning(
+                        "Azure OpenAI HTTP error status=%s sdk_request_id=%s body=%s",
+                        status_code,
+                        getattr(exc, "request_id", None),
+                        detail[:4000],
+                    )
                 if status_code == 429:
                     error = UpstreamServiceError(
                         "rate_limited",

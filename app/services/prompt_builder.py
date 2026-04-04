@@ -38,14 +38,15 @@ if _missing_prompt_actions or _extra_prompt_actions:
 
 
 def build_messages(action: ActionType, text: str) -> list[dict[str, str]]:
-    system_message = (
+    # One system block: some Azure OpenAI routes reject multiple system roles.
+    base = (
         "You are Nudge, a silent AI assistant that returns compact, helpful output "
         "for micro-actions. Keep responses brief and directly usable."
     )
     task_message = INSTRUCTIONS_BY_ACTION[action]
+    system_message = f"{base}\n\n{task_message}"
 
     return [
         {"role": "system", "content": system_message},
-        {"role": "system", "content": task_message},
         {"role": "user", "content": text},
     ]
