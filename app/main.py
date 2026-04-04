@@ -36,21 +36,32 @@ for handler in logging.getLogger().handlers:
 
 def validate_startup_config() -> None:
     settings = get_settings()
+    logging.info(
+        "Azure OpenAI startup: AZURE_OPENAI_V1_COMPAT effective value is %s",
+        getattr(settings, "azure_openai_v1_compat", False),
+    )
     required = {
         "AZURE_OPENAI_API_KEY": settings.azure_openai_api_key,
         "AZURE_OPENAI_ENDPOINT": settings.azure_openai_endpoint,
-        "AZURE_OPENAI_API_VERSION": settings.azure_openai_api_version,
         "AZURE_OPENAI_DEPLOYMENT": settings.azure_openai_deployment,
     }
+    if not getattr(settings, "azure_openai_v1_compat", False):
+        required["AZURE_OPENAI_API_VERSION"] = settings.azure_openai_api_version
     missing = [name for name, value in required.items() if not (value and str(value).strip())]
     if missing:
+        hint = ""
+        if "AZURE_OPENAI_API_VERSION" in missing:
+            hint = (
+                " Either set AZURE_OPENAI_API_VERSION (classic deployments path) or set "
+                "AZURE_OPENAI_V1_COMPAT=true for Microsoft Foundry (Studio View code /openai/v1)."
+            )
         logging.error(
-            "Startup configuration invalid. Missing required environment variables: %s",
+            "Startup configuration invalid. Missing required environment variables: %s.%s",
             ", ".join(missing),
+            hint,
         )
         raise RuntimeError(
-            "Missing required Azure AI environment variables. "
-            "Check server configuration."
+            "Missing required Azure AI environment variables. Check server configuration." + hint
         )
     if not (settings.azure_doc_intel_endpoint and settings.azure_doc_intel_api_key):
         logging.warning(

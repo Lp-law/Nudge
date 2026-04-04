@@ -1,5 +1,6 @@
 import logging
 import asyncio
+from typing import Any
 
 from openai import (
     APIConnectionError,
@@ -7,6 +8,7 @@ from openai import (
     APIStatusError,
     APITimeoutError,
     AsyncAzureOpenAI,
+    AsyncOpenAI,
     RateLimitError,
 )
 
@@ -26,29 +28,41 @@ BACKOFF_BASE_SECONDS = 0.5
 class AzureOpenAIService:
     def __init__(self) -> None:
         self.settings = get_settings()
-        self.client: AsyncAzureOpenAI | None = None
+        self.client: Any = None
 
     def _validate_settings(self) -> None:
-        required = {
+        required: dict[str, Any] = {
             "AZURE_OPENAI_API_KEY": self.settings.azure_openai_api_key,
             "AZURE_OPENAI_ENDPOINT": self.settings.azure_openai_endpoint,
-            "AZURE_OPENAI_API_VERSION": self.settings.azure_openai_api_version,
             "AZURE_OPENAI_DEPLOYMENT": self.settings.azure_openai_deployment,
         }
+        if not self.settings.azure_openai_v1_compat:
+            required["AZURE_OPENAI_API_VERSION"] = self.settings.azure_openai_api_version
         missing = [key for key, value in required.items() if not value]
         if missing:
             raise ValueError(
                 "Missing required Azure OpenAI configuration: " + ", ".join(missing)
             )
 
-    def _get_client(self) -> AsyncAzureOpenAI:
+    def _get_client(self) -> Any:
         if self.client is None:
             self._validate_settings()
-            self.client = AsyncAzureOpenAI(
-                api_key=self.settings.azure_openai_api_key,
-                azure_endpoint=self.settings.azure_openai_endpoint,
-                api_version=self.settings.azure_openai_api_version,
-            )
+            ep = (self.settings.azure_openai_endpoint or "").strip().rstrip("/")
+            dep = (self.settings.azure_openai_deployment or "").strip()
+            if self.settings.azure_openai_v1_compat:
+                # Microsoft Foundry / Studio "View code": OpenAI SDK + base_url .../openai/v1
+                base_url = f"{ep}/openai/v1"
+                self.client = AsyncOpenAI(
+                    api_key=self.settings.azure_openai_api_key,
+                    base_url=base_url,
+                )
+            else:
+                self.client = AsyncAzureOpenAI(
+                    api_key=self.settings.azure_openai_api_key,
+                    azure_endpoint=ep,
+                    api_version=self.settings.azure_openai_api_version,
+                    azure_deployment=dep or None,
+                )
         return self.client
 
     async def generate_action(self, action: ActionType, text: str) -> str:

@@ -2,8 +2,9 @@ import logging
 import os
 import secrets
 from functools import lru_cache
+from urllib.parse import urlparse
 
-from pydantic import Field
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.security import is_strong_bootstrap_key
@@ -69,6 +70,21 @@ class Settings(BaseSettings):
     azure_openai_deployment: str | None = Field(
         default=None, alias="AZURE_OPENAI_DEPLOYMENT"
     )
+    azure_openai_v1_compat: bool = Field(
+        default=False,
+        alias="AZURE_OPENAI_V1_COMPAT",
+        description="Use AsyncOpenAI with {endpoint}/openai/v1 (Foundry View code); no api-version query.",
+    )
+
+    @field_validator("azure_openai_v1_compat", mode="before")
+    @classmethod
+    def _coerce_openai_v1_flag(cls, value: object) -> bool:
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return False
+        s = str(value).strip().lower()
+        return s in ("1", "true", "yes", "on")
     azure_doc_intel_endpoint: str | None = Field(
         default=None, alias="AZURE_DOC_INTELLIGENCE_ENDPOINT"
     )
@@ -76,7 +92,9 @@ class Settings(BaseSettings):
         default=None, alias="AZURE_DOC_INTELLIGENCE_API_KEY"
     )
     azure_doc_intel_api_version: str = Field(
-        default="2024-02-29-preview", alias="AZURE_DOC_INTELLIGENCE_API_VERSION"
+        default="2024-11-30",
+        alias="AZURE_DOC_INTELLIGENCE_API_VERSION",
+        description="REST api-version for /documentintelligence/... (e.g. 2024-11-30).",
     )
     ocr_poll_timeout_seconds: float = Field(default=25.0, alias="OCR_POLL_TIMEOUT_SECONDS")
     nudge_backend_api_key: str | None = Field(
@@ -147,6 +165,31 @@ class Settings(BaseSettings):
     admin_dashboard_username: str | None = Field(default=None, alias="ADMIN_DASHBOARD_USERNAME")
     admin_dashboard_password: str | None = Field(default=None, alias="ADMIN_DASHBOARD_PASSWORD")
     port: int = Field(default=8000, alias="PORT")
+
+    @model_validator(mode="after")
+    def _normalize_azure_endpoints(self) -> "Settings":
+        """Trailing slash + SDK path yields //openai/... and breaks Azure OpenAI requests."""
+        if self.azure_openai_endpoint:
+            cleaned = self.azure_openai_endpoint.strip().rstrip("/")
+            if cleaned != self.azure_openai_endpoint:
+                self.azure_openai_endpoint = cleaned
+        if self.azure_doc_intel_endpoint:
+            cleaned = self.azure_doc_intel_endpoint.strip().rstrip("/")
+            if cleaned != self.azure_doc_intel_endpoint:
+                self.azure_doc_intel_endpoint = cleaned
+        # Microsoft Foundry hosts use /openai/v1 in Studio; no AZURE_OPENAI_API_VERSION then.
+        if (
+            not self.azure_openai_v1_compat
+            and not (self.azure_openai_api_version or "").strip()
+            and self.azure_openai_endpoint
+        ):
+            try:
+                host = (urlparse(self.azure_openai_endpoint).hostname or "").lower()
+            except ValueError:
+                host = ""
+            if host.endswith(".openai.azure.com"):
+                self.azure_openai_v1_compat = True
+        return self
 
 
 @lru_cache(maxsize=1)

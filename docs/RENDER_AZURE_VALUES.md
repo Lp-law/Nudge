@@ -35,7 +35,7 @@
 |----------------|---------------------|
 | `AZURE_DOC_INTELLIGENCE_ENDPOINT` | Document Intelligence (או Cognitive Services) → **Keys and Endpoint** → Endpoint (`https://....cognitiveservices.azure.com`) |
 | `AZURE_DOC_INTELLIGENCE_API_KEY` | אותו מסך → Key 1 או 2 |
-| `AZURE_DOC_INTELLIGENCE_API_VERSION` | בדרך כלל `2024-02-29-preview` (ברירת מחדל ב־YAML) |
+| `AZURE_DOC_INTELLIGENCE_API_VERSION` | בדרך כלל `2024-11-30` (ברירת מחדל ב־YAML; לפי מה שמופיע בפורטל למשאב) |
 
 ## אימות Nudge (ברירת מחדל בפריסה: `token`)
 

@@ -220,7 +220,10 @@ class TrayApp:
                 nr = str(data.get("refresh_token", "")).strip()
                 if at and nr:
                     self._session.persist_tokens(at, nr)
-            self._arm_proactive_refresh_timer()
+                    self._arm_proactive_refresh_timer()
+                    return
+            if self._proactive_refresh_timer is not None:
+                self._proactive_refresh_timer.stop()
 
         self.api_client.request_refresh_token(rt, done)
 

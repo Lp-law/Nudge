@@ -98,7 +98,7 @@ if ($DocumentIntelligenceResourceName) {
     }
     $lines += "AZURE_DOC_INTELLIGENCE_ENDPOINT=$docEp"
     $lines += "AZURE_DOC_INTELLIGENCE_API_KEY=$docKey"
-    $lines += "AZURE_DOC_INTELLIGENCE_API_VERSION=2024-02-29-preview"
+    $lines += "AZURE_DOC_INTELLIGENCE_API_VERSION=2024-11-30"
 } else {
     $lines += "# AZURE_DOC_INTELLIGENCE_* — add a second resource name with -DocumentIntelligenceResourceName, or paste manually."
 }

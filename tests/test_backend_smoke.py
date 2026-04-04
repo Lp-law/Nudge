@@ -560,6 +560,28 @@ def test_missing_token_signing_key_raises_without_render_ephemeral(monkeypatch) 
     get_settings.cache_clear()
 
 
+def test_validate_startup_skips_openai_api_version_when_v1_compat(monkeypatch) -> None:
+    monkeypatch.setenv("AZURE_OPENAI_V1_COMPAT", "true")
+    monkeypatch.delenv("AZURE_OPENAI_API_VERSION", raising=False)
+    get_settings.cache_clear()
+    from app.main import validate_startup_config
+
+    validate_startup_config()
+    get_settings.cache_clear()
+
+
+def test_validate_startup_infers_v1_when_foundry_host_without_api_version(monkeypatch) -> None:
+    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://nudge-openai.openai.azure.com")
+    monkeypatch.delenv("AZURE_OPENAI_API_VERSION", raising=False)
+    monkeypatch.delenv("AZURE_OPENAI_V1_COMPAT", raising=False)
+    get_settings.cache_clear()
+    from app.main import validate_startup_config
+
+    validate_startup_config()
+    assert get_settings().azure_openai_v1_compat is True
+    get_settings.cache_clear()
+
+
 def test_auth_activate_success(monkeypatch) -> None:
     monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", "customer-license-key-abcdefgh")
     get_settings.cache_clear()

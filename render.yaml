@@ -24,6 +24,9 @@ services:
         value: 2024-02-15-preview
       - key: AZURE_OPENAI_DEPLOYMENT
         sync: false
+      # "true" = Foundry / Studio "View code" (base_url .../openai/v1). Ignores AZURE_OPENAI_API_VERSION.
+      - key: AZURE_OPENAI_V1_COMPAT
+        value: "false"
 
       # --- Azure Document Intelligence (OCR) — paste from Azure Portal ---
       - key: AZURE_DOC_INTELLIGENCE_ENDPOINT
@@ -31,7 +34,7 @@ services:
       - key: AZURE_DOC_INTELLIGENCE_API_KEY
         sync: false
       - key: AZURE_DOC_INTELLIGENCE_API_VERSION
-        value: 2024-02-29-preview
+        value: 2024-11-30
       - key: OCR_POLL_TIMEOUT_SECONDS
         value: "25"
 

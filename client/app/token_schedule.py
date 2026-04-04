@@ -26,7 +26,8 @@ def ms_until_proactive_refresh(exp_unix: int, *, skew_seconds: int = 120) -> int
     """Milliseconds until refresh; capped to avoid excessive timers."""
     now = int(time.time())
     if exp_unix <= now:
-        return 0
+        # Avoid QTimer(0) hot loops when access is already expired but refresh is pending.
+        return 60_000
     target = exp_unix - skew_seconds
     wait_s = max(30, target - now)
     cap_s = 25 * 60

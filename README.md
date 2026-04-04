@@ -43,11 +43,12 @@ Edit `.env` with your real Azure values.
 
 - `AZURE_OPENAI_API_KEY`
 - `AZURE_OPENAI_ENDPOINT` (example: `https://<resource>.openai.azure.com`)
-- `AZURE_OPENAI_API_VERSION`
+- `AZURE_OPENAI_API_VERSION` (omit or ignore when `AZURE_OPENAI_V1_COMPAT=true`)
+- `AZURE_OPENAI_V1_COMPAT` (`true` when Azure Studio “View code” uses `OpenAI` + `base_url` ending in `/openai/v1`; if omitted and `AZURE_OPENAI_API_VERSION` is unset, hosts ending in `.openai.azure.com` default to v1 compat)
 - `AZURE_OPENAI_DEPLOYMENT`
 - `AZURE_DOC_INTELLIGENCE_ENDPOINT` (example: `https://<resource>.cognitiveservices.azure.com`)
 - `AZURE_DOC_INTELLIGENCE_API_KEY`
-- `AZURE_DOC_INTELLIGENCE_API_VERSION` (optional override; default in app is `2024-02-29-preview`)
+- `AZURE_DOC_INTELLIGENCE_API_VERSION` (optional override; default in app is `2024-11-30` for REST `documentintelligence` path)
 - `OCR_POLL_TIMEOUT_SECONDS` (bounded to `8..90` seconds; default `25`)
 - `NUDGE_AUTH_MODE` (`token`, `api_key`, or `token_or_api_key`; **production: `token`**)
 - `NUDGE_TOKEN_SIGNING_KEY` (required for `token` mode)
@@ -341,7 +342,7 @@ The summary intentionally excludes clipboard content, OCR images, secrets, and u
 
 - Use Azure OpenAI values only (not regular OpenAI key/base URL patterns).
 - `AZURE_OPENAI_DEPLOYMENT` must be your deployed model name.
-- `AZURE_OPENAI_API_VERSION` must match your Azure resource compatibility.
+- `AZURE_OPENAI_API_VERSION` must match your Azure resource compatibility (classic `deployments/...` path), or set `AZURE_OPENAI_V1_COMPAT=true` for Foundry `/openai/v1` and use Studio’s pattern.
 
 ## Azure OCR notes
 

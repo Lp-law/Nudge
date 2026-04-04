@@ -18,3 +18,8 @@ def test_ms_until_proactive_refresh_positive() -> None:
     ms = ms_until_proactive_refresh(future, skew_seconds=120)
     assert ms > 0
     assert ms <= 25 * 60 * 1000
+
+
+def test_ms_until_proactive_refresh_when_expired_returns_cooldown() -> None:
+    past = int(time.time()) - 60
+    assert ms_until_proactive_refresh(past) == 60_000
