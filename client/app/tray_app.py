@@ -26,6 +26,8 @@ from .lifecycle_logic import (
 )
 from .popup import ActionPopup
 from .onboarding_dialog import OnboardingDialog
+from .pin_dialogs import PinSetupDialog, PinUnlockDialog
+from .pin_vault import decrypt_license, encrypt_license
 from .runtime_paths import resource_path
 from .session_state import ClientSession
 from .settings import get_settings
@@ -34,6 +36,11 @@ from .sensitive_guard import detect_sensitive_text, image_requires_confirmation
 from .ui_strings import (
     ACTIVATION_FAILED_GENERIC,
     ACTIVATION_TITLE,
+    PIN_ERROR_WRONG,
+    PIN_OFFER_MESSAGE,
+    PIN_OFFER_TITLE,
+    PIN_SETUP_TITLE,
+    PIN_UNLOCK_TITLE,
     CLOUD_CONFIRM_CANCEL,
     CLOUD_CONFIRM_CONTINUE,
     CLOUD_CONFIRM_TITLE,
@@ -50,6 +57,8 @@ from .ui_strings import (
     TRAY_MENU_ACCESSIBILITY_MODE,
     TRAY_MENU_DIAGNOSTICS,
     TRAY_MENU_EXIT,
+    TRAY_MENU_PIN_CLEAR,
+    TRAY_MENU_PIN_SETUP,
     TRAY_MENU_REACTIVATE,
     TRAY_MENU_USER_GUIDE,
     cloud_confirm_message,
@@ -110,6 +119,10 @@ class TrayApp:
         accessibility_action.toggled.connect(self._on_accessibility_toggled)
         reactivate_action = menu.addAction(TRAY_MENU_REACTIVATE)
         reactivate_action.triggered.connect(self._on_reactivate)
+        pin_setup_action = menu.addAction(TRAY_MENU_PIN_SETUP)
+        pin_setup_action.triggered.connect(self._on_pin_setup_menu)
+        pin_clear_action = menu.addAction(TRAY_MENU_PIN_CLEAR)
+        pin_clear_action.triggered.connect(self._on_pin_clear_menu)
         quit_action = menu.addAction(TRAY_MENU_EXIT)
         quit_action.triggered.connect(self.app.quit)
         self.tray.setContextMenu(menu)
@@ -130,10 +143,17 @@ class TrayApp:
             return True
         if (st.backend_api_key or "").strip():
             return True
+        if self._session.has_valid_access_token():
+            return True
         if (self._session.refresh_token or "").strip():
             if self._blocking_refresh_tokens():
                 return True
+            if self._try_activate_with_pin_vault():
+                return True
             self._session.clear_auth()
+        else:
+            if self._try_activate_with_pin_vault():
+                return True
         return self._blocking_activation_dialog(mandatory=True)
 
     def _blocking_refresh_tokens(self) -> bool:
@@ -158,6 +178,94 @@ class TrayApp:
             self._arm_proactive_refresh_timer()
         return bool(outcome["ok"])
 
+    def _activate_license_blocking(self, license_key: str) -> tuple[bool, str]:
+        loop = QEventLoop()
+        outcome: dict[str, str | bool] = {"ok": False, "err": ""}
+
+        def done(success: bool, data: dict[str, object] | None, err: str) -> None:
+            if success and data:
+                at = str(data.get("access_token", "")).strip()
+                rt = str(data.get("refresh_token", "")).strip()
+                if at and rt:
+                    self._session.persist_tokens(at, rt)
+                    outcome["ok"] = True
+            if not outcome["ok"]:
+                outcome["err"] = (err or "").strip() or ACTIVATION_FAILED_GENERIC
+            loop.quit()
+
+        self.api_client.request_activate(license_key, self._session.installation_id(), done)
+        loop.exec()
+        return bool(outcome["ok"]), str(outcome["err"])
+
+    def _try_activate_with_pin_vault(self) -> bool:
+        bundle = self._session.load_pin_vault()
+        if not bundle:
+            return False
+        salt, ciphertext = bundle
+        dlg = PinUnlockDialog(self.popup)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return False
+        try:
+            lic = decrypt_license(ciphertext, dlg.pin, salt).strip()
+        except Exception:
+            QMessageBox.warning(self.popup, PIN_UNLOCK_TITLE, PIN_ERROR_WRONG)
+            return False
+        if len(lic) < 8:
+            QMessageBox.warning(self.popup, PIN_UNLOCK_TITLE, PIN_ERROR_WRONG)
+            return False
+        ok, err = self._activate_license_blocking(lic)
+        if ok:
+            self._arm_proactive_refresh_timer()
+            return True
+        QMessageBox.warning(self.popup, ACTIVATION_TITLE, err)
+        return False
+
+    def _maybe_offer_pin_vault_after_activation(self, license_key: str) -> None:
+        if self._session.has_pin_vault():
+            return
+        r = QMessageBox.question(
+            self.popup,
+            PIN_OFFER_TITLE,
+            PIN_OFFER_MESSAGE,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if r != QMessageBox.StandardButton.Yes:
+            return
+        setup = PinSetupDialog(self.popup, license_key=license_key, license_editable=False)
+        if setup.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            s, ct = encrypt_license(setup.saved_license, setup.pin)
+            self._session.save_pin_vault(s, ct)
+        except Exception:
+            QMessageBox.warning(self.popup, PIN_SETUP_TITLE, "שמירה נכשלה.")
+
+    def _on_pin_setup_menu(self) -> None:
+        setup = PinSetupDialog(self.popup, license_key="", license_editable=True)
+        if setup.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            s, ct = encrypt_license(setup.saved_license, setup.pin)
+            self._session.save_pin_vault(s, ct)
+            QMessageBox.information(self.popup, PIN_SETUP_TITLE, "הסיסמה והמפתח נשמרו במחשב זה.")
+        except Exception:
+            QMessageBox.warning(self.popup, PIN_SETUP_TITLE, "שמירה נכשלה.")
+
+    def _on_pin_clear_menu(self) -> None:
+        if not self._session.has_pin_vault():
+            QMessageBox.information(
+                self.popup,
+                TRAY_MENU_PIN_CLEAR,
+                "אין סיסמה שמורה למחיקה.",
+            )
+            return
+        self._session.clear_pin_vault()
+        QMessageBox.information(
+            self.popup,
+            TRAY_MENU_PIN_CLEAR,
+            "הסיסמה והמפתח המוצפן הוסרו מהמחשב.",
+        )
+
     def _blocking_activation_dialog(self, *, mandatory: bool) -> bool:
         while True:
             dialog = ActivationDialog(self.popup, mandatory=mandatory)
@@ -166,26 +274,12 @@ class TrayApp:
                     self.app.quit()
                 return False
             key = dialog.license_key.strip()
-            loop = QEventLoop()
-            outcome: dict[str, str | bool] = {"ok": False, "err": ""}
-
-            def done(success: bool, data: dict[str, object] | None, err: str) -> None:
-                if success and data:
-                    at = str(data.get("access_token", "")).strip()
-                    rt = str(data.get("refresh_token", "")).strip()
-                    if at and rt:
-                        self._session.persist_tokens(at, rt)
-                        outcome["ok"] = True
-                if not outcome["ok"]:
-                    outcome["err"] = (err or "").strip() or ACTIVATION_FAILED_GENERIC
-                loop.quit()
-
-            self.api_client.request_activate(key, self._session.installation_id(), done)
-            loop.exec()
-            if outcome["ok"]:
+            ok, err = self._activate_license_blocking(key)
+            if ok:
                 self._arm_proactive_refresh_timer()
+                self._maybe_offer_pin_vault_after_activation(key)
                 return True
-            QMessageBox.warning(self.popup, ACTIVATION_TITLE, str(outcome["err"]))
+            QMessageBox.warning(self.popup, ACTIVATION_TITLE, err)
 
     def _arm_proactive_refresh_timer(self) -> None:
         if self._is_shutting_down:
@@ -229,6 +323,7 @@ class TrayApp:
 
     def _on_reactivate(self) -> None:
         self._session.clear_auth()
+        self._session.clear_pin_vault()
         self._blocking_activation_dialog(mandatory=False)
         self._arm_proactive_refresh_timer()
 

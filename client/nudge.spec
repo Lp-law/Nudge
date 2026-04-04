@@ -12,7 +12,12 @@ a = Analysis(
         ("release/release_metadata.example.json", "release"),
         ("release/client_runtime.json", "release"),
     ],
-    hiddenimports=[],
+    hiddenimports=[
+        "cryptography",
+        "cryptography.fernet",
+        "cryptography.hazmat.primitives.kdf.pbkdf2",
+        "cryptography.hazmat.primitives.hashes",
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
