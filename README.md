@@ -265,7 +265,7 @@ More detailed packaging notes: `docs/WINDOWS_DISTRIBUTION.md`.
 2. Confirm backend health endpoint responds.
 3. Start client from `client/`.
 4. Copy meaningful text (8+ non-space chars) in any app.
-5. Wait for the popup (default idle ~700ms; tray menu: קצר/רגיל/ארוך) and click one action.
+5. Wait for the popup (default debounce ~700ms; tray **משך תצוגת חלון** sets how long it stays open: קצר/רגיל/ארוך) and click one action.
 
 ## Manual full-flow testing
 
@@ -312,7 +312,7 @@ After each click:
 - [ ] `GET /health` returns success
 - [ ] `POST /ai/action` returns a valid `result`
 - [ ] Client starts and tray icon appears
-- [ ] Clipboard text detection triggers popup (heuristic + adjustable idle in tray)
+- [ ] Clipboard text detection triggers popup (heuristic + adjustable popup visibility in tray)
 - [ ] Popup appears on-screen near cursor
 - [ ] Clicking action sends request and disables buttons while loading
 - [ ] Clipboard is replaced with AI output on success
