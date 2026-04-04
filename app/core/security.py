@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import ipaddress
 import json
+import logging
 import time
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from collections import defaultdict, deque
@@ -303,7 +304,10 @@ def create_token_state_store(settings) -> TokenStateStore:
     if backend == "redis":
         redis_url = (settings.redis_url or "").strip()
         if not redis_url:
-            raise ValueError("REDIS_URL is required when TOKEN_STATE_BACKEND=redis.")
+            logging.warning(
+                "TOKEN_STATE_BACKEND=redis but REDIS_URL is missing; falling back to in-memory token state store."
+            )
+            return InMemoryTokenStateStore()
         return RedisTokenStateStore(redis_url, prefix=settings.token_state_prefix)
     return InMemoryTokenStateStore()
 
@@ -532,6 +536,9 @@ def create_rate_limiter(settings):
     if backend == "redis":
         redis_url = (settings.redis_url or "").strip()
         if not redis_url:
-            raise ValueError("REDIS_URL is required when RATE_LIMIT_BACKEND=redis.")
+            logging.warning(
+                "RATE_LIMIT_BACKEND=redis but REDIS_URL is missing; falling back to in-memory limiter."
+            )
+            return InMemoryRateLimiter()
         return RedisRateLimiter(redis_url)
     return InMemoryRateLimiter()

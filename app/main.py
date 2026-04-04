@@ -102,10 +102,14 @@ def validate_startup_config() -> None:
 
     if (settings.rate_limit_backend or "memory").strip().lower() == "redis":
         if not (settings.redis_url and settings.redis_url.strip()):
-            raise RuntimeError("REDIS_URL is required when RATE_LIMIT_BACKEND=redis.")
+            logging.warning(
+                "RATE_LIMIT_BACKEND=redis but REDIS_URL is missing; startup will continue with in-memory limiter fallback."
+            )
     if (settings.token_state_backend or "memory").strip().lower() == "redis":
         if not (settings.redis_url and settings.redis_url.strip()):
-            raise RuntimeError("REDIS_URL is required when TOKEN_STATE_BACKEND=redis.")
+            logging.warning(
+                "TOKEN_STATE_BACKEND=redis but REDIS_URL is missing; startup will continue with in-memory token-state fallback."
+            )
     if (settings.rate_limit_failure_mode or "fail_closed").strip().lower() not in {
         "fail_open",
         "fail_closed",
