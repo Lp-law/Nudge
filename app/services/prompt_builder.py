@@ -11,8 +11,11 @@ INSTRUCTIONS_BY_ACTION: dict[ActionType, str] = {
         "and intent."
     ),
     "make_email": (
-        "Convert the user text into a polished, professional email. "
-        "Include a clear subject line at the top."
+        "Convert the user text into a polished, professional email written entirely in Hebrew. "
+        "Start with a clear subject line prefixed with נושא:. "
+        "Use natural formal Hebrew (greeting and closing where appropriate). "
+        "If the user wrote in another language, translate the substance into Hebrew; "
+        "keep proper nouns untranslated when usual. Do not write the main message in English."
     ),
     "fix_language": (
         "Return directly usable corrected text only. Correct grammar, spelling, "
