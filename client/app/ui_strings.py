@@ -90,6 +90,10 @@ ONBOARDING_ERROR_FAILED = "שמירת הפרטים נכשלה. אפשר לנסו
 TRAY_MENU_REACTIVATE = "החלפת מפתח הפעלה…"
 TRAY_MENU_PIN_SETUP = "הגדרת סיסמה להפעלה מהירה…"
 TRAY_MENU_PIN_CLEAR = "מחיקת סיסמה שמורה מקומית"
+TRAY_MENU_POPUP_DURATION = "משך תצוגת חלון"
+POPUP_DURATION_SHORT = "קצר"
+POPUP_DURATION_NORMAL = "רגיל"
+POPUP_DURATION_LONG = "ארוך"
 
 ACTIVATION_TITLE = "הפעלת Nudge"
 ACTIVATION_SUBTITLE = (

@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     azure_openai_deployment: str | None = Field(
         default=None, alias="AZURE_OPENAI_DEPLOYMENT"
     )
+    azure_openai_deployment_summarize: str | None = Field(
+        default=None,
+        alias="AZURE_OPENAI_DEPLOYMENT_SUMMARIZE",
+        description="Optional separate deployment name for summarize only (faster/cheaper model).",
+    )
     azure_openai_v1_compat: bool = Field(
         default=False,
         alias="AZURE_OPENAI_V1_COMPAT",

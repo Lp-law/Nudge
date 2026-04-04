@@ -1,7 +1,7 @@
 import hashlib
 
 from PySide6.QtCore import QByteArray, QBuffer, QEventLoop, QIODevice, QSettings, QTimer
-from PySide6.QtGui import QClipboard, QIcon
+from PySide6.QtGui import QAction, QActionGroup, QClipboard, QIcon
 from PySide6.QtWidgets import QApplication, QDialog, QMenu, QMessageBox, QStyle, QSystemTrayIcon
 
 from .activation_dialog import ActivationDialog
@@ -53,17 +53,30 @@ from .ui_strings import (
     ERROR_INVALID_TEXT,
     ERROR_NO_IMAGE,
     ONBOARDING_ERROR_FAILED,
+    POPUP_DURATION_LONG,
+    POPUP_DURATION_NORMAL,
+    POPUP_DURATION_SHORT,
     resolve_status_text,
     TRAY_MENU_ACCESSIBILITY_MODE,
     TRAY_MENU_DIAGNOSTICS,
     TRAY_MENU_EXIT,
     TRAY_MENU_PIN_CLEAR,
     TRAY_MENU_PIN_SETUP,
+    TRAY_MENU_POPUP_DURATION,
     TRAY_MENU_REACTIVATE,
     TRAY_MENU_USER_GUIDE,
     cloud_confirm_message,
 )
 from .user_guide import UserGuideDialog
+
+
+POPUP_IDLE_PRESET_KEY = "ui/popup_idle_preset"
+_POPUP_IDLE_MS_BY_PRESET = {"short": 6800, "normal": 10000, "long": 15600}
+
+
+def _resolve_popup_idle_ms(preferences: QSettings) -> int:
+    p = str(preferences.value(POPUP_IDLE_PRESET_KEY, "normal") or "normal").strip().lower()
+    return _POPUP_IDLE_MS_BY_PRESET.get(p, _POPUP_IDLE_MS_BY_PRESET["normal"])
 
 
 class TrayApp:
@@ -92,7 +105,10 @@ class TrayApp:
             self._session,
             on_tokens_persisted=self._arm_proactive_refresh_timer,
         )
-        self.popup = ActionPopup(accessibility_mode=self._accessibility_mode)
+        self.popup = ActionPopup(
+            accessibility_mode=self._accessibility_mode,
+            idle_ms_provider=lambda: _resolve_popup_idle_ms(self._preferences),
+        )
         self.monitor = ClipboardMonitor(self.clipboard)
         self.monitor.text_ready.connect(self._on_text_ready)
         self.monitor.image_ready.connect(self._on_image_ready)
@@ -123,6 +139,22 @@ class TrayApp:
         pin_setup_action.triggered.connect(self._on_pin_setup_menu)
         pin_clear_action = menu.addAction(TRAY_MENU_PIN_CLEAR)
         pin_clear_action.triggered.connect(self._on_pin_clear_menu)
+        duration_menu = menu.addMenu(TRAY_MENU_POPUP_DURATION)
+        self._popup_duration_actions: dict[str, QAction] = {}
+        self._popup_duration_group = QActionGroup(menu)
+        for preset, label in (
+            ("short", POPUP_DURATION_SHORT),
+            ("normal", POPUP_DURATION_NORMAL),
+            ("long", POPUP_DURATION_LONG),
+        ):
+            act = QAction(label, menu)
+            act.setCheckable(True)
+            act.setData(preset)
+            self._popup_duration_group.addAction(act)
+            duration_menu.addAction(act)
+            self._popup_duration_actions[preset] = act
+        self._popup_duration_group.triggered.connect(self._on_popup_duration_selected)
+        self._sync_popup_duration_menu_checks()
         quit_action = menu.addAction(TRAY_MENU_EXIT)
         quit_action.triggered.connect(self.app.quit)
         self.tray.setContextMenu(menu)
@@ -265,6 +297,19 @@ class TrayApp:
             TRAY_MENU_PIN_CLEAR,
             "הסיסמה והמפתח המוצפן הוסרו מהמחשב.",
         )
+
+    def _sync_popup_duration_menu_checks(self) -> None:
+        cur = str(self._preferences.value(POPUP_IDLE_PRESET_KEY, "normal") or "normal").strip().lower()
+        for preset, act in self._popup_duration_actions.items():
+            act.setChecked(preset == cur)
+
+    def _on_popup_duration_selected(self, action: QAction) -> None:
+        preset = action.data()
+        if not preset:
+            return
+        self._preferences.setValue(POPUP_IDLE_PRESET_KEY, str(preset))
+        self._preferences.sync()
+        self._sync_popup_duration_menu_checks()
 
     def _blocking_activation_dialog(self, *, mandatory: bool) -> bool:
         while True:

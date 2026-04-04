@@ -21,10 +21,27 @@ from app.services.upstream_errors import UpstreamServiceError
 
 
 logger = logging.getLogger(__name__)
-# Long inputs + Azure latency; client allows ~90s for /ai/action.
-REQUEST_TIMEOUT_SECONDS = 35.0
+
 MAX_RETRIES = 2
 BACKOFF_BASE_SECONDS = 0.5
+
+# Per-action completion budget (max_tokens / max_completion_tokens).
+MAX_OUTPUT_TOKENS_BY_ACTION: dict[ActionType, int] = {
+    "summarize": 800,
+    "improve": 512,
+    "make_email": 512,
+    "fix_language": 280,
+    "explain_meaning": 320,
+}
+
+# Shorter waits for compact actions; more time for long summarize generations.
+_REQUEST_TIMEOUT_SECONDS_BY_ACTION: dict[ActionType, float] = {
+    "summarize": 48.0,
+    "improve": 30.0,
+    "make_email": 32.0,
+    "fix_language": 24.0,
+    "explain_meaning": 24.0,
+}
 
 
 class AzureOpenAIService:
@@ -69,16 +86,32 @@ class AzureOpenAIService:
                 )
         return self.client
 
-    def _raw_chat_create_coro(self, client: Any, messages: list[dict[str, str]]) -> Any:
+    def _model_name_for_action(self, action: ActionType) -> str:
+        if action == "summarize":
+            alt = (self.settings.azure_openai_deployment_summarize or "").strip()
+            if alt:
+                return alt
+        return (self.settings.azure_openai_deployment or "").strip()
+
+    def _max_output_tokens(self, action: ActionType) -> int:
+        return MAX_OUTPUT_TOKENS_BY_ACTION.get(action, 512)
+
+    def _request_timeout_seconds(self, action: ActionType) -> float:
+        return _REQUEST_TIMEOUT_SECONDS_BY_ACTION.get(action, 35.0)
+
+    def _raw_chat_create_coro(
+        self, client: Any, messages: list[dict[str, str]], action: ActionType
+    ) -> Any:
+        max_out = self._max_output_tokens(action)
         kw: dict[str, Any] = {
-            "model": self.settings.azure_openai_deployment,
+            "model": self._model_name_for_action(action),
             "messages": messages,
             "temperature": 0.2,
         }
         if self._chat_use_max_completion_tokens:
-            kw["max_completion_tokens"] = 300
+            kw["max_completion_tokens"] = max_out
         else:
-            kw["max_tokens"] = 300
+            kw["max_tokens"] = max_out
         return client.chat.completions.create(**kw)
 
     @staticmethod
@@ -94,12 +127,13 @@ class AzureOpenAIService:
         )
 
     async def _invoke_chat_completion(
-        self, client: Any, messages: list[dict[str, str]]
+        self, client: Any, messages: list[dict[str, str]], action: ActionType
     ) -> Any:
+        timeout_s = self._request_timeout_seconds(action)
         try:
             return await asyncio.wait_for(
-                self._raw_chat_create_coro(client, messages),
-                timeout=REQUEST_TIMEOUT_SECONDS,
+                self._raw_chat_create_coro(client, messages, action),
+                timeout=timeout_s,
             )
         except APIStatusError as exc:
             if self._is_max_tokens_unsupported(exc) and not self._chat_use_max_completion_tokens:
@@ -108,8 +142,8 @@ class AzureOpenAIService:
                 )
                 self._chat_use_max_completion_tokens = True
                 return await asyncio.wait_for(
-                    self._raw_chat_create_coro(client, messages),
-                    timeout=REQUEST_TIMEOUT_SECONDS,
+                    self._raw_chat_create_coro(client, messages, action),
+                    timeout=timeout_s,
                 )
             raise
 
@@ -120,7 +154,7 @@ class AzureOpenAIService:
         response = None
         for attempt in range(1, MAX_RETRIES + 2):
             try:
-                response = await self._invoke_chat_completion(client, messages)
+                response = await self._invoke_chat_completion(client, messages, action)
                 break
             except asyncio.TimeoutError as exc:
                 record_upstream_timeout("openai")

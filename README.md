@@ -46,6 +46,7 @@ Edit `.env` with your real Azure values.
 - `AZURE_OPENAI_API_VERSION` (omit or ignore when `AZURE_OPENAI_V1_COMPAT=true`)
 - `AZURE_OPENAI_V1_COMPAT` (`true` when Azure Studio “View code” uses `OpenAI` + `base_url` ending in `/openai/v1`; if omitted and `AZURE_OPENAI_API_VERSION` is unset, hosts ending in `.openai.azure.com` default to v1 compat)
 - `AZURE_OPENAI_DEPLOYMENT`
+- `AZURE_OPENAI_DEPLOYMENT_SUMMARIZE` (optional; separate deployment for `summarize` only)
 - `AZURE_DOC_INTELLIGENCE_ENDPOINT` (example: `https://<resource>.cognitiveservices.azure.com`)
 - `AZURE_DOC_INTELLIGENCE_API_KEY`
 - `AZURE_DOC_INTELLIGENCE_API_VERSION` (optional override; default in app is `2024-11-30` for REST `documentintelligence` path)
@@ -90,7 +91,7 @@ Edit `.env` with your real Azure values.
 2. **Terminal A (repo root):** `.\scripts\Run-LocalBackend.ps1`
 3. **Terminal B:** `.\scripts\Run-LocalClient.ps1` — uses the same dev API key as `env.local.sample` (no activation dialog).
 4. **Optional — full activation UX:** `.\scripts\Run-LocalClient.ps1 -UseActivation` then paste trial key `local-trial-key-for-activation-flow-1` (must match `NUDGE_TRIAL_LICENSE_KEYS` in `.env`).
-5. **Verify:** `curl http://127.0.0.1:8000/health` then copy 8+ characters of text and use a cloud action from the tray popup.
+5. **Verify:** `curl http://127.0.0.1:8000/health` then copy text (long enough, or a short meaningful word/phrase) and use a cloud action from the tray popup.
 
 Packaged folder (no installer): from `client/` with venv + `pip install -r requirements.txt -r requirements-build.txt`, run `.\build_windows.ps1 -SkipInstaller` → run `client\dist\Nudge\Nudge.exe`.
 
@@ -264,7 +265,7 @@ More detailed packaging notes: `docs/WINDOWS_DISTRIBUTION.md`.
 2. Confirm backend health endpoint responds.
 3. Start client from `client/`.
 4. Copy meaningful text (8+ non-space chars) in any app.
-5. Wait ~700ms for popup and click one action.
+5. Wait for the popup (default idle ~700ms; tray menu: קצר/רגיל/ארוך) and click one action.
 
 ## Manual full-flow testing
 
@@ -311,7 +312,7 @@ After each click:
 - [ ] `GET /health` returns success
 - [ ] `POST /ai/action` returns a valid `result`
 - [ ] Client starts and tray icon appears
-- [ ] Clipboard text detection triggers popup (~700ms)
+- [ ] Clipboard text detection triggers popup (heuristic + adjustable idle in tray)
 - [ ] Popup appears on-screen near cursor
 - [ ] Clicking action sends request and disables buttons while loading
 - [ ] Clipboard is replaced with AI output on success

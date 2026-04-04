@@ -101,53 +101,31 @@
 ### 6.1 חלק בסיס (תמיד, באנגלית)
 
 ```
-You are Nudge, a silent AI assistant that returns compact, helpful output for micro-actions. Keep responses brief and directly usable.
+You are Nudge, a silent AI assistant that returns compact, helpful output for micro-actions. Keep responses focused and directly usable.
 ```
 
-### 6.2 משימה לפי פעולה (מתווספת לאותה הודעת `system`)
+### 6.2 שפה
 
-**`summarize`**
+- זיהוי קל (`detect_primary_output_language`): השוואת ספירת אותיות עבריות (Unicode) מול לטיניות בטקסט המשתמש.
+- ל־`summarize`, `improve`, `make_email`, `fix_language`: נוספת הנחיה להחזיר פלט באותה שפת עיקר של הקלט (עברית↔עברית, אנגלית↔אנגלית).
+- ל־`explain_meaning`: **תמיד** הסבר בעברית, גם כשהקלט באנגלית.
+- ל־`make_email`: תבנית מייל ושורת נושא (`נושא:` או `Subject:`) לפי השפה שזוהתה.
 
-```
-Create a concise summary of the user text. Keep it short, clear, and faithful to the original meaning.
-```
+### 6.3 משימות ליבה (בקוד; בתוספת בלוק שפה למעט `explain_meaning`)
 
-**`improve`**
+הטקסטים המדויקים ב־`app/services/prompt_builder.py` — כולל `_OUTPUT_LANG_RULE` ו־`_make_email_instruction`.
 
-```
-Improve wording and clarity while preserving the original meaning and intent.
-```
-
-**`make_email`**
-
-```
-Convert the user text into a polished, professional email written entirely in Hebrew. Start with a clear subject line prefixed with נושא:. Use natural formal Hebrew (greeting and closing where appropriate). If the user wrote in another language, translate the substance into Hebrew; keep proper nouns untranslated when usual. Do not write the main message in English.
-```
-
-**`fix_language`**
-
-```
-Return directly usable corrected text only. Correct grammar, spelling, punctuation, and wording while preserving meaning and tone. Do not explain or add metadata.
-```
-
-**`explain_meaning`**
-
-```
-Explain the meaning of the user text in clear, simple Hebrew. This is interpretation, not direct translation. If translation helps, include it briefly inside the explanation. Keep it concise and useful, and return only the explanation text.
-```
-
-### 6.3 פרמטרי קריאה ל־API (כל פעולות הטקסט)
+### 6.4 פרמטרי קריאה ל־API (לפי פעולה)
 
 | פרמטר | ערך |
 |--------|-----|
 | `temperature` | 0.2 |
-| `max_tokens` או `max_completion_tokens` | 300 (אם המודל דוחה `max_tokens`, השרת עובר ל־`max_completion_tokens`) |
-| `model` | שם ה־deployment מ־`AZURE_OPENAI_DEPLOYMENT` |
-| timeout לכל ניסיון קריאה ל־Azure | 35 שניות — `REQUEST_TIMEOUT_SECONDS` |
-| לולאת ניסיונות על שגיאות retryable | עד **3** איטרציות (`MAX_RETRIES = 2` ⇒ `range(1, MAX_RETRIES + 2)`) |
-| backoff בין ניסיונות | בסיס 0.5 שניות (מוכפל לפי ניסיון) |
+| `max_tokens` / `max_completion_tokens` | לפי טבלה ב־`openai_service.MAX_OUTPUT_TOKENS_BY_ACTION` (אם המודל דוחה `max_tokens`, מעבר אוטומטי ל־`max_completion_tokens`) |
+| `model` | `AZURE_OPENAI_DEPLOYMENT`; ל־`summarize` בלבד אופציונלי: `AZURE_OPENAI_DEPLOYMENT_SUMMARIZE` |
+| timeout לניסיון | לפי `_REQUEST_TIMEOUT_SECONDS_BY_ACTION` (סיכום ארוך יותר; פעולות קומפקטיות קצרות יותר) |
+| לולאת ניסיונות | עד **3** איטרציות; backoff 0.5 שניות (מוכפל) |
 
-**מגבלת פלט חשובה:** תקרת **300 טוקנים** לתשובה — עלולה לקצר סיכומים/ניסוחים ארוכים למרות קלט עד 30K תווים.
+**תקרות פלט (ברירת מחדל בקוד):** `summarize` 800 · `improve`/`make_email` 512 · `fix_language` 280 · `explain_meaning` 320.
 
 ---
 
@@ -174,10 +152,8 @@ Explain the meaning of the user text in clear, simple Hebrew. This is interpreta
 
 ## 9. נקודות לשיפור מוצר (ייעוץ / roadmap)
 
-1. **תקרת 300 טוקנים לפלט** — צוואר בקבוק לסיכום מסמכים ארוכים; שקול `max_completion_tokens` גבוה יותר לפחות ל־`summarize`.
-2. **שפת פלט** — `summarize` / `improve` / `fix_language` לא מחייבים עברית במפורש; רק `make_email` ו־`explain_meaning` מכוונים לעברית.
-3. **אותה מגבלת קלט ואותה תקרת פלט** לכל פעולות הטקסט — אפשר להפריד לפי `action`.
-4. **אין זרימה “תמונה → סיכום” בלחיצה אחת** — רק חילוץ טקסט; סיכום דורש העתקה ופעולה נפרדת.
+1. **אין זרימה “תמונה → סיכום” בלחיצה אחת** — רק חילוץ טקסט; סיכום דורש העתקה ופעולה נפרדת.
+2. **לקוח:** טריגר חלון לטקסט קצר — ראה `should_open_popup_for_text` / `client/app/utils.py`; משך תצוגה — תפריט מגש «משך תצוגת חלון» (נשמר ב־`QSettings`).
 
 ---
 

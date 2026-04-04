@@ -5,7 +5,7 @@ import time
 import hashlib
 
 from .settings import get_settings
-from .utils import is_meaningful_text, normalize_text
+from .utils import normalize_text, should_open_popup_for_text
 
 
 class ClipboardMonitor(QObject):
@@ -59,7 +59,7 @@ class ClipboardMonitor(QObject):
         raw_text = self.clipboard.text(mode=QClipboard.Clipboard)
         text = normalize_text(raw_text)
 
-        if not is_meaningful_text(text, self.settings.minimum_non_space_chars):
+        if not should_open_popup_for_text(text, self.settings.minimum_non_space_chars):
             return
 
         if text == self._last_handled_text:

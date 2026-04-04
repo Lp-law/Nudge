@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from PySide6.QtCore import QSize, QTimer, Qt, Signal
 from PySide6.QtGui import QColor, QCursor, QGuiApplication, QIcon, QKeyEvent, QPixmap
 from PySide6.QtWidgets import (
@@ -19,6 +20,7 @@ from .action_contract import (
     validate_action_contract,
 )
 from .runtime_paths import resource_path
+from .utils import suggest_explain_meaning_highlight
 from .ui_strings import (
     POPUP_ACCESSIBILITY_HELPER,
     POPUP_CONTEXT_CHANGED_HELPER,
@@ -35,17 +37,21 @@ from .ui_strings import (
 class ActionPopup(QWidget):
     action_selected = Signal(str)
     ICON_SIZE = 18
-    # Idle: time to read helper text and pick an action before auto-hide.
-    IDLE_AUTO_HIDE_MS = 10250  # was 5250 ms; +5000 ms polish pass
     SUCCESS_AUTO_HIDE_MS = 675
     ERROR_AUTO_HIDE_MS = 1050
     ACTION_ICON_SIZE = QSize(14, 14)
     POPUP_WIDTH = 428
 
-    def __init__(self, accessibility_mode: bool = False) -> None:
+    def __init__(
+        self,
+        accessibility_mode: bool = False,
+        *,
+        idle_ms_provider: Callable[[], int] | None = None,
+    ) -> None:
         super().__init__()
         validate_action_contract()
         self._accessibility_mode = accessibility_mode
+        self._idle_ms_provider = idle_ms_provider or (lambda: 10000)
         self._current_text = ""
         self._is_loading = False
         self._mode = "text"
@@ -228,6 +234,23 @@ class ActionPopup(QWidget):
         self.setLayout(layout)
         self._set_mode("text")
 
+    def _idle_ms(self) -> int:
+        try:
+            ms = int(self._idle_ms_provider())
+        except (TypeError, ValueError):
+            ms = 10000
+        return max(4500, min(22000, ms))
+
+    def _style_explain_button_for_text(self, text: str) -> None:
+        btn = self.buttons["explain_meaning"]
+        if suggest_explain_meaning_highlight(text):
+            btn.setStyleSheet(
+                "QPushButton#btn_explain_meaning { font-weight: 700; "
+                "border: 2px solid #8B99C8; padding: 7px 10px; background: #243047; }"
+            )
+        else:
+            btn.setStyleSheet("")
+
     @property
     def current_text(self) -> str:
         return self._current_text
@@ -244,6 +267,7 @@ class ActionPopup(QWidget):
         self._set_status(POPUP_IDLE_STATUS, "#9BA8CA")
         self.helper_label.setText(self._helper_text_for_mode(POPUP_TEXT_HELPER))
         self._set_mode("text")
+        self._style_explain_button_for_text(text)
         self.adjustSize()
         cursor_pos = QCursor.pos()
         x = cursor_pos.x() + 12
@@ -253,7 +277,7 @@ class ActionPopup(QWidget):
         self.show()
         if self._accessibility_mode:
             self._activate_accessible_focus()
-        self._idle_timer.start(self.IDLE_AUTO_HIDE_MS)
+        self._idle_timer.start(self._idle_ms())
 
     def show_for_image(self) -> None:
         if self._is_loading:
@@ -267,6 +291,7 @@ class ActionPopup(QWidget):
         self._set_status(POPUP_IMAGE_STATUS, "#9BA8CA")
         self.helper_label.setText(self._helper_text_for_mode(POPUP_IMAGE_HELPER))
         self._set_mode("image")
+        self.buttons["explain_meaning"].setStyleSheet("")
         self.adjustSize()
         cursor_pos = QCursor.pos()
         x = cursor_pos.x() + 12
@@ -276,7 +301,7 @@ class ActionPopup(QWidget):
         self.show()
         if self._accessibility_mode:
             self._activate_accessible_focus()
-        self._idle_timer.start(self.IDLE_AUTO_HIDE_MS)
+        self._idle_timer.start(self._idle_ms())
 
     def set_loading(self) -> None:
         self._idle_timer.stop()
