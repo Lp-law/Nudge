@@ -83,6 +83,16 @@ Edit `.env` with your real Azure values.
 - `ADMIN_DASHBOARD_PASSWORD` (required when dashboard enabled; min 10 chars)
 - `PORT` (optional locally, default app behavior is `8000`)
 
+## Local quickstart (Windows, fastest path)
+
+1. **One-time:** `Copy-Item env.local.sample .env` and edit `.env` with your real Azure OpenAI + Document Intelligence values (OCR needs both; AI text actions need OpenAI).
+2. **Terminal A (repo root):** `.\scripts\Run-LocalBackend.ps1`
+3. **Terminal B:** `.\scripts\Run-LocalClient.ps1` — uses the same dev API key as `env.local.sample` (no activation dialog).
+4. **Optional — full activation UX:** `.\scripts\Run-LocalClient.ps1 -UseActivation` then paste trial key `local-trial-key-for-activation-flow-1` (must match `NUDGE_TRIAL_LICENSE_KEYS` in `.env`).
+5. **Verify:** `curl http://127.0.0.1:8000/health` then copy 8+ characters of text and use a cloud action from the tray popup.
+
+Packaged folder (no installer): from `client/` with venv + `pip install -r requirements.txt -r requirements-build.txt`, run `.\build_windows.ps1 -SkipInstaller` → run `client\dist\Nudge\Nudge.exe`.
+
 ## End-user distribution (Windows client)
 
 **What paying customers get:** an installer (`Nudge-Setup-<version>.exe`) built from `client/build_windows.ps1`. They do **not** set environment variables.
