@@ -62,6 +62,7 @@ class Settings:
     minimum_non_space_chars: int
     request_timeout_ms: int
     ai_request_timeout_ms: int
+    ocr_request_timeout_ms: int
     duplicate_cooldown_ms: int
 
     @staticmethod
@@ -88,6 +89,12 @@ class Settings:
                 120000,
                 min_v=20000,
                 max_v=240000,
+            ),
+            ocr_request_timeout_ms=_env_int(
+                "NUDGE_OCR_TIMEOUT_MS",
+                45000,
+                min_v=15000,
+                max_v=180000,
             ),
             duplicate_cooldown_ms=8000,
         )

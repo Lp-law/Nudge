@@ -38,7 +38,7 @@ class ActionPopup(QWidget):
     action_selected = Signal(str)
     ICON_SIZE = 18
     SUCCESS_AUTO_HIDE_MS = 675
-    ERROR_AUTO_HIDE_MS = 1050
+    ERROR_AUTO_HIDE_MS = 2800
     ACTION_ICON_SIZE = QSize(14, 14)
     POPUP_WIDTH = 428
 

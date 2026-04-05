@@ -121,7 +121,7 @@ class ApiClient(QObject):
             "on_success": on_success,
             "on_error": on_error,
             "auth_refresh_attempted": False,
-            "timeout_ms": self.settings.ai_request_timeout_ms,
+            "timeout_ms": self.settings.ocr_request_timeout_ms,
         }
         reply = self._post_json(self._endpoint_ai_ocr(), payload)
         reply.setProperty("request_id", request_id)
@@ -130,7 +130,7 @@ class ApiClient(QObject):
         timeout_timer = QTimer(reply)
         timeout_timer.setSingleShot(True)
         timeout_timer.timeout.connect(lambda r=reply: self._on_timeout(r))
-        timeout_timer.start(self.settings.ai_request_timeout_ms)
+        timeout_timer.start(self.settings.ocr_request_timeout_ms)
         reply.setProperty("timeout_timer", timeout_timer)
 
         reply.finished.connect(
