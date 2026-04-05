@@ -31,8 +31,11 @@ MAX_OUTPUT_TOKENS_BY_ACTION: dict[ActionType, int] = {
     "summarize": 800,
     "improve": 512,
     "make_email": 512,
+    "reply_email": 512,
     "fix_language": 280,
     "explain_meaning": 320,
+    "translate_to_he": 360,
+    "translate_to_en": 360,
 }
 
 # Shorter waits for compact actions; more time for long summarize generations.
@@ -40,8 +43,11 @@ _REQUEST_TIMEOUT_SECONDS_BY_ACTION: dict[ActionType, float] = {
     "summarize": 48.0,
     "improve": 30.0,
     "make_email": 32.0,
+    "reply_email": 32.0,
     "fix_language": 24.0,
     "explain_meaning": 24.0,
+    "translate_to_he": 24.0,
+    "translate_to_en": 24.0,
 }
 
 

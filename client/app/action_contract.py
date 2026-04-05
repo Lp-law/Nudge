@@ -2,7 +2,10 @@ TEXT_ACTION_KEYS: tuple[str, ...] = (
     "summarize",
     "improve",
     "make_email",
+    "reply_email",
     "fix_language",
+    "translate_to_he",
+    "translate_to_en",
     "fix_layout_he",
     "explain_meaning",
 )
@@ -19,16 +22,21 @@ ACTION_LABELS: dict[str, str] = {
     "summarize": "סיכום",
     "improve": "שיפור ניסוח",
     "make_email": "הפוך למייל",
+    "reply_email": "טיוטת תשובה למייל",
     "fix_language": "תיקון שפה",
+    "translate_to_he": "תרגם לעברית",
+    "translate_to_en": "תרגם לאנגלית",
     "fix_layout_he": "אנגלית > עברית",
     "explain_meaning": "הסבר משמעות",
     "extract_text": "חלץ טקסט",
 }
 
-TEXT_ACTION_GRID_ROWS: tuple[tuple[str, str], ...] = (
+TEXT_ACTION_GRID_ROWS: tuple[tuple[str, ...], ...] = (
     ("summarize", "improve"),
-    ("make_email", "fix_language"),
-    ("fix_layout_he", "explain_meaning"),
+    ("make_email", "reply_email"),
+    ("fix_language", "translate_to_he"),
+    ("translate_to_en", "fix_layout_he"),
+    ("explain_meaning",),
 )
 
 

@@ -11,8 +11,11 @@ ACTION_KEYS: tuple[str, ...] = (
     "summarize",
     "improve",
     "make_email",
+    "reply_email",
     "fix_language",
     "explain_meaning",
+    "translate_to_he",
+    "translate_to_en",
 )
 
 
@@ -20,8 +23,11 @@ ActionType = Literal[
     "summarize",
     "improve",
     "make_email",
+    "reply_email",
     "fix_language",
     "explain_meaning",
+    "translate_to_he",
+    "translate_to_en",
 ]
 ACTION_TYPE_KEYS = tuple(ActionType.__args__)
 if set(ACTION_KEYS) != set(ACTION_TYPE_KEYS):

@@ -55,7 +55,7 @@ from app.routes.auth import BOOTSTRAP_HEADER
 from app.routes import admin as admin_routes
 from app.routes import ai as ai_routes
 from app.schemas.ai import ACTION_KEYS
-from app.services.prompt_builder import INSTRUCTIONS_BY_ACTION
+from app.services.prompt_builder import INSTRUCTIONS_BY_ACTION, build_messages
 from app.services.openai_service import AIActionResult
 from app.services.ocr_service import AzureOCRService
 from app.services.upstream_errors import UpstreamServiceError
@@ -623,6 +623,38 @@ def test_client_action_contract_sanity() -> None:
     assert "fix_layout_he" in LOCAL_TEXT_ACTION_KEYS
     assert "extract_text" not in BACKEND_TEXT_ACTION_KEYS
     assert set(LOCAL_TEXT_ACTION_KEYS).issubset(set(ALL_ACTION_KEYS))
+
+
+def test_new_actions_present_in_contracts() -> None:
+    assert "translate_to_he" in ACTION_KEYS
+    assert "translate_to_en" in ACTION_KEYS
+    assert "reply_email" in ACTION_KEYS
+    assert "translate_to_he" in BACKEND_TEXT_ACTION_KEYS
+    assert "translate_to_en" in BACKEND_TEXT_ACTION_KEYS
+    assert "reply_email" in BACKEND_TEXT_ACTION_KEYS
+
+
+def test_prompt_builder_translation_wiring() -> None:
+    msgs_he = build_messages("translate_to_he", "hello world")
+    system_he = msgs_he[0]["content"]
+    assert "Translate the user text into Hebrew" in system_he
+    assert "Return only translated text." in system_he
+
+    msgs_en = build_messages("translate_to_en", "שלום עולם")
+    system_en = msgs_en[0]["content"]
+    assert "Translate the user text into English" in system_en
+    assert "Return only translated text." in system_en
+
+
+def test_prompt_builder_reply_email_language_aware() -> None:
+    msgs_en = build_messages("reply_email", "Hello team, please confirm.")
+    system_en = msgs_en[0]["content"]
+    assert "reply email" in system_en.lower()
+    assert "Output language: write your entire response in English" in system_en
+
+    msgs_he = build_messages("reply_email", "שלום צוות, אנא אשרו קבלה.")
+    system_he = msgs_he[0]["content"]
+    assert "Output language: write your entire response in Hebrew" in system_he
 
 
 def test_user_guide_content_sanity() -> None:

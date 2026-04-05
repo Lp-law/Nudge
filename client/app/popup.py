@@ -105,11 +105,29 @@ class ActionPopup(QWidget):
             QPushButton#btn_make_email:hover {
                 background: #2D2A43;
             }
+            QPushButton#btn_reply_email {
+                border-color: #5A7599;
+            }
+            QPushButton#btn_reply_email:hover {
+                background: #23384F;
+            }
             QPushButton#btn_fix_language {
                 border-color: #7A5D48;
             }
             QPushButton#btn_fix_language:hover {
                 background: #3A2E26;
+            }
+            QPushButton#btn_translate_to_he {
+                border-color: #4E6A54;
+            }
+            QPushButton#btn_translate_to_he:hover {
+                background: #243A2A;
+            }
+            QPushButton#btn_translate_to_en {
+                border-color: #73614C;
+            }
+            QPushButton#btn_translate_to_en:hover {
+                background: #3A3025;
             }
             QPushButton#btn_fix_layout_he {
                 border-color: #4C6C8A;
@@ -193,7 +211,10 @@ class ActionPopup(QWidget):
         self.buttons["summarize"].setObjectName("btn_primary")
         self.buttons["improve"].setObjectName("btn_improve")
         self.buttons["make_email"].setObjectName("btn_make_email")
+        self.buttons["reply_email"].setObjectName("btn_reply_email")
         self.buttons["fix_language"].setObjectName("btn_fix_language")
+        self.buttons["translate_to_he"].setObjectName("btn_translate_to_he")
+        self.buttons["translate_to_en"].setObjectName("btn_translate_to_en")
         self.buttons["fix_layout_he"].setObjectName("btn_fix_layout_he")
         self.buttons["explain_meaning"].setObjectName("btn_explain_meaning")
         self.buttons["extract_text"].setObjectName("btn_primary")
@@ -217,6 +238,9 @@ class ActionPopup(QWidget):
         text_grid.setHorizontalSpacing(8)
         text_grid.setVerticalSpacing(8)
         for row_index, row_actions in enumerate(TEXT_ACTION_GRID_ROWS):
+            if len(row_actions) == 1:
+                text_grid.addWidget(self.buttons[row_actions[0]], row_index, 0, 1, 2)
+                continue
             text_grid.addWidget(self.buttons[row_actions[0]], row_index, 0)
             text_grid.addWidget(self.buttons[row_actions[1]], row_index, 1)
         self.text_actions_widget.setLayout(text_grid)
@@ -459,7 +483,10 @@ class ActionPopup(QWidget):
             "summarize": QStyle.StandardPixmap.SP_FileDialogDetailedView,
             "improve": QStyle.StandardPixmap.SP_BrowserReload,
             "make_email": QStyle.StandardPixmap.SP_FileDialogNewFolder,
+            "reply_email": QStyle.StandardPixmap.SP_DialogOpenButton,
             "fix_language": QStyle.StandardPixmap.SP_DialogApplyButton,
+            "translate_to_he": QStyle.StandardPixmap.SP_ArrowRight,
+            "translate_to_en": QStyle.StandardPixmap.SP_ArrowLeft,
             "fix_layout_he": QStyle.StandardPixmap.SP_ArrowRight,
             "explain_meaning": QStyle.StandardPixmap.SP_MessageBoxInformation,
             "extract_text": QStyle.StandardPixmap.SP_FileDialogContentsView,

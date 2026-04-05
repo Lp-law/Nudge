@@ -75,7 +75,10 @@
 | סיכום | `summarize` | שרת + OpenAI |
 | שיפור ניסוח | `improve` | שרת + OpenAI |
 | הפוך למייל | `make_email` | שרת + OpenAI |
+| טיוטת תשובה למייל | `reply_email` | שרת + OpenAI |
 | תיקון שפה | `fix_language` | שרת + OpenAI |
+| תרגם לעברית | `translate_to_he` | שרת + OpenAI |
+| תרגם לאנגלית | `translate_to_en` | שרת + OpenAI |
 | אנגלית > עברית | `fix_layout_he` | **מקומי בלבד** — ללא שרת |
 | הסבר משמעות | `explain_meaning` | שרת + OpenAI |
 
@@ -88,7 +91,7 @@
 | אורך מחרוזת `text` | עד **30000** תווים | `MAX_TEXT_CHARS` — `app/schemas/ai.py` |
 | גוף HTTP מקסימלי | 10 MB | `MAX_REQUEST_BODY_BYTES` — `app/core/config.py` |
 | Rate limit (ברירת מחדל) | 30 בקשות ל־IP לכל 60 שניות | `RATE_LIMIT_ACTION_REQUESTS`, `RATE_LIMIT_WINDOW_SECONDS` |
-| פעולות מותרות | `summarize`, `improve`, `make_email`, `fix_language`, `explain_meaning` | `app/schemas/ai.py` |
+| פעולות מותרות | `summarize`, `improve`, `make_email`, `reply_email`, `fix_language`, `explain_meaning`, `translate_to_he`, `translate_to_en` | `app/schemas/ai.py` |
 
 הטקסט עובר `strip()` בשרת לפני אימות.
 
@@ -107,9 +110,11 @@ You are Nudge, a silent AI assistant that returns compact, helpful output for mi
 ### 6.2 שפה
 
 - זיהוי קל (`detect_primary_output_language`): השוואת ספירת אותיות עבריות (Unicode) מול לטיניות בטקסט המשתמש.
-- ל־`summarize`, `improve`, `make_email`, `fix_language`: נוספת הנחיה להחזיר פלט באותה שפת עיקר של הקלט (עברית↔עברית, אנגלית↔אנגלית).
+- ל־`summarize`, `improve`, `make_email`, `reply_email`, `fix_language`: נוספת הנחיה להחזיר פלט באותה שפת עיקר של הקלט (עברית↔עברית, אנגלית↔אנגלית).
 - ל־`explain_meaning`: **תמיד** הסבר בעברית, גם כשהקלט באנגלית.
 - ל־`make_email`: תבנית מייל ושורת נושא (`נושא:` או `Subject:`) לפי השפה שזוהתה.
+- ל־`reply_email`: טיוטת תגובה מקצועית לאימייל קיים, בשפת הקלט.
+- ל־`translate_to_he`/`translate_to_en`: החזרה של תרגום בלבד (ללא הסברים/מטא), עם כלל זיהוי מקור דטרמיניסטי לפי ספירת אותיות.
 
 ### 6.3 משימות ליבה (בקוד; בתוספת בלוק שפה למעט `explain_meaning`)
 
