@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from html import escape
 from PySide6.QtCore import QSize, QTimer, Qt, Signal, QLocale
 from PySide6.QtGui import QColor, QCursor, QGuiApplication, QIcon, QKeyEvent, QPixmap
 from PySide6.QtWidgets import (
@@ -41,8 +42,6 @@ class ActionPopup(QWidget):
     ERROR_AUTO_HIDE_MS = 2800
     ACTION_ICON_SIZE = QSize(14, 14)
     POPUP_WIDTH = 428
-    _RTL_ISOLATE_START = "\u2067"
-    _RTL_ISOLATE_END = "\u2069"
 
     def __init__(
         self,
@@ -186,14 +185,14 @@ class ActionPopup(QWidget):
         header_row.addStretch(1)
         layout.addLayout(header_row)
 
-        self.status_label = QLabel(self._as_rtl(POPUP_IDLE_STATUS))
+        self.status_label = QLabel(self._as_rtl_html(POPUP_IDLE_STATUS))
         self.status_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.status_label.setStyleSheet("font-size: 12px; font-weight: 600; color: #A8B4D3;")
         self.status_label.setAccessibleName("סטטוס פעולה")
         layout.addWidget(self.status_label)
 
-        self.helper_label = QLabel(self._as_rtl(POPUP_TEXT_HELPER))
+        self.helper_label = QLabel(self._as_rtl_html(POPUP_TEXT_HELPER))
         self.helper_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.helper_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.helper_label.setStyleSheet("font-size: 11px; color: #7782A1;")
@@ -204,14 +203,14 @@ class ActionPopup(QWidget):
         header_divider.setObjectName("header_divider")
         layout.addWidget(header_divider)
 
-        self.actions_title = QLabel(self._as_rtl("פעולות טקסט"))
+        self.actions_title = QLabel(self._as_rtl_html("פעולות טקסט"))
         self.actions_title.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.actions_title.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.actions_title.setStyleSheet("font-size: 11px; font-weight: 600; color: #8B99BE;")
         layout.addWidget(self.actions_title)
 
         self.buttons = {
-            action: QPushButton(self._as_rtl(ACTION_LABELS[action])) for action in ACTION_LABELS
+            action: QPushButton(self._as_rtl_html(ACTION_LABELS[action])) for action in ACTION_LABELS
         }
         self.buttons["summarize"].setObjectName("btn_primary")
         self.buttons["improve"].setObjectName("btn_improve")
@@ -402,7 +401,7 @@ class ActionPopup(QWidget):
         super().keyPressEvent(event)
 
     def _set_status(self, text: str, color: str) -> None:
-        self.status_label.setText(self._as_rtl(text))
+        self.status_label.setText(self._as_rtl_html(text))
         self.status_label.setStyleSheet(f"font-size: 12px; font-weight: 600; color: {color};")
 
     def _set_mode(self, mode: str) -> None:
@@ -410,7 +409,7 @@ class ActionPopup(QWidget):
         self.text_actions_widget.setVisible(not is_image_mode)
         self.image_actions_widget.setVisible(is_image_mode)
         self.actions_title.setText(
-            self._as_rtl("פעולת תמונה" if is_image_mode else "פעולות טקסט")
+            self._as_rtl_html("פעולת תמונה" if is_image_mode else "פעולות טקסט")
         )
 
     def _apply_accessibility_window_mode(self) -> None:
@@ -425,20 +424,14 @@ class ActionPopup(QWidget):
 
     def _helper_text_for_mode(self, default_text: str) -> str:
         if self._accessibility_mode:
-            return self._as_rtl(f"{default_text}\n{POPUP_ACCESSIBILITY_HELPER}")
-        return self._as_rtl(default_text)
+            return self._as_rtl_html(f"{default_text}\n{POPUP_ACCESSIBILITY_HELPER}")
+        return self._as_rtl_html(default_text)
 
     @classmethod
-    def _as_rtl(cls, text: str) -> str:
+    def _as_rtl_html(cls, text: str) -> str:
         value = str(text or "")
-        cleaned = value.replace("\u200f", "").replace("\u200e", "")
-        # Force RTL isolate per line to keep mixed Hebrew/Latin strings stable.
-        lines = cleaned.split("\n")
-        wrapped = [
-            f"{cls._RTL_ISOLATE_START}{line}{cls._RTL_ISOLATE_END}" if line else ""
-            for line in lines
-        ]
-        return "\n".join(wrapped)
+        body = escape(value).replace("\n", "<br/>")
+        return f"<div dir='rtl' style='text-align:right;'>{body}</div>"
 
     def _activate_accessible_focus(self) -> None:
         self.raise_()
