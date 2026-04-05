@@ -1,6 +1,7 @@
 import json
 import logging
 import asyncio
+from dataclasses import dataclass
 from typing import Any
 
 from openai import (
@@ -42,6 +43,16 @@ _REQUEST_TIMEOUT_SECONDS_BY_ACTION: dict[ActionType, float] = {
     "fix_language": 24.0,
     "explain_meaning": 24.0,
 }
+
+
+@dataclass(frozen=True)
+class AIActionResult:
+    text: str
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    model: str
+    deployment: str
 
 
 class AzureOpenAIService:
@@ -147,9 +158,34 @@ class AzureOpenAIService:
                 )
             raise
 
-    async def generate_action(self, action: ActionType, text: str) -> str:
+    def _extract_usage_tokens(self, response: Any) -> tuple[int, int, int]:
+        usage = getattr(response, "usage", None)
+        if usage is None and isinstance(response, dict):
+            usage = response.get("usage")
+
+        def _to_int(value: Any) -> int:
+            try:
+                return max(0, int(value))
+            except (TypeError, ValueError):
+                return 0
+
+        if isinstance(usage, dict):
+            prompt = _to_int(usage.get("prompt_tokens"))
+            completion = _to_int(usage.get("completion_tokens"))
+            total = _to_int(usage.get("total_tokens"))
+        else:
+            prompt = _to_int(getattr(usage, "prompt_tokens", 0))
+            completion = _to_int(getattr(usage, "completion_tokens", 0))
+            total = _to_int(getattr(usage, "total_tokens", 0))
+
+        if total == 0 and (prompt > 0 or completion > 0):
+            total = prompt + completion
+        return prompt, completion, total
+
+    async def generate_action(self, action: ActionType, text: str) -> AIActionResult:
         client = self._get_client()
         messages = build_messages(action=action, text=text)
+        deployment = self._model_name_for_action(action)
 
         response = None
         for attempt in range(1, MAX_RETRIES + 2):
@@ -275,7 +311,16 @@ class AzureOpenAIService:
                 retryable=False,
             )
 
-        return result
+        prompt_tokens, completion_tokens, total_tokens = self._extract_usage_tokens(response)
+        model = str(getattr(response, "model", "") or "").strip() or deployment
+        return AIActionResult(
+            text=result,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            model=model,
+            deployment=deployment,
+        )
 
     async def _maybe_retry(
         self,

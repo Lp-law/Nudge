@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import os
+import sqlite3
 import time
 from base64 import urlsafe_b64encode
 from pathlib import Path
@@ -51,9 +52,11 @@ from app.core.security import (
 )
 from app.main import app
 from app.routes.auth import BOOTSTRAP_HEADER
+from app.routes import admin as admin_routes
 from app.routes import ai as ai_routes
 from app.schemas.ai import ACTION_KEYS
 from app.services.prompt_builder import INSTRUCTIONS_BY_ACTION
+from app.services.openai_service import AIActionResult
 from app.services.ocr_service import AzureOCRService
 from app.services.upstream_errors import UpstreamServiceError
 from client.app.action_contract import (
@@ -65,6 +68,26 @@ from client.app.action_contract import (
 get_settings.cache_clear()
 client = TestClient(app)
 AUTH_HEADERS = {API_KEY_HEADER: os.environ["NUDGE_BACKEND_API_KEY"]}
+
+
+def _usage_db_path() -> str:
+    return os.environ["LEADS_DB_PATH"]
+
+
+def _clear_usage_events() -> None:
+    with sqlite3.connect(_usage_db_path()) as conn:
+        conn.execute("DELETE FROM usage_events")
+        conn.commit()
+
+
+def _latest_usage_event() -> dict[str, object]:
+    with sqlite3.connect(_usage_db_path()) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM usage_events ORDER BY created_ts DESC LIMIT 1"
+        ).fetchone()
+    assert row is not None
+    return dict(row)
 
 
 def test_health_works() -> None:
@@ -178,6 +201,13 @@ def _patch_forwarded_ip(monkeypatch) -> None:
         return forwarded or "testclient"
 
     monkeypatch.setattr(ai_routes, "get_client_ip", _client_ip)
+
+
+def _allow_rate_limit(monkeypatch) -> None:
+    async def _allow(*_args, **_kwargs):
+        return RateLimitDecision(allowed=True, retry_after_seconds=0)
+
+    monkeypatch.setattr(ai_routes.rate_limiter, "allow", _allow)
 
 
 def test_action_whitespace_is_400() -> None:
@@ -483,6 +513,106 @@ def test_upstream_timeout_maps_to_504(monkeypatch) -> None:
         json={"text": "valid request content", "action": "summarize"},
     )
     assert response.status_code == 504
+
+
+def test_usage_event_persisted_for_action_success(monkeypatch) -> None:
+    _clear_usage_events()
+    _allow_rate_limit(monkeypatch)
+
+    async def _fake_generate_action(action: str, text: str) -> AIActionResult:
+        return AIActionResult(
+            text="ok",
+            prompt_tokens=120,
+            completion_tokens=30,
+            total_tokens=150,
+            model="gpt-test",
+            deployment="gpt-test",
+        )
+
+    monkeypatch.setattr(ai_routes.openai_service, "generate_action", _fake_generate_action)
+    response = client.post(
+        "/ai/action",
+        headers={**AUTH_HEADERS, "X-Forwarded-For": "198.51.100.80"},
+        json={"text": "valid request content", "action": "summarize"},
+    )
+    assert response.status_code == 200
+    row = _latest_usage_event()
+    assert row["route_type"] == "ai_action"
+    assert row["status"] == "success"
+    assert int(row["http_status"]) == 200
+    assert int(row["oai_total_tokens"]) == 150
+    assert int(row["input_chars"]) > 0
+
+
+def test_usage_event_persisted_for_mapped_failure(monkeypatch) -> None:
+    _clear_usage_events()
+    _allow_rate_limit(monkeypatch)
+
+    async def _raise_timeout(action: str, text: str):
+        raise UpstreamServiceError("timeout", "AI timeout", retryable=False)
+
+    monkeypatch.setattr(ai_routes.openai_service, "generate_action", _raise_timeout)
+    response = client.post(
+        "/ai/action",
+        headers={**AUTH_HEADERS, "X-Forwarded-For": "198.51.100.81"},
+        json={"text": "valid request content", "action": "summarize"},
+    )
+    assert response.status_code == 504
+    row = _latest_usage_event()
+    assert row["status"] == "error"
+    assert row["error_kind"] == "timeout"
+    assert int(row["http_status"]) == 504
+
+
+def test_usage_event_persisted_for_unexpected_failure(monkeypatch) -> None:
+    _clear_usage_events()
+    _allow_rate_limit(monkeypatch)
+
+    async def _raise_unexpected(action: str, text: str):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(ai_routes.openai_service, "generate_action", _raise_unexpected)
+    response = client.post(
+        "/ai/action",
+        headers={**AUTH_HEADERS, "X-Forwarded-For": "198.51.100.82"},
+        json={"text": "valid request content", "action": "summarize"},
+    )
+    assert response.status_code == 500
+    row = _latest_usage_event()
+    assert row["status"] == "error"
+    assert row["error_kind"] == "unexpected"
+    assert int(row["http_status"]) == 500
+
+
+def test_admin_usage_summary_self_only(monkeypatch) -> None:
+    _clear_usage_events()
+    _allow_rate_limit(monkeypatch)
+
+    async def _fake_generate_action(action: str, text: str) -> str:
+        return "ok"
+
+    monkeypatch.setattr(ai_routes.openai_service, "generate_action", _fake_generate_action)
+    monkeypatch.setattr(admin_routes.settings, "admin_self_principals", "legacy_api_key")
+    response = client.post(
+        "/ai/action",
+        headers={**AUTH_HEADERS, "X-Forwarded-For": "198.51.100.83"},
+        json={"text": "valid request content", "action": "summarize"},
+    )
+    assert response.status_code == 200
+    summary = client.get(
+        "/admin/api/usage/summary?period=month&self_only=true",
+        headers=_admin_headers(),
+    )
+    assert summary.status_code == 200
+    data = summary.json()
+    assert data["active_users"] >= 1
+    assert data["my_events"] >= 1
+    users = client.get(
+        "/admin/api/usage/users?period=month&self_only=true",
+        headers=_admin_headers(),
+    )
+    assert users.status_code == 200
+    assert users.json()["total"] >= 1
 
 
 def test_action_contract_coverage_sanity() -> None:

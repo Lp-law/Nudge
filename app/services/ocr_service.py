@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+from dataclasses import dataclass
 
 import httpx
 
@@ -21,6 +22,12 @@ _ZERO_WIDTH_CHARS_RE = re.compile(r"[\u200b\u200c\u200d\ufeff]")
 _MULTI_BLANK_LINES_RE = re.compile(r"\n{3,}")
 _SPACE_RUN_RE = re.compile(r"[ \t]{2,}")
 _NOISE_ONLY_LINE_RE = re.compile(r"^[\W_]{1,3}$", re.UNICODE)
+
+
+@dataclass(frozen=True)
+class OCRExtractResult:
+    text: str
+    pages: int
 
 
 class AzureOCRService:
@@ -81,7 +88,7 @@ class AzureOCRService:
                     urls.append(url)
         return urls
 
-    async def extract_text(self, image_bytes: bytes) -> str:
+    async def extract_text(self, image_bytes: bytes) -> OCRExtractResult:
         self._validate_settings()
         endpoint = (self.settings.azure_doc_intel_endpoint or "").rstrip("/")
         analyze_urls = self._analyze_url_candidates(endpoint)
@@ -164,7 +171,8 @@ class AzureOCRService:
                             "OCR returned empty text.",
                             retryable=False,
                         )
-                    return text
+                    pages = self._extract_page_count(data)
+                    return OCRExtractResult(text=text, pages=pages)
 
                 if status == "failed":
                     logger.error("Azure OCR failed to process image")
@@ -206,6 +214,13 @@ class AzureOCRService:
                 if text:
                     lines.append(text)
         return self._normalize_ocr_text("\n".join(lines))
+
+    def _extract_page_count(self, data: dict) -> int:
+        analyze_result = data.get("analyzeResult") or {}
+        pages = analyze_result.get("pages")
+        if isinstance(pages, list) and pages:
+            return len(pages)
+        return 1
 
     def _normalize_ocr_text(self, text: str) -> str:
         # Deterministic OCR cleanup:

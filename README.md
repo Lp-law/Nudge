@@ -83,6 +83,10 @@ Edit `.env` with your real Azure values.
 - `ADMIN_DASHBOARD_ENABLED` (`true` enables internal lead dashboard)
 - `ADMIN_DASHBOARD_USERNAME` (required when dashboard enabled)
 - `ADMIN_DASHBOARD_PASSWORD` (required when dashboard enabled; min 10 chars)
+- `ADMIN_SELF_PRINCIPALS` (optional comma/newline-separated principals tagged as Me/Admin in usage view)
+- `COST_OPENAI_INPUT_PER_1K` (optional estimated OpenAI input token rate for usage-cost dashboard)
+- `COST_OPENAI_OUTPUT_PER_1K` (optional estimated OpenAI output token rate for usage-cost dashboard)
+- `COST_OCR_PER_PAGE` (optional estimated OCR page rate for usage-cost dashboard)
 - `PORT` (optional locally, default app behavior is `8000`)
 
 ## Local quickstart (Windows, fastest path)

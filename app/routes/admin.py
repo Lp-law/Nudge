@@ -7,7 +7,17 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from app.core.config import get_settings
 from app.schemas.leads import LeadCreateRequest, LeadCreateResponse, LeadListResponse, LeadRecord, LeadStatsResponse, create_lead_id
+from app.schemas.usage import (
+    UsageHeavyResponse,
+    UsageHeavyRow,
+    UsageMetric,
+    UsagePeriod,
+    UsageSummaryResponse,
+    UsageUserRow,
+    UsageUsersResponse,
+)
 from app.services.lead_store import LeadStore
+from app.services.usage_store import usage_store
 
 
 router = APIRouter(tags=["admin"])
@@ -40,6 +50,23 @@ def _verify_admin(credentials: HTTPBasicCredentials | None = security_dependency
             headers={"WWW-Authenticate": "Basic"},
         )
     return provided_username
+
+
+def _parse_self_principals(raw: str) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for chunk in (raw or "").replace("\r", "\n").replace("\n", ",").split(","):
+        item = chunk.strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
+
+
+def _is_self_principal(principal: str) -> bool:
+    self_principals = _parse_self_principals(settings.admin_self_principals)
+    return principal in self_principals
 
 
 @router.post("/leads/register", response_model=LeadCreateResponse)
@@ -127,6 +154,52 @@ async def admin_dashboard(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
     </div>
   </div>
 
+  <div class="panel">
+    <h3>Usage & Estimated Cost (metadata-only)</h3>
+    <div class="muted">Self/Admin view is based on server-configured principals.</div>
+    <div class="cards">
+      <div class="card"><div class="title">Events</div><div id="usage_total_events" class="value">-</div></div>
+      <div class="card"><div class="title">Active users</div><div id="usage_active_users" class="value">-</div></div>
+      <div class="card"><div class="title">AI events</div><div id="usage_ai_events" class="value">-</div></div>
+      <div class="card"><div class="title">OCR events</div><div id="usage_ocr_events" class="value">-</div></div>
+      <div class="card"><div class="title">Est. OpenAI $</div><div id="usage_cost_openai" class="value">-</div></div>
+      <div class="card"><div class="title">Est. OCR $</div><div id="usage_cost_ocr" class="value">-</div></div>
+      <div class="card"><div class="title">Est. total $</div><div id="usage_cost_total" class="value">-</div></div>
+      <div class="card"><div class="title">My events</div><div id="usage_my_events" class="value">-</div></div>
+      <div class="card"><div class="title">My cost $</div><div id="usage_my_cost_total" class="value">-</div></div>
+    </div>
+    <form id="usage_filters" onsubmit="event.preventDefault(); refreshUsage();">
+      <select id="usage_period">
+        <option value="day">day</option>
+        <option value="week">week</option>
+        <option value="month" selected>month</option>
+      </select>
+      <select id="usage_route_type">
+        <option value="">all routes</option>
+        <option value="ai_action">ai_action</option>
+        <option value="ocr">ocr</option>
+      </select>
+      <input id="usage_action" placeholder="action key" />
+      <input id="usage_search" placeholder="search principal" />
+      <label><input id="usage_self_only" type="checkbox" /> self only</label>
+      <button type="submit">Apply</button>
+    </form>
+    <table>
+      <thead><tr><th>Principal</th><th>Devices</th><th>Events</th><th>AI</th><th>OCR</th><th>Est. OpenAI $</th><th>Est. OCR $</th><th>Est. total $</th><th>Last seen</th></tr></thead>
+      <tbody id="usage_users_tbody"></tbody>
+    </table>
+    <div class="cols" style="margin-top:12px;">
+      <div class="panel">
+        <h4>Heavy users by events</h4>
+        <div id="usage_heavy_events"></div>
+      </div>
+      <div class="panel">
+        <h4>Heavy users by cost</h4>
+        <div id="usage_heavy_cost"></div>
+      </div>
+    </div>
+  </div>
+
   <script>
     async function fetchJson(url) {
       const r = await fetch(url, { credentials: 'same-origin' });
@@ -175,10 +248,65 @@ async def admin_dashboard(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
     }
     async function bootstrap() {
       try {
-        await Promise.all([refreshStats(), refreshUsers()]);
+        await Promise.all([refreshStats(), refreshUsers(), refreshUsage()]);
       } catch {
         alert('Failed to load dashboard data.');
       }
+    }
+    function money(v) {
+      const n = Number(v || 0);
+      return n.toFixed(4);
+    }
+    function usageQueryBase() {
+      const q = new URLSearchParams();
+      q.set('period', document.getElementById('usage_period').value || 'month');
+      const routeType = document.getElementById('usage_route_type').value.trim();
+      const action = document.getElementById('usage_action').value.trim();
+      const search = document.getElementById('usage_search').value.trim();
+      const selfOnly = document.getElementById('usage_self_only').checked;
+      if (routeType) q.set('route_type', routeType);
+      if (action) q.set('action', action);
+      if (search) q.set('search', search);
+      if (selfOnly) q.set('self_only', 'true');
+      return q;
+    }
+    function renderHeavy(elId, items) {
+      document.getElementById(elId).innerHTML = items.map(row =>
+        `<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>${esc(row.principal)}${row.is_self ? ' <strong>(Me/Admin)</strong>' : ''}</span><strong>${row.total_events} / $${money(row.estimated_cost_usd)}</strong></div>`
+      ).join('') || '<div class="muted">No data</div>';
+    }
+    async function refreshUsage() {
+      const q = usageQueryBase();
+      const [summary, users, heavyEvents, heavyCost] = await Promise.all([
+        fetchJson(`/admin/api/usage/summary?${q.toString()}`),
+        fetchJson(`/admin/api/usage/users?${q.toString()}`),
+        fetchJson(`/admin/api/usage/heavy?${q.toString()}&metric=events`),
+        fetchJson(`/admin/api/usage/heavy?${q.toString()}&metric=cost`),
+      ]);
+      document.getElementById('usage_total_events').textContent = summary.total_events;
+      document.getElementById('usage_active_users').textContent = summary.active_users;
+      document.getElementById('usage_ai_events').textContent = summary.ai_events;
+      document.getElementById('usage_ocr_events').textContent = summary.ocr_events;
+      document.getElementById('usage_cost_openai').textContent = `$${money(summary.estimated_cost_openai_usd)}`;
+      document.getElementById('usage_cost_ocr').textContent = `$${money(summary.estimated_cost_ocr_usd)}`;
+      document.getElementById('usage_cost_total').textContent = `$${money(summary.estimated_cost_usd)}`;
+      document.getElementById('usage_my_events').textContent = summary.my_events;
+      document.getElementById('usage_my_cost_total').textContent = `$${money(summary.my_estimated_cost_usd)}`;
+      document.getElementById('usage_users_tbody').innerHTML = users.items.map(row => `
+        <tr>
+          <td>${esc(row.principal)} ${row.is_self ? '<strong>(Me/Admin)</strong>' : ''}</td>
+          <td>${row.distinct_devices}</td>
+          <td>${row.total_events}</td>
+          <td>${row.ai_events}</td>
+          <td>${row.ocr_events}</td>
+          <td>$${money(row.estimated_cost_openai_usd)}</td>
+          <td>$${money(row.estimated_cost_ocr_usd)}</td>
+          <td>$${money(row.estimated_cost_usd)}</td>
+          <td>${esc(row.last_seen_at)}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="9" class="muted">No usage rows found</td></tr>';
+      renderHeavy('usage_heavy_events', heavyEvents.items);
+      renderHeavy('usage_heavy_cost', heavyCost.items);
     }
     bootstrap();
   </script>
@@ -243,3 +371,104 @@ async def admin_users(
         for row in rows
     ]
     return LeadListResponse(total=total, items=items)
+
+
+@router.get("/admin/api/usage/summary", response_model=UsageSummaryResponse)
+async def admin_usage_summary(
+    _admin: str = Depends(_verify_admin),
+    period: UsagePeriod = Query(default="month"),
+    self_only: bool = Query(default=False),
+) -> UsageSummaryResponse:
+    self_principals = _parse_self_principals(settings.admin_self_principals)
+    principals_filter = self_principals if self_only else None
+    base = usage_store.summary(period=period, principals=principals_filter)
+    mine = usage_store.summary(period=period, principals=self_principals) if self_principals else {
+        "total_events": 0,
+        "estimated_cost_openai_usd": 0.0,
+        "estimated_cost_ocr_usd": 0.0,
+        "estimated_cost_usd": 0.0,
+    }
+    return UsageSummaryResponse(
+        period=period,
+        total_events=int(base["total_events"]),
+        active_users=int(base["active_users"]),
+        ai_events=int(base["ai_events"]),
+        ocr_events=int(base["ocr_events"]),
+        estimated_cost_openai_usd=float(base["estimated_cost_openai_usd"]),
+        estimated_cost_ocr_usd=float(base["estimated_cost_ocr_usd"]),
+        estimated_cost_usd=float(base["estimated_cost_usd"]),
+        my_events=int(mine["total_events"]),
+        my_active=bool(int(mine["total_events"]) > 0),
+        my_estimated_cost_openai_usd=float(mine["estimated_cost_openai_usd"]),
+        my_estimated_cost_ocr_usd=float(mine["estimated_cost_ocr_usd"]),
+        my_estimated_cost_usd=float(mine["estimated_cost_usd"]),
+        usage_by_feature=list(base["usage_by_feature"]),
+    )
+
+
+@router.get("/admin/api/usage/users", response_model=UsageUsersResponse)
+async def admin_usage_users(
+    _admin: str = Depends(_verify_admin),
+    period: UsagePeriod = Query(default="month"),
+    search: str = Query(default="", max_length=160),
+    route_type: str = Query(default="", max_length=40),
+    action: str = Query(default="", max_length=80),
+    self_only: bool = Query(default=False),
+    limit: int = Query(default=200, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+) -> UsageUsersResponse:
+    self_principals = _parse_self_principals(settings.admin_self_principals)
+    principals_filter = self_principals if self_only else None
+    total, rows = usage_store.users(
+        period=period,
+        search=search,
+        route_type=route_type,
+        action=action,
+        principals=principals_filter,
+        limit=limit,
+        offset=offset,
+    )
+    items = [
+        UsageUserRow(
+            principal=str(row["principal"]),
+            is_self=_is_self_principal(str(row["principal"])),
+            distinct_devices=int(row["distinct_devices"] or 0),
+            total_events=int(row["total_events"] or 0),
+            ai_events=int(row["ai_events"] or 0),
+            ocr_events=int(row["ocr_events"] or 0),
+            estimated_cost_openai_usd=float(row["cost_openai"] or 0.0),
+            estimated_cost_ocr_usd=float(row["cost_ocr"] or 0.0),
+            estimated_cost_usd=float(row["cost_total"] or 0.0),
+            last_seen_at=datetime.fromisoformat(str(row["last_seen_at"])),
+        )
+        for row in rows
+    ]
+    return UsageUsersResponse(total=total, items=items)
+
+
+@router.get("/admin/api/usage/heavy", response_model=UsageHeavyResponse)
+async def admin_usage_heavy(
+    _admin: str = Depends(_verify_admin),
+    period: UsagePeriod = Query(default="month"),
+    metric: UsageMetric = Query(default="events"),
+    self_only: bool = Query(default=False),
+    limit: int = Query(default=20, ge=1, le=200),
+) -> UsageHeavyResponse:
+    self_principals = _parse_self_principals(settings.admin_self_principals)
+    principals_filter = self_principals if self_only else None
+    rows = usage_store.heavy_users(
+        period=period,
+        metric=metric,
+        principals=principals_filter,
+        limit=limit,
+    )
+    items = [
+        UsageHeavyRow(
+            principal=str(row["principal"]),
+            is_self=_is_self_principal(str(row["principal"])),
+            total_events=int(row["total_events"]),
+            estimated_cost_usd=float(row["estimated_cost_usd"]),
+        )
+        for row in rows
+    ]
+    return UsageHeavyResponse(period=period, metric=metric, items=items)

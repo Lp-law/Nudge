@@ -169,6 +169,10 @@ class Settings(BaseSettings):
     admin_dashboard_enabled: bool = Field(default=False, alias="ADMIN_DASHBOARD_ENABLED")
     admin_dashboard_username: str | None = Field(default=None, alias="ADMIN_DASHBOARD_USERNAME")
     admin_dashboard_password: str | None = Field(default=None, alias="ADMIN_DASHBOARD_PASSWORD")
+    admin_self_principals: str = Field(default="", alias="ADMIN_SELF_PRINCIPALS")
+    cost_openai_input_per_1k: float = Field(default=0.0, alias="COST_OPENAI_INPUT_PER_1K")
+    cost_openai_output_per_1k: float = Field(default=0.0, alias="COST_OPENAI_OUTPUT_PER_1K")
+    cost_ocr_per_page: float = Field(default=0.0, alias="COST_OCR_PER_PAGE")
     port: int = Field(default=8000, alias="PORT")
 
     @model_validator(mode="after")
