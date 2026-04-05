@@ -721,6 +721,24 @@ def test_ocr_poll_timeout_is_bounded(monkeypatch) -> None:
     assert high._poll_timeout_seconds() <= 90.0
 
 
+def test_ocr_analyze_url_candidates_include_fallback_paths() -> None:
+    service = AzureOCRService()
+    urls = service._analyze_url_candidates("https://example.cognitiveservices.azure.com")
+    assert any(
+        "/documentintelligence/documentModels/prebuilt-read:analyze" in url for url in urls
+    )
+    assert any("/formrecognizer/documentModels/prebuilt-read:analyze" in url for url in urls)
+
+
+def test_ocr_analyze_url_candidates_strip_service_suffix() -> None:
+    service = AzureOCRService()
+    urls = service._analyze_url_candidates(
+        "https://example.cognitiveservices.azure.com/documentintelligence"
+    )
+    assert urls[0].startswith("https://example.cognitiveservices.azure.com/")
+    assert all("/documentintelligence/documentintelligence/" not in url for url in urls)
+
+
 def test_ocr_text_cleanup_preserves_lines_and_reduces_noise() -> None:
     service = AzureOCRService()
     raw = " שורה ראשונה  \r\n\r\n___\r\nשורה   שנייה\r\n \u200b \r\n@@\r\n"

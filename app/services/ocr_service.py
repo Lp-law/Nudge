@@ -44,36 +44,79 @@ class AzureOCRService:
             return MAX_POLL_TIMEOUT_SECONDS
         return configured
 
+    def _normalize_ocr_endpoint_root(self, endpoint: str) -> str:
+        root = (endpoint or "").rstrip("/")
+        return re.sub(r"/(documentintelligence|formrecognizer)$", "", root, flags=re.IGNORECASE)
+
+    def _analyze_url_candidates(self, endpoint: str) -> list[str]:
+        root = self._normalize_ocr_endpoint_root(endpoint)
+        version = self.settings.azure_doc_intel_api_version
+        suffixes = (
+            "/documentintelligence/documentModels/prebuilt-read:analyze",
+            "/formrecognizer/documentModels/prebuilt-read:analyze",
+            "/documentintelligence/documentModels/read:analyze",
+            "/formrecognizer/documentModels/read:analyze",
+        )
+        urls: list[str] = []
+        seen: set[str] = set()
+        for suffix in suffixes:
+            url = f"{root}{suffix}?api-version={version}"
+            if url not in seen:
+                seen.add(url)
+                urls.append(url)
+        return urls
+
     async def extract_text(self, image_bytes: bytes) -> str:
         self._validate_settings()
         endpoint = (self.settings.azure_doc_intel_endpoint or "").rstrip("/")
-        analyze_url = (
-            f"{endpoint}/documentintelligence/documentModels/prebuilt-read:analyze"
-            f"?api-version={self.settings.azure_doc_intel_api_version}"
-        )
+        analyze_urls = self._analyze_url_candidates(endpoint)
         headers = {
             "Ocp-Apim-Subscription-Key": self.settings.azure_doc_intel_api_key or "",
             "Content-Type": "application/octet-stream",
         }
 
         async with httpx.AsyncClient(timeout=20.0) as client:
-            response = await self._request_with_retries(
-                client=client,
-                method="POST",
-                url=analyze_url,
-                headers=headers,
-                content=image_bytes,
-                retries=MAX_SUBMIT_RETRIES,
-                stage="submit",
-            )
+            operation_location = ""
+            last_submit_error: UpstreamServiceError | None = None
+            for idx, analyze_url in enumerate(analyze_urls):
+                try:
+                    response = await self._request_with_retries(
+                        client=client,
+                        method="POST",
+                        url=analyze_url,
+                        headers=headers,
+                        content=image_bytes,
+                        retries=MAX_SUBMIT_RETRIES,
+                        stage="submit",
+                    )
+                except UpstreamServiceError as exc:
+                    last_submit_error = exc
+                    # Wrong OCR endpoint/model path is usually a 4xx (bad_request).
+                    # Try known Azure variants before failing the request.
+                    if exc.kind == "bad_request" and idx < len(analyze_urls) - 1:
+                        logger.warning(
+                            "OCR submit rejected for url=%s; trying fallback OCR endpoint",
+                            analyze_url,
+                        )
+                        continue
+                    raise
 
-            operation_location = response.headers.get("Operation-Location")
-            if not operation_location:
+                operation_location = response.headers.get("Operation-Location") or ""
+                if operation_location:
+                    break
+                if idx < len(analyze_urls) - 1:
+                    logger.warning(
+                        "OCR submit missing Operation-Location for url=%s; trying fallback OCR endpoint",
+                        analyze_url,
+                    )
+                    continue
                 raise UpstreamServiceError(
                     "invalid_response",
                     "OCR operation location missing.",
                     retryable=False,
                 )
+            if not operation_location and last_submit_error is not None:
+                raise last_submit_error
 
             started = asyncio.get_running_loop().time()
             poll_timeout_seconds = self._poll_timeout_seconds()
