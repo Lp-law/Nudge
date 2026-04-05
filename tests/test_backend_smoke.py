@@ -728,6 +728,9 @@ def test_ocr_analyze_url_candidates_include_fallback_paths() -> None:
         "/documentintelligence/documentModels/prebuilt-read:analyze" in url for url in urls
     )
     assert any("/formrecognizer/documentModels/prebuilt-read:analyze" in url for url in urls)
+    assert any("/documentintelligence/documentModels/prebuilt-layout:analyze" in url for url in urls)
+    assert any("api-version=2024-11-30" in url for url in urls)
+    assert any("api-version=2023-07-31" in url for url in urls)
 
 
 def test_ocr_analyze_url_candidates_strip_service_suffix() -> None:

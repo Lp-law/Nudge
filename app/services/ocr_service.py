@@ -50,20 +50,35 @@ class AzureOCRService:
 
     def _analyze_url_candidates(self, endpoint: str) -> list[str]:
         root = self._normalize_ocr_endpoint_root(endpoint)
-        version = self.settings.azure_doc_intel_api_version
-        suffixes = (
-            "/documentintelligence/documentModels/prebuilt-read:analyze",
-            "/formrecognizer/documentModels/prebuilt-read:analyze",
-            "/documentintelligence/documentModels/read:analyze",
-            "/formrecognizer/documentModels/read:analyze",
-        )
+        configured_version = (self.settings.azure_doc_intel_api_version or "").strip()
+        versions = [
+            v
+            for v in (
+                configured_version,
+                "2024-11-30",
+                "2023-07-31",
+                "2022-08-31",
+            )
+            if v
+        ]
+        # Try common model IDs across DI versions/resources.
+        model_ids = ("prebuilt-read", "read", "prebuilt-layout")
+        suffixes: list[str] = []
+        for model_id in model_ids:
+            suffixes.extend(
+                (
+                    f"/documentintelligence/documentModels/{model_id}:analyze",
+                    f"/formrecognizer/documentModels/{model_id}:analyze",
+                )
+            )
         urls: list[str] = []
         seen: set[str] = set()
-        for suffix in suffixes:
-            url = f"{root}{suffix}?api-version={version}"
-            if url not in seen:
-                seen.add(url)
-                urls.append(url)
+        for version in versions:
+            for suffix in suffixes:
+                url = f"{root}{suffix}?api-version={version}"
+                if url not in seen:
+                    seen.add(url)
+                    urls.append(url)
         return urls
 
     async def extract_text(self, image_bytes: bytes) -> str:
