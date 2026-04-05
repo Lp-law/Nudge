@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from PySide6.QtCore import QSize, QTimer, Qt, Signal
+from PySide6.QtCore import QSize, QTimer, Qt, Signal, QLocale
 from PySide6.QtGui import QColor, QCursor, QGuiApplication, QIcon, QKeyEvent, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
@@ -41,8 +41,7 @@ class ActionPopup(QWidget):
     ERROR_AUTO_HIDE_MS = 2800
     ACTION_ICON_SIZE = QSize(14, 14)
     POPUP_WIDTH = 428
-    _RTL_EMBED_START = "\u202B"
-    _RTL_EMBED_END = "\u202C"
+    _RTL_MARK = "\u200F"
 
     def __init__(
         self,
@@ -65,6 +64,7 @@ class ActionPopup(QWidget):
         self._result_timer.timeout.connect(self.hide)
 
         self._apply_accessibility_window_mode()
+        self.setLocale(QLocale(QLocale.Language.Hebrew, QLocale.Country.Israel))
         self.setFixedWidth(self.POPUP_WIDTH)
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.setStyleSheet(
@@ -402,8 +402,11 @@ class ActionPopup(QWidget):
     @classmethod
     def _as_rtl(cls, text: str) -> str:
         value = str(text or "")
-        stripped = value.replace(cls._RTL_EMBED_START, "").replace(cls._RTL_EMBED_END, "")
-        return f"{cls._RTL_EMBED_START}{stripped}{cls._RTL_EMBED_END}"
+        cleaned = value.replace("\u200f", "").replace("\u200e", "")
+        # Force RTL on each line to keep mixed Hebrew/Latin strings stable.
+        lines = cleaned.split("\n")
+        wrapped = [f"{cls._RTL_MARK}{line}{cls._RTL_MARK}" if line else "" for line in lines]
+        return "\n".join(wrapped)
 
     def _activate_accessible_focus(self) -> None:
         self.raise_()
