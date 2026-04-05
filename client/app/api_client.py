@@ -39,7 +39,13 @@ class ApiClient(QObject):
 
     def _record_transport_failure(self, reply: QNetworkReply) -> None:
         err_s = (reply.errorString() or "").strip()
-        code = int(reply.error())
+        raw_error = reply.error()
+        # PySide6 may expose NetworkError as an enum object that is not int-castable directly.
+        # Keep this path exception-safe so request handlers never crash on transport failures.
+        try:
+            code = int(raw_error)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            code = int(getattr(raw_error, "value", -1))
         if err_s:
             self._last_transport_error = f"{err_s} (code={code})"
         else:
