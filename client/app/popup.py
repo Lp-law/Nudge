@@ -41,7 +41,8 @@ class ActionPopup(QWidget):
     ERROR_AUTO_HIDE_MS = 2800
     ACTION_ICON_SIZE = QSize(14, 14)
     POPUP_WIDTH = 428
-    _RTL_MARK = "\u200F"
+    _RTL_ISOLATE_START = "\u2067"
+    _RTL_ISOLATE_END = "\u2069"
 
     def __init__(
         self,
@@ -65,6 +66,7 @@ class ActionPopup(QWidget):
 
         self._apply_accessibility_window_mode()
         self.setLocale(QLocale(QLocale.Language.Hebrew, QLocale.Country.Israel))
+        self.setAttribute(Qt.WidgetAttribute.WA_RightToLeft, True)
         self.setFixedWidth(self.POPUP_WIDTH)
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.setStyleSheet(
@@ -185,12 +187,14 @@ class ActionPopup(QWidget):
         layout.addLayout(header_row)
 
         self.status_label = QLabel(self._as_rtl(POPUP_IDLE_STATUS))
+        self.status_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.status_label.setStyleSheet("font-size: 12px; font-weight: 600; color: #A8B4D3;")
         self.status_label.setAccessibleName("סטטוס פעולה")
         layout.addWidget(self.status_label)
 
         self.helper_label = QLabel(self._as_rtl(POPUP_TEXT_HELPER))
+        self.helper_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.helper_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.helper_label.setStyleSheet("font-size: 11px; color: #7782A1;")
         self.helper_label.setAccessibleName("מידע עזרה")
@@ -201,6 +205,7 @@ class ActionPopup(QWidget):
         layout.addWidget(header_divider)
 
         self.actions_title = QLabel(self._as_rtl("פעולות טקסט"))
+        self.actions_title.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.actions_title.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.actions_title.setStyleSheet("font-size: 11px; font-weight: 600; color: #8B99BE;")
         layout.addWidget(self.actions_title)
@@ -427,9 +432,12 @@ class ActionPopup(QWidget):
     def _as_rtl(cls, text: str) -> str:
         value = str(text or "")
         cleaned = value.replace("\u200f", "").replace("\u200e", "")
-        # Force RTL on each line to keep mixed Hebrew/Latin strings stable.
+        # Force RTL isolate per line to keep mixed Hebrew/Latin strings stable.
         lines = cleaned.split("\n")
-        wrapped = [f"{cls._RTL_MARK}{line}{cls._RTL_MARK}" if line else "" for line in lines]
+        wrapped = [
+            f"{cls._RTL_ISOLATE_START}{line}{cls._RTL_ISOLATE_END}" if line else ""
+            for line in lines
+        ]
         return "\n".join(wrapped)
 
     def _activate_accessible_focus(self) -> None:
