@@ -8,10 +8,16 @@ try:
     from .tray_app import TrayApp
     from .ui_strings import APP_TITLE, TRAY_UNAVAILABLE_MESSAGE
 except ImportError:
-    # PyInstaller may execute this entrypoint as a top-level script.
-    from release_info import load_release_info
-    from tray_app import TrayApp
-    from ui_strings import APP_TITLE, TRAY_UNAVAILABLE_MESSAGE
+    try:
+        # PyInstaller may execute this entrypoint without package context.
+        from app.release_info import load_release_info
+        from app.tray_app import TrayApp
+        from app.ui_strings import APP_TITLE, TRAY_UNAVAILABLE_MESSAGE
+    except ImportError:
+        # Local fallback when running from the app directory directly.
+        from release_info import load_release_info
+        from tray_app import TrayApp
+        from ui_strings import APP_TITLE, TRAY_UNAVAILABLE_MESSAGE
 
 SINGLE_INSTANCE_NAME = "NudgeTraySingleton"
 
