@@ -38,6 +38,10 @@ class UsageSummaryResponse(BaseModel):
 class UsageUserRow(BaseModel):
     principal: str
     principal_label: str
+    account_email: str | None = None
+    license_kind: str | None = None
+    license_status: str | None = None
+    key_masked: str | None = None
     is_self: bool
     distinct_devices: int
     total_events: int
@@ -57,6 +61,10 @@ class UsageUsersResponse(BaseModel):
 class UsageHeavyRow(BaseModel):
     principal: str
     principal_label: str
+    account_email: str | None = None
+    license_kind: str | None = None
+    license_status: str | None = None
+    key_masked: str | None = None
     is_self: bool
     total_events: int
     estimated_cost_usd: float

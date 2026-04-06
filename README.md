@@ -64,7 +64,8 @@ Edit `.env` with your real Azure values.
 - `NUDGE_REVOKED_TOKEN_JTIS` (comma-separated token `jti` values)
 - `NUDGE_CUSTOMER_LICENSE_KEYS` (comma/newline-separated **paid** license keys for `POST /auth/activate`)
 - `NUDGE_TRIAL_LICENSE_KEYS` (optional comma/newline-separated **beta/trial** keys for testers you choose — same activation dialog; tokens carry subject prefix `tlic:` for later analytics; can be used **without** any paid keys for a free beta)
-- Activation is available if **either** list is non-empty; `503` only when **both** are empty
+- `NUDGE_ACTIVATION_ENV_FALLBACK_ENABLED` (default `true`; temporary migration fallback for `/auth/activate` when a key is not yet in DB)
+- Activation now uses a DB-backed licensing source of truth (`accounts`, `licenses`, `license_activations`), with temporary env fallback during migration.
 - `NUDGE_ACTIVATION_RATE_LIMIT_PER_MINUTE` (default `20`; per-IP limit on `/auth/activate`)
 - `NUDGE_LICENSE_DEVICE_BINDING_ENABLED` (default `true`; one `device_id` per license key; use Redis-backed `TOKEN_STATE_BACKEND` in multi-instance production)
 - `NUDGE_BACKEND_API_KEY` (legacy fallback key; avoid as final production model)
@@ -119,6 +120,7 @@ That overwrites `release/client_runtime.json` before PyInstaller runs (commit th
 **Free beta (hand-picked testers, no payment)**
 
 - Put one opaque key per tester in **`NUDGE_TRIAL_LICENSE_KEYS`** on the server (comma-separated). Leave **`NUDGE_CUSTOMER_LICENSE_KEYS`** empty if everyone in this phase is trial-only, or use both lists if some users are paid and some are beta.
+- On startup, env keys are imported idempotently into the licensing DB with masked key display (`TRL-****-****-****-XXXX` / `LIC-****-****-****-XXXX`) and hashed-key lookup.
 - Send each tester their key; the app experience is the same as paid activation. Revoke a tester by removing their key and redeploying (or rotating keys).
 - Trial users get JWT subjects prefixed with **`tlic:`** (paid keys use **`lic:`**) so you can tell them apart in logs or future analytics.
 
@@ -140,7 +142,7 @@ That overwrites `release/client_runtime.json` before PyInstaller runs (commit th
 | Area | End-user | Internal / admin |
 |------|----------|-------------------|
 | Azure keys | Never on the client; only on the server | `.env` / Render secrets |
-| License keys | Shown in activation UI; stored hashed server-side only as JWT subject prefix | `NUDGE_CUSTOMER_LICENSE_KEYS` on the server |
+| License keys | Shown in activation UI; DB stores key hash + masked form; dashboard identity resolves to account/license (principal remains diagnostic) | env-key import + DB licensing tables |
 | Bootstrap issuer key | Not used by customers | `NUDGE_AUTH_BOOTSTRAP_KEY` for `POST /auth/token` |
 | Admin dashboard | Not exposed in the client | `GET /admin` when enabled |
 
@@ -362,7 +364,7 @@ The summary intentionally excludes clipboard content, OCR images, secrets, and u
 - `GET /admin` and `/admin/api/*` are internal-only and protected by HTTP Basic auth when dashboard is enabled.
 - Legacy fallback `X-Nudge-API-Key` is supported only when `NUDGE_ALLOW_LEGACY_API_KEY=true`.
 - Internal auth issuer lifecycle endpoints:
-  - `POST /auth/activate` (customer license key → access + refresh JWT pair; rate-limited; requires `NUDGE_CUSTOMER_LICENSE_KEYS` on the server)
+  - `POST /auth/activate` (customer license key → access + refresh JWT pair; rate-limited; DB-first licensing lookup with temporary env fallback)
   - `POST /auth/token` (bootstrap-gated issuance of short-lived access + refresh token; send bootstrap secret in `X-Nudge-Bootstrap-Key`, body fallback kept for internal compatibility)
   - `POST /auth/refresh` (refresh rotation)
   - `POST /auth/revoke` (persisted revocation by token `jti`)
@@ -411,7 +413,7 @@ The summary intentionally excludes clipboard content, OCR images, secrets, and u
 - Local action (no cloud call): `אנגלית > עברית` (`fix_layout_he`).
 - Cloud actions (backend + Azure): text AI actions and OCR image extraction.
 - On success, client replaces clipboard content with result and shows a short success state.
-- Lead dashboard data is strictly account/lead metadata and intentionally excludes clipboard text, OCR image content, and AI input/output content.
+- Lead dashboard data is strictly account/lead + usage/cost metadata and intentionally excludes clipboard text, OCR image content, and AI input/output content.
 
 ## Local smoke checks
 

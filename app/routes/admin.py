@@ -1,4 +1,3 @@
-import hashlib
 import hmac
 import io
 import json
@@ -22,6 +21,7 @@ from app.schemas.usage import (
     UsageUsersResponse,
 )
 from app.services.lead_store import LeadStore
+from app.services.license_store import license_store
 from app.services.usage_store import usage_store
 
 
@@ -72,58 +72,6 @@ def _parse_self_principals(raw: str) -> list[str]:
 def _is_self_principal(principal: str) -> bool:
     self_principals = _parse_self_principals(settings.admin_self_principals)
     return principal in self_principals
-
-
-def _parse_license_key_list(raw: str) -> list[str]:
-    out: list[str] = []
-    seen: set[str] = set()
-    for chunk in (raw or "").replace("\r", "\n").replace("\n", ",").split(","):
-        item = chunk.strip()
-        if not item or item in seen:
-            continue
-        seen.add(item)
-        out.append(item)
-    return out
-
-
-def _principal_alias_from_license_key(key: str) -> str:
-    raw = (key or "").strip()
-    if not raw:
-        return ""
-    if "_trial_" in raw:
-        alias = raw.split("_trial_", 1)[0].strip()
-    elif "_" in raw:
-        alias = raw.split("_", 1)[0].strip()
-    else:
-        alias = raw[:32].strip()
-    return alias[:64]
-
-
-def _principal_from_license_key(key: str, *, trial: bool) -> str:
-    digest = hashlib.sha256((key or "").strip().encode("utf-8")).hexdigest()[:24]
-    return f"tlic:{digest}" if trial else f"lic:{digest}"
-
-
-def _principal_label_map() -> dict[str, str]:
-    out: dict[str, str] = {}
-    trial_keys = _parse_license_key_list(settings.nudge_trial_license_keys)
-    for key in trial_keys:
-        principal = _principal_from_license_key(key, trial=True)
-        alias = _principal_alias_from_license_key(key)
-        out[principal] = alias or principal
-    customer_keys = _parse_license_key_list(settings.nudge_customer_license_keys)
-    for key in customer_keys:
-        principal = _principal_from_license_key(key, trial=False)
-        alias = _principal_alias_from_license_key(key)
-        out.setdefault(principal, alias or principal)
-    return out
-
-
-def _principal_label(principal: str, labels: dict[str, str]) -> str:
-    value = labels.get(principal)
-    if value:
-        return value
-    return principal
 
 
 @router.post("/leads/register", response_model=LeadCreateResponse)
@@ -246,7 +194,7 @@ async def admin_dashboard(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
       <button type="submit">Apply</button>
     </form>
     <table>
-      <thead><tr><th>Principal</th><th>Devices</th><th>Events</th><th>AI</th><th>OCR</th><th>Est. OpenAI $</th><th>Est. OCR $</th><th>Est. total $</th><th>Last seen</th></tr></thead>
+      <thead><tr><th>User</th><th>License</th><th>Devices</th><th>Events</th><th>AI</th><th>OCR</th><th>Est. OpenAI $</th><th>Est. OCR $</th><th>Est. total $</th><th>Last seen</th></tr></thead>
       <tbody id="usage_users_tbody"></tbody>
     </table>
     <div class="cols" style="margin-top:12px;">
@@ -361,7 +309,8 @@ async def admin_dashboard(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
       document.getElementById('usage_my_cost_total').textContent = `$${money(summary.my_estimated_cost_usd)}`;
       document.getElementById('usage_users_tbody').innerHTML = users.items.map(row => `
         <tr>
-          <td>${esc(row.principal_label)} ${row.is_self ? '<strong>(Me/Admin)</strong>' : ''}<div class="muted">${esc(row.principal)}</div></td>
+          <td>${esc(row.principal_label)} ${row.is_self ? '<strong>(Me/Admin)</strong>' : ''}<div class="muted">${esc(row.account_email || row.principal)}</div></td>
+          <td>${esc((row.license_kind || '-') + ' / ' + (row.license_status || '-'))}<div class="muted">${esc(row.key_masked || '')}</div></td>
           <td>${row.distinct_devices}</td>
           <td>${row.total_events}</td>
           <td>${row.ai_events}</td>
@@ -371,7 +320,7 @@ async def admin_dashboard(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
           <td>$${money(row.estimated_cost_usd)}</td>
           <td>${esc(row.last_seen_at)}</td>
         </tr>
-      `).join('') || '<tr><td colspan="9" class="muted">No usage rows found</td></tr>';
+      `).join('') || '<tr><td colspan="10" class="muted">No usage rows found</td></tr>';
       renderHeavy('usage_heavy_events', heavyEvents.items);
       renderHeavy('usage_heavy_cost', heavyCost.items);
     }
@@ -535,7 +484,6 @@ async def admin_usage_users(
 ) -> UsageUsersResponse:
     self_principals = _parse_self_principals(settings.admin_self_principals)
     principals_filter = self_principals if self_only else None
-    labels = _principal_label_map()
     total, rows = usage_store.users(
         period=period,
         search=search,
@@ -545,10 +493,19 @@ async def admin_usage_users(
         limit=limit,
         offset=offset,
     )
+    profiles = license_store.profiles_by_principal([str(r["principal"]) for r in rows])
     items = [
         UsageUserRow(
             principal=str(row["principal"]),
-            principal_label=_principal_label(str(row["principal"]), labels),
+            principal_label=(
+                str(profiles.get(str(row["principal"]), {}).get("account_full_name") or "").strip()
+                or str(profiles.get(str(row["principal"]), {}).get("account_email") or "").strip()
+                or str(row["principal"])
+            ),
+            account_email=str(profiles.get(str(row["principal"]), {}).get("account_email") or "") or None,
+            license_kind=str(profiles.get(str(row["principal"]), {}).get("license_kind") or "") or None,
+            license_status=str(profiles.get(str(row["principal"]), {}).get("license_status") or "") or None,
+            key_masked=str(profiles.get(str(row["principal"]), {}).get("key_masked") or "") or None,
             is_self=_is_self_principal(str(row["principal"])),
             distinct_devices=int(row["distinct_devices"] or 0),
             total_events=int(row["total_events"] or 0),
@@ -574,17 +531,25 @@ async def admin_usage_heavy(
 ) -> UsageHeavyResponse:
     self_principals = _parse_self_principals(settings.admin_self_principals)
     principals_filter = self_principals if self_only else None
-    labels = _principal_label_map()
     rows = usage_store.heavy_users(
         period=period,
         metric=metric,
         principals=principals_filter,
         limit=limit,
     )
+    profiles = license_store.profiles_by_principal([str(r["principal"]) for r in rows])
     items = [
         UsageHeavyRow(
             principal=str(row["principal"]),
-            principal_label=_principal_label(str(row["principal"]), labels),
+            principal_label=(
+                str(profiles.get(str(row["principal"]), {}).get("account_full_name") or "").strip()
+                or str(profiles.get(str(row["principal"]), {}).get("account_email") or "").strip()
+                or str(row["principal"])
+            ),
+            account_email=str(profiles.get(str(row["principal"]), {}).get("account_email") or "") or None,
+            license_kind=str(profiles.get(str(row["principal"]), {}).get("license_kind") or "") or None,
+            license_status=str(profiles.get(str(row["principal"]), {}).get("license_status") or "") or None,
+            key_masked=str(profiles.get(str(row["principal"]), {}).get("key_masked") or "") or None,
             is_self=_is_self_principal(str(row["principal"])),
             total_events=int(row["total_events"]),
             estimated_cost_usd=float(row["estimated_cost_usd"]),

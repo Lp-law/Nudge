@@ -25,6 +25,7 @@ from app.core.security import (
 from app.routes.auth import router as auth_router
 from app.routes.ai import router as ai_router
 from app.routes.admin import lead_store, router as admin_router
+from app.services.license_store import license_store
 from app.services.usage_store import usage_store
 
 
@@ -155,6 +156,7 @@ def validate_startup_config() -> None:
 async def lifespan(_app: FastAPI):
     validate_startup_config()
     lead_store.initialize()
+    license_store.initialize()
     usage_store.initialize()
     yield
 

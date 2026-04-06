@@ -60,6 +60,7 @@ from app.services.prompt_builder import INSTRUCTIONS_BY_ACTION, build_messages
 from app.services.openai_service import AIActionResult
 from app.services.ocr_service import AzureOCRService
 from app.services.usage_store import usage_store
+from app.services.license_store import license_store
 from app.services.upstream_errors import UpstreamServiceError
 from client.app.action_contract import (
     ALL_ACTION_KEYS,
@@ -82,6 +83,14 @@ def _clear_usage_events() -> None:
         conn.commit()
 
 
+def _clear_licensing_tables() -> None:
+    license_store.initialize()
+    with sqlite3.connect(_usage_db_path()) as conn:
+        for table_name in ("license_activations", "licenses", "accounts"):
+            conn.execute(f"DELETE FROM {table_name}")
+        conn.commit()
+
+
 def _latest_usage_event() -> dict[str, object]:
     with sqlite3.connect(_usage_db_path()) as conn:
         conn.row_factory = sqlite3.Row
@@ -90,6 +99,15 @@ def _latest_usage_event() -> dict[str, object]:
         ).fetchone()
     assert row is not None
     return dict(row)
+
+
+def _table_exists(table_name: str) -> bool:
+    with sqlite3.connect(_usage_db_path()) as conn:
+        row = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+            (table_name,),
+        ).fetchone()
+    return row is not None
 
 
 def test_health_works() -> None:
@@ -619,9 +637,16 @@ def test_admin_usage_summary_self_only(monkeypatch) -> None:
 
 def test_admin_usage_users_principal_label_from_trial_key(monkeypatch) -> None:
     _clear_usage_events()
+    _clear_licensing_tables()
     trial_key = "ORIMAROM_trial_key_demo_1"
-    principal = f"tlic:{hashlib.sha256(trial_key.encode('utf-8')).hexdigest()[:24]}"
-    monkeypatch.setattr(admin_routes.settings, "nudge_trial_license_keys", trial_key)
+    monkeypatch.setenv("NUDGE_TRIAL_LICENSE_KEYS", trial_key)
+    get_settings.cache_clear()
+    imported = license_store.upsert_license_from_plaintext(
+        trial_key,
+        kind="trial",
+        source="env_import",
+    )
+    principal = str(imported["principal"])
     usage_store.record_event(
         UsageEventWrite(
             request_id="req-label-test",
@@ -649,6 +674,7 @@ def test_admin_usage_users_principal_label_from_trial_key(monkeypatch) -> None:
     data = users.json()
     assert data["total"] >= 1
     assert any(item["principal_label"] == "ORIMAROM" for item in data["items"])
+    get_settings.cache_clear()
 
 
 def test_admin_logout_and_backup_endpoints() -> None:
@@ -663,6 +689,74 @@ def test_admin_logout_and_backup_endpoints() -> None:
     assert backup.headers.get("content-type", "").startswith("application/zip")
     assert "attachment;" in str(backup.headers.get("content-disposition", ""))
     assert len(backup.content) > 100
+
+
+def test_license_schema_initialization() -> None:
+    license_store.initialize()
+    assert _table_exists("accounts")
+    assert _table_exists("licenses")
+    assert _table_exists("license_activations")
+
+
+def test_env_key_import_is_idempotent(monkeypatch) -> None:
+    _clear_licensing_tables()
+    monkeypatch.setenv("NUDGE_TRIAL_LICENSE_KEYS", "trial-import-key-001")
+    monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", "paid-import-key-001")
+    get_settings.cache_clear()
+    license_store.import_env_keys()
+    license_store.import_env_keys()
+    with sqlite3.connect(_usage_db_path()) as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS c FROM licenses WHERE source='env_import'"
+        ).fetchone()
+    assert int(row[0]) == 2
+    get_settings.cache_clear()
+
+
+def test_admin_usage_users_resolve_account_and_license_context(monkeypatch) -> None:
+    _clear_usage_events()
+    _clear_licensing_tables()
+    trial_key = "ORIMAROM_trial_dashboard_context_01"
+    monkeypatch.setenv("NUDGE_TRIAL_LICENSE_KEYS", trial_key)
+    get_settings.cache_clear()
+    imported = license_store.upsert_license_from_plaintext(
+        trial_key,
+        kind="trial",
+        source="env_import",
+    )
+    principal = str(imported["principal"])
+    usage_store.record_event(
+        UsageEventWrite(
+            request_id="req-ctx-test",
+            principal=principal,
+            device_id="dev-ctx-test",
+            route_type="ai_action",
+            action="summarize",
+            status="ok",
+            error_kind="",
+            http_status=200,
+            duration_ms=100,
+            input_chars=20,
+            output_chars=30,
+            image_bytes=0,
+            oai_prompt_tokens=0,
+            oai_completion_tokens=0,
+            oai_total_tokens=0,
+            ocr_pages=0,
+            model="",
+            deployment="",
+        )
+    )
+    users = client.get("/admin/api/usage/users?period=month", headers=_admin_headers())
+    assert users.status_code == 200
+    data = users.json()
+    row = next(item for item in data["items"] if item["principal"] == principal)
+    assert row["principal_label"]
+    assert row["account_email"]
+    assert row["license_kind"] == "trial"
+    assert row["license_status"] == "active"
+    assert row["key_masked"].startswith("TRL-")
+    get_settings.cache_clear()
 
 
 def test_action_contract_coverage_sanity() -> None:
@@ -795,7 +889,9 @@ def test_validate_startup_infers_v1_when_foundry_host_without_api_version(monkey
 
 
 def test_auth_activate_success(monkeypatch) -> None:
+    _clear_licensing_tables()
     monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", "customer-license-key-abcdefgh")
+    monkeypatch.setenv("NUDGE_ACTIVATION_ENV_FALLBACK_ENABLED", "true")
     get_settings.cache_clear()
     from app.main import app
 
@@ -815,8 +911,77 @@ def test_auth_activate_success(monkeypatch) -> None:
     get_settings.cache_clear()
 
 
+def test_auth_activate_db_first_success_without_env_fallback(monkeypatch) -> None:
+    _clear_licensing_tables()
+    key = "db-first-license-key-00000001"
+    monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", "")
+    monkeypatch.setenv("NUDGE_TRIAL_LICENSE_KEYS", "")
+    monkeypatch.setenv("NUDGE_ACTIVATION_ENV_FALLBACK_ENABLED", "false")
+    get_settings.cache_clear()
+    license_store.upsert_license_from_plaintext(key, kind="paid", source="admin_created")
+    from app.main import app
+
+    with TestClient(app) as tc:
+        response = tc.post(
+            "/auth/activate",
+            json={"license_key": key, "device_id": "device-db-first-123"},
+        )
+    assert response.status_code == 200
+    get_settings.cache_clear()
+
+
+def test_auth_activate_revoked_license_returns_403(monkeypatch) -> None:
+    _clear_licensing_tables()
+    key = "revoked-license-key-00000001"
+    monkeypatch.setenv("NUDGE_ACTIVATION_ENV_FALLBACK_ENABLED", "false")
+    get_settings.cache_clear()
+    row = license_store.upsert_license_from_plaintext(key, kind="paid", source="admin_created")
+    with sqlite3.connect(_usage_db_path()) as conn:
+        conn.execute(
+            "UPDATE licenses SET status='revoked', revoked_reason='test' WHERE license_id = ?",
+            (str(row["license_id"]),),
+        )
+        conn.commit()
+    from app.main import app
+
+    with TestClient(app) as tc:
+        response = tc.post(
+            "/auth/activate",
+            json={"license_key": key, "device_id": "device-revoked-123"},
+        )
+    assert response.status_code == 403
+    assert "not active" in response.text.lower()
+    get_settings.cache_clear()
+
+
+def test_auth_activate_expired_license_returns_403(monkeypatch) -> None:
+    _clear_licensing_tables()
+    key = "expired-license-key-00000001"
+    monkeypatch.setenv("NUDGE_ACTIVATION_ENV_FALLBACK_ENABLED", "false")
+    get_settings.cache_clear()
+    row = license_store.upsert_license_from_plaintext(key, kind="trial", source="admin_created")
+    with sqlite3.connect(_usage_db_path()) as conn:
+        conn.execute(
+            "UPDATE licenses SET expires_at = ? WHERE license_id = ?",
+            ("2000-01-01T00:00:00+00:00", str(row["license_id"])),
+        )
+        conn.commit()
+    from app.main import app
+
+    with TestClient(app) as tc:
+        response = tc.post(
+            "/auth/activate",
+            json={"license_key": key, "device_id": "device-expired-123"},
+        )
+    assert response.status_code == 403
+    assert "expired" in response.text.lower()
+    get_settings.cache_clear()
+
+
 def test_auth_activate_rejects_bad_license(monkeypatch) -> None:
+    _clear_licensing_tables()
     monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", "good-key-xxxxxxxxxxxxxxxx")
+    monkeypatch.setenv("NUDGE_ACTIVATION_ENV_FALLBACK_ENABLED", "true")
     get_settings.cache_clear()
     from app.main import app
 
@@ -829,9 +994,41 @@ def test_auth_activate_rejects_bad_license(monkeypatch) -> None:
     get_settings.cache_clear()
 
 
+def test_auth_activate_records_activation_audit_rows(monkeypatch) -> None:
+    _clear_licensing_tables()
+    key = "audit-license-key-00000001"
+    monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", key)
+    monkeypatch.setenv("NUDGE_ACTIVATION_ENV_FALLBACK_ENABLED", "true")
+    get_settings.cache_clear()
+    from app.main import app
+
+    with TestClient(app) as tc:
+        ok = tc.post(
+            "/auth/activate",
+            json={"license_key": key, "device_id": "device-audit-1"},
+        )
+        bad = tc.post(
+            "/auth/activate",
+            json={"license_key": "bad-audit-key-00000001", "device_id": "device-audit-2"},
+        )
+    assert ok.status_code == 200
+    assert bad.status_code == 401
+    with sqlite3.connect(_usage_db_path()) as conn:
+        rows = conn.execute(
+            "SELECT result, http_status FROM license_activations ORDER BY activated_at DESC LIMIT 2"
+        ).fetchall()
+    assert len(rows) >= 2
+    statuses = {(str(r[0]), int(r[1])) for r in rows}
+    assert any(code == 200 for _, code in statuses)
+    assert any(code == 401 for _, code in statuses)
+    get_settings.cache_clear()
+
+
 def test_auth_activate_unconfigured_returns_503(monkeypatch) -> None:
+    _clear_licensing_tables()
     monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", "")
     monkeypatch.setenv("NUDGE_TRIAL_LICENSE_KEYS", "")
+    monkeypatch.setenv("NUDGE_ACTIVATION_ENV_FALLBACK_ENABLED", "false")
     get_settings.cache_clear()
     from app.main import app
 
@@ -845,8 +1042,10 @@ def test_auth_activate_unconfigured_returns_503(monkeypatch) -> None:
 
 
 def test_auth_activate_trial_key_without_customer_keys(monkeypatch) -> None:
+    _clear_licensing_tables()
     monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", "")
     monkeypatch.setenv("NUDGE_TRIAL_LICENSE_KEYS", "trial-only-key-abcdefghij")
+    monkeypatch.setenv("NUDGE_ACTIVATION_ENV_FALLBACK_ENABLED", "true")
     get_settings.cache_clear()
     from app.main import app
 
@@ -861,8 +1060,10 @@ def test_auth_activate_trial_key_without_customer_keys(monkeypatch) -> None:
 
 
 def test_auth_activate_same_device_twice_ok(monkeypatch) -> None:
+    _clear_licensing_tables()
     key = "same-device-license-key-00000001"
     monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", key)
+    monkeypatch.setenv("NUDGE_ACTIVATION_ENV_FALLBACK_ENABLED", "true")
     get_settings.cache_clear()
     from app.main import app
 
@@ -881,8 +1082,10 @@ def test_auth_activate_same_device_twice_ok(monkeypatch) -> None:
 
 
 def test_auth_activate_second_device_forbidden(monkeypatch) -> None:
+    _clear_licensing_tables()
     key = "binding-conflict-license-key-00002"
     monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", key)
+    monkeypatch.setenv("NUDGE_ACTIVATION_ENV_FALLBACK_ENABLED", "true")
     get_settings.cache_clear()
     from app.main import app
 
@@ -901,8 +1104,10 @@ def test_auth_activate_second_device_forbidden(monkeypatch) -> None:
 
 
 def test_auth_activate_binding_disabled_allows_two_devices(monkeypatch) -> None:
+    _clear_licensing_tables()
     key = "binding-off-license-key-00000003"
     monkeypatch.setenv("NUDGE_CUSTOMER_LICENSE_KEYS", key)
+    monkeypatch.setenv("NUDGE_ACTIVATION_ENV_FALLBACK_ENABLED", "true")
     monkeypatch.setenv("NUDGE_LICENSE_DEVICE_BINDING_ENABLED", "false")
     get_settings.cache_clear()
     from app.main import app

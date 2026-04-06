@@ -138,6 +138,11 @@ class Settings(BaseSettings):
         ge=1,
         le=1000,
     )
+    nudge_activation_env_fallback_enabled: bool = Field(
+        default=True,
+        alias="NUDGE_ACTIVATION_ENV_FALLBACK_ENABLED",
+        description="Temporary migration fallback: if true, /auth/activate may validate env-var keys when DB lookup misses.",
+    )
     nudge_license_device_binding_enabled: bool = Field(
         default=True,
         alias="NUDGE_LICENSE_DEVICE_BINDING_ENABLED",

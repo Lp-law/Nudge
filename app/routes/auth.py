@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -8,6 +9,7 @@ from app.core.config import get_settings
 from app.core.metrics import record_auth_failure, record_rate_limit_denial, record_token_event
 from app.core.security import create_rate_limiter, get_client_ip
 from app.services.auth_issuer import AuthIssuerService
+from app.services.license_store import license_store
 from app.services.license_binding_store import get_license_binding_store
 
 
@@ -92,14 +94,32 @@ def _validate_bootstrap_key(provided: str) -> None:
         )
 
 
+def _license_active_now(row: dict[str, object]) -> tuple[bool, str]:
+    status_value = str(row.get("status") or "active").strip().lower()
+    if status_value in {"revoked", "disabled"}:
+        return False, "inactive"
+    expires_at_raw = str(row.get("expires_at") or "").strip()
+    if expires_at_raw:
+        try:
+            expires_at = datetime.fromisoformat(expires_at_raw)
+        except ValueError:
+            expires_at = None
+        if expires_at is not None and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        if expires_at is not None and expires_at <= datetime.now(UTC):
+            return False, "expired"
+    return True, ""
+
+
 @router.post("/activate", response_model=TokenResponse)
 async def activate_customer(payload: ActivateRequest, request: Request) -> TokenResponse:
     """Exchange a customer license key for access + refresh tokens (end-user installs)."""
     live = get_settings()
+    license_store.initialize()
     _ensure_issuer_enabled()
     customer_keys = _parse_license_key_list(live.nudge_customer_license_keys)
     trial_keys = _parse_license_key_list(live.nudge_trial_license_keys)
-    if not customer_keys and not trial_keys:
+    if not license_store.has_any_license() and not customer_keys and not trial_keys:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Customer activation is not available.",
@@ -117,16 +137,56 @@ async def activate_customer(payload: ActivateRequest, request: Request) -> Token
             headers={"Retry-After": str(decision.retry_after_seconds)},
         )
 
-    is_customer = _license_key_is_authorized(payload.license_key, customer_keys)
-    is_trial = _license_key_is_authorized(payload.license_key, trial_keys)
-    if not is_customer and not is_trial:
+    db_license = license_store.resolve_by_plaintext_key(payload.license_key)
+    if db_license is None and bool(live.nudge_activation_env_fallback_enabled):
+        is_customer = _license_key_is_authorized(payload.license_key, customer_keys)
+        is_trial = _license_key_is_authorized(payload.license_key, trial_keys)
+        if is_customer or is_trial:
+            db_license = license_store.upsert_license_from_plaintext(
+                payload.license_key,
+                kind="trial" if is_trial and not is_customer else "paid",
+                source="env_import",
+            )
+
+    if db_license is None:
         record_auth_failure("/auth/activate", "license")
+        license_store.record_activation(
+            license_id="",
+            account_id="",
+            device_id=payload.device_id.strip(),
+            result="invalid_key",
+            http_status=status.HTTP_401_UNAUTHORIZED,
+            request_id=getattr(request.state, "request_id", ""),
+            client_ip=client_ip,
+            error_code="invalid_key",
+            error_message="Invalid license key.",
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid license key.",
         )
 
-    license_hash = hashlib.sha256(payload.license_key.strip().encode("utf-8")).hexdigest()
+    is_active, inactive_reason = _license_active_now(db_license)
+    if not is_active:
+        result = "expired" if inactive_reason == "expired" else "inactive"
+        error_message = "License expired." if inactive_reason == "expired" else "License is not active."
+        license_store.record_activation(
+            license_id=str(db_license.get("license_id") or ""),
+            account_id=str(db_license.get("account_id") or ""),
+            device_id=payload.device_id.strip(),
+            result=result,
+            http_status=status.HTTP_403_FORBIDDEN,
+            request_id=getattr(request.state, "request_id", ""),
+            client_ip=client_ip,
+            error_code=result,
+            error_message=error_message,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=error_message,
+        )
+
+    license_hash = str(db_license.get("key_hash") or "")
     if live.nudge_license_device_binding_enabled:
         bind_ok = await get_license_binding_store(live).ensure_device_binding(
             license_hash,
@@ -134,16 +194,40 @@ async def activate_customer(payload: ActivateRequest, request: Request) -> Token
         )
         if not bind_ok:
             record_auth_failure("/auth/activate", "license_device")
+            license_store.record_activation(
+                license_id=str(db_license.get("license_id") or ""),
+                account_id=str(db_license.get("account_id") or ""),
+                device_id=payload.device_id.strip(),
+                result="device_mismatch",
+                http_status=status.HTTP_403_FORBIDDEN,
+                request_id=getattr(request.state, "request_id", ""),
+                client_ip=client_ip,
+                error_code="device_mismatch",
+                error_message="This license is already active on another device.",
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="This license is already active on another device.",
             )
 
-    digest = license_hash[:24]
-    subject = f"tlic:{digest}" if is_trial and not is_customer else f"lic:{digest}"
+    subject = str(db_license.get("principal") or "").strip()
+    if not subject:
+        digest = license_hash[:24]
+        kind = str(db_license.get("kind") or "paid").strip().lower()
+        subject = f"tlic:{digest}" if kind == "trial" else f"lic:{digest}"
     pair = await auth_issuer.issue_token_pair(
         subject=subject,
         device_id=payload.device_id.strip(),
+    )
+    activation_result = "success_trial" if subject.startswith("tlic:") else "success_paid"
+    license_store.record_activation(
+        license_id=str(db_license.get("license_id") or ""),
+        account_id=str(db_license.get("account_id") or ""),
+        device_id=payload.device_id.strip(),
+        result=activation_result,
+        http_status=status.HTTP_200_OK,
+        request_id=getattr(request.state, "request_id", ""),
+        client_ip=client_ip,
     )
     record_token_event("activated_trial" if subject.startswith("tlic:") else "activated")
     return TokenResponse(**pair.__dict__)
