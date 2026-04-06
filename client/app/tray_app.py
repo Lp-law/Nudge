@@ -59,8 +59,8 @@ from .ui_strings import (
     POPUP_DURATION_NORMAL,
     POPUP_DURATION_SHORT,
     TRAY_MENU_TRIGGER_MODE,
-    TRIGGER_MODE_ALT_Q,
-    TRIGGER_MODE_ALT_Q_UNAVAILABLE,
+    TRIGGER_MODE_DOUBLE_CTRL,
+    TRIGGER_MODE_DOUBLE_CTRL_UNAVAILABLE,
     TRIGGER_MODE_COPY,
     resolve_status_text,
     TRAY_MENU_ACCESSIBILITY_MODE,
@@ -76,16 +76,16 @@ from .ui_strings import (
 from .user_guide import UserGuideDialog
 
 if sys.platform == "win32":
-    from .windows_hotkey import AltQHotkey
+    from .windows_hotkey import DoubleCtrlHotkey
 else:
-    AltQHotkey = None  # type: ignore[assignment,misc]
+    DoubleCtrlHotkey = None  # type: ignore[assignment,misc]
 
 
 POPUP_IDLE_PRESET_KEY = "ui/popup_idle_preset"
 _POPUP_IDLE_MS_BY_PRESET = {"short": 6800, "normal": 10000, "long": 15600}
 TRIGGER_MODE_KEY = "ui/trigger_mode"
 TRIGGER_MODE_COPY_VALUE = "copy"
-TRIGGER_MODE_ALT_Q_VALUE = "alt_q"
+TRIGGER_MODE_DOUBLE_CTRL_VALUE = "double_ctrl"
 
 
 def _resolve_popup_idle_ms(preferences: QSettings) -> int:
@@ -114,7 +114,9 @@ class TrayApp:
         self._onboarding_dialog: OnboardingDialog | None = None
         self._proactive_refresh_timer: QTimer | None = None
         self._trigger_mode = TRIGGER_MODE_COPY_VALUE
-        self._global_hotkey = AltQHotkey(self.app, self._on_hotkey_alt_q) if AltQHotkey else None
+        self._global_hotkey = (
+            DoubleCtrlHotkey(self.app, self._on_hotkey_double_ctrl) if DoubleCtrlHotkey else None
+        )
 
         self.clipboard: QClipboard = self.app.clipboard()
         self.api_client = ApiClient(
@@ -176,7 +178,7 @@ class TrayApp:
         self._trigger_mode_group = QActionGroup(menu)
         for mode_value, label in (
             (TRIGGER_MODE_COPY_VALUE, TRIGGER_MODE_COPY),
-            (TRIGGER_MODE_ALT_Q_VALUE, TRIGGER_MODE_ALT_Q),
+            (TRIGGER_MODE_DOUBLE_CTRL_VALUE, TRIGGER_MODE_DOUBLE_CTRL),
         ):
             act = QAction(label, menu)
             act.setCheckable(True)
@@ -354,18 +356,20 @@ class TrayApp:
         self._apply_trigger_mode(mode, persist=True, notify=True)
 
     def _apply_trigger_mode(self, mode: str, *, persist: bool, notify: bool) -> None:
-        selected = mode if mode in {TRIGGER_MODE_COPY_VALUE, TRIGGER_MODE_ALT_Q_VALUE} else TRIGGER_MODE_COPY_VALUE
-        if selected == TRIGGER_MODE_ALT_Q_VALUE:
+        selected = (
+            mode if mode in {TRIGGER_MODE_COPY_VALUE, TRIGGER_MODE_DOUBLE_CTRL_VALUE} else TRIGGER_MODE_COPY_VALUE
+        )
+        if selected == TRIGGER_MODE_DOUBLE_CTRL_VALUE:
             if self._global_hotkey is None or not self._global_hotkey.register():
                 selected = TRIGGER_MODE_COPY_VALUE
                 if notify:
                     self.tray.showMessage(
                         "Nudge",
-                        TRIGGER_MODE_ALT_Q_UNAVAILABLE,
+                        TRIGGER_MODE_DOUBLE_CTRL_UNAVAILABLE,
                         QSystemTrayIcon.MessageIcon.Warning,
                         2500,
                     )
-            self.monitor.set_enabled(selected != TRIGGER_MODE_ALT_Q_VALUE)
+            self.monitor.set_enabled(selected != TRIGGER_MODE_DOUBLE_CTRL_VALUE)
         else:
             if self._global_hotkey is not None:
                 self._global_hotkey.unregister()
@@ -376,7 +380,7 @@ class TrayApp:
             self._preferences.sync()
         self._sync_trigger_mode_menu_checks()
 
-    def _on_hotkey_alt_q(self) -> None:
+    def _on_hotkey_double_ctrl(self) -> None:
         if self._is_shutting_down:
             return
         mime_data = self.clipboard.mimeData(mode=QClipboard.Clipboard)
