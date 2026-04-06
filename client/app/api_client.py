@@ -427,6 +427,15 @@ class ApiClient(QObject):
                 on_complete(False, None, "Bad response")
                 return
 
+            if int(status_code or 0) == 401:
+                on_complete(False, None, "Invalid license key.")
+                return
+            if int(status_code or 0) == 429:
+                on_complete(False, None, "Too many activation attempts. Try again soon.")
+                return
+            if int(status_code or 0) >= 500:
+                on_complete(False, None, "Server temporarily unavailable.")
+                return
             try:
                 data = json.loads(body)
                 detail = data.get("detail")
@@ -506,6 +515,9 @@ class ApiClient(QObject):
 
             if status_code != 200:
                 self._replay_contexts.pop(request_id, None)
+                if int(status_code or 0) == 401:
+                    on_error(request_id, "Unauthorized request")
+                    return
                 try:
                     data = json.loads(body)
                     detail = data.get("detail")

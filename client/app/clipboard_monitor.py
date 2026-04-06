@@ -16,6 +16,7 @@ class ClipboardMonitor(QObject):
         super().__init__()
         self.clipboard = clipboard
         self.settings = get_settings()
+        self._enabled = True
         self._pending_text = ""
         self._pending_image: QImage | None = None
         self._pending_kind = ""
@@ -36,7 +37,12 @@ class ClipboardMonitor(QObject):
     def suppress_next_change(self) -> None:
         self._suppress_next_change = True
 
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = bool(enabled)
+
     def _on_clipboard_changed(self) -> None:
+        if not self._enabled:
+            return
         if self._suppress_next_change:
             self._suppress_next_change = False
             return

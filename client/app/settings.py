@@ -1,8 +1,11 @@
 import json
 import os
+import sys
 from dataclasses import dataclass
 
 from .runtime_paths import resource_path
+
+_DISTRIBUTED_BACKEND_FALLBACK = "https://nudge-mvp-backend.onrender.com"
 
 
 def _env_int(name: str, default: int, *, min_v: int, max_v: int) -> int:
@@ -47,6 +50,9 @@ def _resolve_backend_base_url() -> str:
     bundled = _load_bundled_backend_url()
     if bundled:
         return bundled.rstrip("/")
+    if bool(getattr(sys, "frozen", False)):
+        # Distribution safety net: if runtime json is missing/corrupted, avoid localhost fallback.
+        return _DISTRIBUTED_BACKEND_FALLBACK
     return "http://127.0.0.1:8000"
 
 

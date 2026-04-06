@@ -63,7 +63,7 @@ class ActivationDialog(QDialog):
         self.license_key = ""
 
     def _submit(self) -> None:
-        key = self.license_input.text().strip()
+        key = "".join((self.license_input.text() or "").split())
         if len(key) < 8:
             QMessageBox.warning(self, ACTIVATION_TITLE, ACTIVATION_ERROR_EMPTY)
             return

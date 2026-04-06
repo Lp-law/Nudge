@@ -45,7 +45,9 @@ def test_build_diagnostics_summary_excludes_sensitive_content() -> None:
         settings=settings,
         accessibility_mode=True,
         tray_available=True,
+        trigger_mode="copy",
     )
     assert "token-secret" not in report
     assert "backend_auth_mode: bearer_env" in report
     assert "backend_url_class: render_https" in report
+    assert "trigger_mode: copy" in report

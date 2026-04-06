@@ -53,6 +53,8 @@ def resolve_status_text(message: str) -> str:
         return "התמונה גדולה מדי לחילוץ טקסט."
     if "unauthorized" in lowered and "request" in lowered:
         return "ההתחברות פגה או נדחתה. נסו שוב או החליפו מפתח הפעלה מתפריט המגש."
+    if "unauthorized" in lowered or "not authenticated" in lowered or "forbidden" in lowered:
+        return "ההתחברות פגה או נדחתה. נסו שוב או החליפו מפתח הפעלה מתפריט המגש."
     if "invalid license" in lowered:
         return "מפתח הפעלה שגוי."
     if "already active on another device" in lowered:
@@ -91,6 +93,10 @@ TRAY_MENU_REACTIVATE = "החלפת מפתח הפעלה…"
 TRAY_MENU_PIN_SETUP = "הגדרת סיסמה להפעלה מהירה…"
 TRAY_MENU_PIN_CLEAR = "מחיקת סיסמה שמורה מקומית"
 TRAY_MENU_POPUP_DURATION = "משך תצוגת חלון"
+TRAY_MENU_TRIGGER_MODE = "אופן הפעלה"
+TRIGGER_MODE_COPY = "בהעתקה (Ctrl+C / עכבר)"
+TRIGGER_MODE_ALT_Q = "בקיצור מקלדת (Alt+Q)"
+TRIGGER_MODE_ALT_Q_UNAVAILABLE = "לא ניתן לרשום Alt+Q במערכת זו. עוברים למצב העתקה."
 POPUP_DURATION_SHORT = "קצר"
 POPUP_DURATION_NORMAL = "רגיל"
 POPUP_DURATION_LONG = "ארוך"

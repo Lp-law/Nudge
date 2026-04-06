@@ -1,7 +1,8 @@
 import hashlib
+import sys
 
 from PySide6.QtCore import QByteArray, QBuffer, QEventLoop, QIODevice, QSettings, QTimer
-from PySide6.QtGui import QAction, QActionGroup, QClipboard, QIcon
+from PySide6.QtGui import QAction, QActionGroup, QClipboard, QIcon, QImage
 from PySide6.QtWidgets import QApplication, QDialog, QMenu, QMessageBox, QStyle, QSystemTrayIcon
 
 from .activation_dialog import ActivationDialog
@@ -33,6 +34,7 @@ from .session_state import ClientSession
 from .settings import get_settings
 from .token_schedule import access_token_expiry_unix, ms_until_proactive_refresh
 from .sensitive_guard import detect_sensitive_text, image_requires_confirmation
+from .utils import normalize_text, should_open_popup_for_text
 from .ui_strings import (
     ACTIVATION_FAILED_GENERIC,
     ACTIVATION_TITLE,
@@ -56,6 +58,10 @@ from .ui_strings import (
     POPUP_DURATION_LONG,
     POPUP_DURATION_NORMAL,
     POPUP_DURATION_SHORT,
+    TRAY_MENU_TRIGGER_MODE,
+    TRIGGER_MODE_ALT_Q,
+    TRIGGER_MODE_ALT_Q_UNAVAILABLE,
+    TRIGGER_MODE_COPY,
     resolve_status_text,
     TRAY_MENU_ACCESSIBILITY_MODE,
     TRAY_MENU_DIAGNOSTICS,
@@ -69,9 +75,17 @@ from .ui_strings import (
 )
 from .user_guide import UserGuideDialog
 
+if sys.platform == "win32":
+    from .windows_hotkey import AltQHotkey
+else:
+    AltQHotkey = None  # type: ignore[assignment,misc]
+
 
 POPUP_IDLE_PRESET_KEY = "ui/popup_idle_preset"
 _POPUP_IDLE_MS_BY_PRESET = {"short": 6800, "normal": 10000, "long": 15600}
+TRIGGER_MODE_KEY = "ui/trigger_mode"
+TRIGGER_MODE_COPY_VALUE = "copy"
+TRIGGER_MODE_ALT_Q_VALUE = "alt_q"
 
 
 def _resolve_popup_idle_ms(preferences: QSettings) -> int:
@@ -99,6 +113,8 @@ class TrayApp:
         self._guide_dialog: UserGuideDialog | None = None
         self._onboarding_dialog: OnboardingDialog | None = None
         self._proactive_refresh_timer: QTimer | None = None
+        self._trigger_mode = TRIGGER_MODE_COPY_VALUE
+        self._global_hotkey = AltQHotkey(self.app, self._on_hotkey_alt_q) if AltQHotkey else None
 
         self.clipboard: QClipboard = self.app.clipboard()
         self.api_client = ApiClient(
@@ -155,6 +171,22 @@ class TrayApp:
             self._popup_duration_actions[preset] = act
         self._popup_duration_group.triggered.connect(self._on_popup_duration_selected)
         self._sync_popup_duration_menu_checks()
+        trigger_menu = menu.addMenu(TRAY_MENU_TRIGGER_MODE)
+        self._trigger_mode_actions: dict[str, QAction] = {}
+        self._trigger_mode_group = QActionGroup(menu)
+        for mode_value, label in (
+            (TRIGGER_MODE_COPY_VALUE, TRIGGER_MODE_COPY),
+            (TRIGGER_MODE_ALT_Q_VALUE, TRIGGER_MODE_ALT_Q),
+        ):
+            act = QAction(label, menu)
+            act.setCheckable(True)
+            act.setData(mode_value)
+            self._trigger_mode_group.addAction(act)
+            trigger_menu.addAction(act)
+            self._trigger_mode_actions[mode_value] = act
+        self._trigger_mode_group.triggered.connect(self._on_trigger_mode_selected)
+        saved_trigger_mode = str(self._preferences.value(TRIGGER_MODE_KEY, TRIGGER_MODE_COPY_VALUE) or "").strip().lower()
+        self._apply_trigger_mode(saved_trigger_mode or TRIGGER_MODE_COPY_VALUE, persist=False, notify=False)
         quit_action = menu.addAction(TRAY_MENU_EXIT)
         quit_action.triggered.connect(self.app.quit)
         self.tray.setContextMenu(menu)
@@ -311,6 +343,54 @@ class TrayApp:
         self._preferences.sync()
         self._sync_popup_duration_menu_checks()
 
+    def _sync_trigger_mode_menu_checks(self) -> None:
+        for mode_value, act in self._trigger_mode_actions.items():
+            act.setChecked(mode_value == self._trigger_mode)
+
+    def _on_trigger_mode_selected(self, action: QAction) -> None:
+        mode = str(action.data() or "").strip().lower()
+        if not mode:
+            return
+        self._apply_trigger_mode(mode, persist=True, notify=True)
+
+    def _apply_trigger_mode(self, mode: str, *, persist: bool, notify: bool) -> None:
+        selected = mode if mode in {TRIGGER_MODE_COPY_VALUE, TRIGGER_MODE_ALT_Q_VALUE} else TRIGGER_MODE_COPY_VALUE
+        if selected == TRIGGER_MODE_ALT_Q_VALUE:
+            if self._global_hotkey is None or not self._global_hotkey.register():
+                selected = TRIGGER_MODE_COPY_VALUE
+                if notify:
+                    self.tray.showMessage(
+                        "Nudge",
+                        TRIGGER_MODE_ALT_Q_UNAVAILABLE,
+                        QSystemTrayIcon.MessageIcon.Warning,
+                        2500,
+                    )
+            self.monitor.set_enabled(selected != TRIGGER_MODE_ALT_Q_VALUE)
+        else:
+            if self._global_hotkey is not None:
+                self._global_hotkey.unregister()
+            self.monitor.set_enabled(True)
+        self._trigger_mode = selected
+        if persist:
+            self._preferences.setValue(TRIGGER_MODE_KEY, self._trigger_mode)
+            self._preferences.sync()
+        self._sync_trigger_mode_menu_checks()
+
+    def _on_hotkey_alt_q(self) -> None:
+        if self._is_shutting_down:
+            return
+        mime_data = self.clipboard.mimeData(mode=QClipboard.Clipboard)
+        if mime_data is not None and mime_data.hasImage():
+            image = self.clipboard.image(mode=QClipboard.Clipboard)
+            if isinstance(image, QImage) and not image.isNull():
+                self._on_image_ready(image)
+            return
+        text = normalize_text(self.clipboard.text(mode=QClipboard.Clipboard) or "")
+        if not should_open_popup_for_text(text, self.settings.minimum_non_space_chars):
+            self.popup.set_error(ERROR_INVALID_TEXT)
+            return
+        self._on_text_ready(text)
+
     def _blocking_activation_dialog(self, *, mandatory: bool) -> bool:
         while True:
             dialog = ActivationDialog(self.popup, mandatory=mandatory)
@@ -318,7 +398,7 @@ class TrayApp:
                 if mandatory:
                     self.app.quit()
                 return False
-            key = dialog.license_key.strip()
+            key = "".join((dialog.license_key or "").split())
             ok, err = self._activate_license_blocking(key)
             if ok:
                 self._arm_proactive_refresh_timer()
@@ -553,6 +633,7 @@ class TrayApp:
             accessibility_mode=self._accessibility_mode,
             tray_available=bool(QSystemTrayIcon.isSystemTrayAvailable()),
             last_qnetwork_transport_error=self.api_client.last_transport_error_summary(),
+            trigger_mode=self._trigger_mode,
         )
         dialog = QMessageBox(self.popup)
         dialog.setIcon(QMessageBox.Icon.Information)
@@ -633,6 +714,8 @@ class TrayApp:
 
     def _on_app_shutdown(self) -> None:
         self._is_shutting_down = True
+        if self._global_hotkey is not None:
+            self._global_hotkey.unregister()
         if self._proactive_refresh_timer is not None:
             self._proactive_refresh_timer.stop()
         self._clear_active_request_state(clear_image=True)

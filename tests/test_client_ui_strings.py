@@ -9,3 +9,8 @@ def test_resolve_status_text_maps_ocr_timeout_message() -> None:
 def test_resolve_status_text_keeps_unknown_message() -> None:
     message = "Custom backend detail"
     assert resolve_status_text(message) == message
+
+
+def test_resolve_status_text_maps_unauthorized_variants() -> None:
+    assert "ההתחברות פגה" in resolve_status_text("Unauthorized")
+    assert "ההתחברות פגה" in resolve_status_text("Not authenticated")
