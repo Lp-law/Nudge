@@ -37,6 +37,7 @@ class UsageSummaryResponse(BaseModel):
 
 class UsageUserRow(BaseModel):
     principal: str
+    principal_label: str
     is_self: bool
     distinct_devices: int
     total_events: int
@@ -55,6 +56,7 @@ class UsageUsersResponse(BaseModel):
 
 class UsageHeavyRow(BaseModel):
     principal: str
+    principal_label: str
     is_self: bool
     total_events: int
     estimated_cost_usd: float

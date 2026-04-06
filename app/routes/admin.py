@@ -1,8 +1,13 @@
+import hashlib
 import hmac
+import io
+import json
+import zipfile
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from app.core.config import get_settings
@@ -69,6 +74,58 @@ def _is_self_principal(principal: str) -> bool:
     return principal in self_principals
 
 
+def _parse_license_key_list(raw: str) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for chunk in (raw or "").replace("\r", "\n").replace("\n", ",").split(","):
+        item = chunk.strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
+
+
+def _principal_alias_from_license_key(key: str) -> str:
+    raw = (key or "").strip()
+    if not raw:
+        return ""
+    if "_trial_" in raw:
+        alias = raw.split("_trial_", 1)[0].strip()
+    elif "_" in raw:
+        alias = raw.split("_", 1)[0].strip()
+    else:
+        alias = raw[:32].strip()
+    return alias[:64]
+
+
+def _principal_from_license_key(key: str, *, trial: bool) -> str:
+    digest = hashlib.sha256((key or "").strip().encode("utf-8")).hexdigest()[:24]
+    return f"tlic:{digest}" if trial else f"lic:{digest}"
+
+
+def _principal_label_map() -> dict[str, str]:
+    out: dict[str, str] = {}
+    trial_keys = _parse_license_key_list(settings.nudge_trial_license_keys)
+    for key in trial_keys:
+        principal = _principal_from_license_key(key, trial=True)
+        alias = _principal_alias_from_license_key(key)
+        out[principal] = alias or principal
+    customer_keys = _parse_license_key_list(settings.nudge_customer_license_keys)
+    for key in customer_keys:
+        principal = _principal_from_license_key(key, trial=False)
+        alias = _principal_alias_from_license_key(key)
+        out.setdefault(principal, alias or principal)
+    return out
+
+
+def _principal_label(principal: str, labels: dict[str, str]) -> str:
+    value = labels.get(principal)
+    if value:
+        return value
+    return principal
+
+
 @router.post("/leads/register", response_model=LeadCreateResponse)
 async def register_lead(payload: LeadCreateRequest) -> LeadCreateResponse:
     result = lead_store.upsert_lead(
@@ -115,6 +172,10 @@ async def admin_dashboard(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
 <body>
   <h2>Nudge Admin Dashboard</h2>
   <div class="muted">Lead/user management only. No clipboard/OCR/user-content data is stored here.</div>
+  <div style="display:flex; gap:8px; margin:10px 0 14px 0;">
+    <button onclick="downloadBackup()">Backup (.zip)</button>
+    <button onclick="logoutDashboard()">Logout</button>
+  </div>
   <div class="cards">
     <div class="card"><div class="title">Total users</div><div id="total_users" class="value">-</div></div>
     <div class="card"><div class="title">Joined today</div><div id="joined_today" class="value">-</div></div>
@@ -253,6 +314,12 @@ async def admin_dashboard(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
         alert('Failed to load dashboard data.');
       }
     }
+    function logoutDashboard() {
+      window.location.href = `/admin/logout?ts=${Date.now()}`;
+    }
+    function downloadBackup() {
+      window.location.href = `/admin/api/backup?ts=${Date.now()}`;
+    }
     function money(v) {
       const n = Number(v || 0);
       return n.toFixed(4);
@@ -272,7 +339,7 @@ async def admin_dashboard(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
     }
     function renderHeavy(elId, items) {
       document.getElementById(elId).innerHTML = items.map(row =>
-        `<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>${esc(row.principal)}${row.is_self ? ' <strong>(Me/Admin)</strong>' : ''}</span><strong>${row.total_events} / $${money(row.estimated_cost_usd)}</strong></div>`
+        `<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>${esc(row.principal_label)}${row.is_self ? ' <strong>(Me/Admin)</strong>' : ''}<span class="muted" style="margin-left:6px">(${esc(row.principal)})</span></span><strong>${row.total_events} / $${money(row.estimated_cost_usd)}</strong></div>`
       ).join('') || '<div class="muted">No data</div>';
     }
     async function refreshUsage() {
@@ -294,7 +361,7 @@ async def admin_dashboard(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
       document.getElementById('usage_my_cost_total').textContent = `$${money(summary.my_estimated_cost_usd)}`;
       document.getElementById('usage_users_tbody').innerHTML = users.items.map(row => `
         <tr>
-          <td>${esc(row.principal)} ${row.is_self ? '<strong>(Me/Admin)</strong>' : ''}</td>
+          <td>${esc(row.principal_label)} ${row.is_self ? '<strong>(Me/Admin)</strong>' : ''}<div class="muted">${esc(row.principal)}</div></td>
           <td>${row.distinct_devices}</td>
           <td>${row.total_events}</td>
           <td>${row.ai_events}</td>
@@ -314,6 +381,55 @@ async def admin_dashboard(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
 </html>
     """.strip()
     return HTMLResponse(content=html)
+
+
+@router.get("/admin/logout", response_class=HTMLResponse)
+async def admin_logout(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
+    html = """
+<!doctype html>
+<html>
+<head><meta charset="utf-8" /><title>Nudge Admin Logout</title></head>
+<body style="font-family:Segoe UI,Arial,sans-serif; margin:20px;">
+  <h3>Logged out</h3>
+  <div>Close this tab or open <a href="/admin">/admin</a> to sign in again.</div>
+</body>
+</html>
+    """.strip()
+    return HTMLResponse(
+        content=html,
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        headers={"WWW-Authenticate": "Basic"},
+    )
+
+
+@router.get("/admin/api/backup")
+async def admin_backup(_admin: str = Depends(_verify_admin)) -> StreamingResponse:
+    candidates = [Path(settings.leads_db_path).expanduser()]
+    existing = [p for p in candidates if p.exists() and p.is_file()]
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No backup files found.")
+
+    generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    content = io.BytesIO()
+    with zipfile.ZipFile(content, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for file_path in existing:
+            zf.write(file_path, arcname=f"data/{file_path.name}")
+        zf.writestr(
+            "metadata.json",
+            json.dumps(
+                {
+                    "generated_at_utc": generated_at,
+                    "files": [f"data/{p.name}" for p in existing],
+                    "note": "Contains admin dashboard metadata databases only.",
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+        )
+    content.seek(0)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    headers = {"Content-Disposition": f'attachment; filename="nudge-admin-backup-{stamp}.zip"'}
+    return StreamingResponse(content, media_type="application/zip", headers=headers)
 
 
 def _parse_date(value: str) -> datetime | None:
@@ -419,6 +535,7 @@ async def admin_usage_users(
 ) -> UsageUsersResponse:
     self_principals = _parse_self_principals(settings.admin_self_principals)
     principals_filter = self_principals if self_only else None
+    labels = _principal_label_map()
     total, rows = usage_store.users(
         period=period,
         search=search,
@@ -431,6 +548,7 @@ async def admin_usage_users(
     items = [
         UsageUserRow(
             principal=str(row["principal"]),
+            principal_label=_principal_label(str(row["principal"]), labels),
             is_self=_is_self_principal(str(row["principal"])),
             distinct_devices=int(row["distinct_devices"] or 0),
             total_events=int(row["total_events"] or 0),
@@ -456,6 +574,7 @@ async def admin_usage_heavy(
 ) -> UsageHeavyResponse:
     self_principals = _parse_self_principals(settings.admin_self_principals)
     principals_filter = self_principals if self_only else None
+    labels = _principal_label_map()
     rows = usage_store.heavy_users(
         period=period,
         metric=metric,
@@ -465,6 +584,7 @@ async def admin_usage_heavy(
     items = [
         UsageHeavyRow(
             principal=str(row["principal"]),
+            principal_label=_principal_label(str(row["principal"]), labels),
             is_self=_is_self_principal(str(row["principal"])),
             total_events=int(row["total_events"]),
             estimated_cost_usd=float(row["estimated_cost_usd"]),

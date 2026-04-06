@@ -55,9 +55,11 @@ from app.routes.auth import BOOTSTRAP_HEADER
 from app.routes import admin as admin_routes
 from app.routes import ai as ai_routes
 from app.schemas.ai import ACTION_KEYS
+from app.schemas.usage import UsageEventWrite
 from app.services.prompt_builder import INSTRUCTIONS_BY_ACTION, build_messages
 from app.services.openai_service import AIActionResult
 from app.services.ocr_service import AzureOCRService
+from app.services.usage_store import usage_store
 from app.services.upstream_errors import UpstreamServiceError
 from client.app.action_contract import (
     ALL_ACTION_KEYS,
@@ -613,6 +615,54 @@ def test_admin_usage_summary_self_only(monkeypatch) -> None:
     )
     assert users.status_code == 200
     assert users.json()["total"] >= 1
+
+
+def test_admin_usage_users_principal_label_from_trial_key(monkeypatch) -> None:
+    _clear_usage_events()
+    trial_key = "ORIMAROM_trial_key_demo_1"
+    principal = f"tlic:{hashlib.sha256(trial_key.encode('utf-8')).hexdigest()[:24]}"
+    monkeypatch.setattr(admin_routes.settings, "nudge_trial_license_keys", trial_key)
+    usage_store.record_event(
+        UsageEventWrite(
+            request_id="req-label-test",
+            principal=principal,
+            device_id="dev-label-test",
+            route_type="ai_action",
+            action="summarize",
+            status="ok",
+            error_kind="",
+            http_status=200,
+            duration_ms=120,
+            input_chars=25,
+            output_chars=42,
+            image_bytes=0,
+            oai_prompt_tokens=0,
+            oai_completion_tokens=0,
+            oai_total_tokens=0,
+            ocr_pages=0,
+            model="",
+            deployment="",
+        )
+    )
+    users = client.get("/admin/api/usage/users?period=month", headers=_admin_headers())
+    assert users.status_code == 200
+    data = users.json()
+    assert data["total"] >= 1
+    assert any(item["principal_label"] == "ORIMAROM" for item in data["items"])
+
+
+def test_admin_logout_and_backup_endpoints() -> None:
+    with sqlite3.connect(_usage_db_path()) as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS _backup_smoke (v INTEGER)")
+        conn.commit()
+    logout = client.get("/admin/logout", headers=_admin_headers())
+    assert logout.status_code == 401
+    assert "Basic" in str(logout.headers.get("www-authenticate", ""))
+    backup = client.get("/admin/api/backup", headers=_admin_headers())
+    assert backup.status_code == 200
+    assert backup.headers.get("content-type", "").startswith("application/zip")
+    assert "attachment;" in str(backup.headers.get("content-disposition", ""))
+    assert len(backup.content) > 100
 
 
 def test_action_contract_coverage_sanity() -> None:
