@@ -3,9 +3,15 @@ import sys
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
-from .release_info import load_release_info
-from .tray_app import TrayApp
-from .ui_strings import APP_TITLE, TRAY_UNAVAILABLE_MESSAGE
+try:
+    from .release_info import load_release_info
+    from .tray_app import TrayApp
+    from .ui_strings import APP_TITLE, TRAY_UNAVAILABLE_MESSAGE
+except ImportError:
+    # PyInstaller may execute this entrypoint as a top-level script.
+    from release_info import load_release_info
+    from tray_app import TrayApp
+    from ui_strings import APP_TITLE, TRAY_UNAVAILABLE_MESSAGE
 
 SINGLE_INSTANCE_NAME = "NudgeTraySingleton"
 
