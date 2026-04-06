@@ -107,9 +107,11 @@ class TrayApp:
         self._is_shutting_down = False
         self._active_request_id: int | None = None
         self._active_request_kind = ""
+        self._active_action_key = ""
         self._active_request_clipboard_signature = ""
         self._current_image_png: bytes | None = None
         self._queued_context = QueuedClipboardContext()
+        self._auth_recovery_retry_used = False
         self._guide_dialog: UserGuideDialog | None = None
         self._onboarding_dialog: OnboardingDialog | None = None
         self._proactive_refresh_timer: QTimer | None = None
@@ -490,6 +492,7 @@ class TrayApp:
         self._request_in_flight = True
         self.popup.set_loading()
         self._active_request_clipboard_signature = self._clipboard_signature()
+        self._auth_recovery_retry_used = False
         request_id = self.api_client.request_action(
             text=text,
             action=action,
@@ -501,6 +504,7 @@ class TrayApp:
             self.popup.set_error(ERROR_GENERIC)
             return
         self._active_request_kind = "text"
+        self._active_action_key = action
         self._active_request_id = request_id
 
     def _handle_fix_layout_he(self) -> None:
@@ -525,6 +529,7 @@ class TrayApp:
         self._request_in_flight = True
         self.popup.set_loading()
         self._active_request_clipboard_signature = self._clipboard_signature()
+        self._auth_recovery_retry_used = False
         request_id = self.api_client.request_ocr(
             image_png=self._current_image_png,
             on_success=self._handle_success,
@@ -535,6 +540,7 @@ class TrayApp:
             self.popup.set_error(ERROR_GENERIC)
             return
         self._active_request_kind = "ocr"
+        self._active_action_key = OCR_ACTION_KEY
         self._active_request_id = request_id
 
     def _on_text_ready(self, text: str) -> None:
@@ -618,8 +624,26 @@ class TrayApp:
             response_request_id=request_id,
         ):
             return
+        raw_message = (message or "").strip()
+        action_snapshot = self._active_action_key
+        text_snapshot = (self.popup.current_text or "").strip()
+        image_snapshot = self._current_image_png
+        if (
+            self._is_auth_error_message(raw_message)
+            and not self._auth_recovery_retry_used
+            and action_snapshot in ALL_ACTION_KEYS
+        ):
+            self._auth_recovery_retry_used = True
+            self._clear_active_request_state(clear_image=False)
+            if self._attempt_runtime_auth_recovery():
+                self._retry_action_after_auth_recovery(
+                    action=action_snapshot,
+                    text=text_snapshot,
+                    image_png=image_snapshot,
+                )
+                return
         self._clear_active_request_state(clear_image=False)
-        display_message = resolve_status_text(message)
+        display_message = resolve_status_text(raw_message)
         self.popup.set_error(display_message)
         self._present_queued_context_if_any()
 
@@ -729,9 +753,85 @@ class TrayApp:
         self._request_in_flight = False
         self._active_request_id = None
         self._active_request_kind = ""
+        self._active_action_key = ""
         self._active_request_clipboard_signature = ""
         if clear_image:
             self._current_image_png = None
+
+    def _is_auth_error_message(self, message: str) -> bool:
+        lowered = (message or "").strip().lower()
+        if not lowered:
+            return False
+        if "unauthorized" in lowered:
+            return True
+        if "not authenticated" in lowered:
+            return True
+        if "forbidden" in lowered:
+            return True
+        return False
+
+    def _attempt_runtime_auth_recovery(self) -> bool:
+        # In dev explicit env auth mode there is no runtime token recovery path.
+        if (self.settings.backend_access_token or "").strip():
+            return False
+        if (self.settings.backend_api_key or "").strip():
+            return False
+        # Clear stale local tokens and rebuild a fresh session path.
+        self._session.clear_auth()
+        if self._blocking_refresh_tokens():
+            return True
+        if self._try_activate_with_pin_vault():
+            return True
+        return self._blocking_activation_dialog(mandatory=False)
+
+    def _retry_action_after_auth_recovery(
+        self,
+        *,
+        action: str,
+        text: str,
+        image_png: bytes | None,
+    ) -> None:
+        if self._is_shutting_down:
+            return
+        if action == OCR_ACTION_KEY and image_png:
+            self._current_image_png = image_png
+            self._request_in_flight = True
+            self.popup.set_loading()
+            self._active_request_clipboard_signature = self._clipboard_signature()
+            request_id = self.api_client.request_ocr(
+                image_png=image_png,
+                on_success=self._handle_success,
+                on_error=self._handle_error,
+            )
+            if request_id < 0:
+                self._clear_active_request_state(clear_image=False)
+                self.popup.set_error(ERROR_GENERIC)
+                return
+            self._active_request_kind = "ocr"
+            self._active_action_key = OCR_ACTION_KEY
+            self._active_request_id = request_id
+            return
+
+        if action in BACKEND_TEXT_ACTION_KEYS and text:
+            self._request_in_flight = True
+            self.popup.set_loading()
+            self._active_request_clipboard_signature = self._clipboard_signature()
+            request_id = self.api_client.request_action(
+                text=text,
+                action=action,
+                on_success=self._handle_success,
+                on_error=self._handle_error,
+            )
+            if request_id < 0:
+                self._clear_active_request_state(clear_image=False)
+                self.popup.set_error(ERROR_GENERIC)
+                return
+            self._active_request_kind = "text"
+            self._active_action_key = action
+            self._active_request_id = request_id
+            return
+
+        self.popup.set_error(resolve_status_text("Unauthorized request"))
 
     def _clipboard_signature(self) -> str:
         mime_data = self.clipboard.mimeData(mode=QClipboard.Clipboard)
