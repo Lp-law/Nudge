@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Nudge — עוזר AI שיושב בשורת המשימות ומשדרג כל טקסט שאתה מעתיק. סיכום, שיפור, תרגום, כתיבת מייל ועוד. בלחיצה אחת.">
-  <title>Nudge — הטקסט שלך, חכם יותר</title>
-  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <meta name="description" content="CopyBar — עוזר AI שיושב בשורת המשימות ומשדרג כל טקסט שאתה מעתיק. סיכום, שיפור, תרגום, כתיבת מייל ועוד. בלחיצה אחת.">
+  <title>CopyBar — הטקסט שלך, חכם יותר</title>
+  <link rel="icon" type="image/svg+xml" href="copybar-logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,17 +13,20 @@
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --bg: #0F172A;
-      --card: #1E293B;
-      --card-hover: #253349;
-      --primary: #4F46E5;
-      --primary-light: #6366F1;
-      --accent: #06B6D4;
+      --bg: #09090B;
+      --card: #18181B;
+      --card-hover: #27272A;
+      --primary: #8B5CF6;
+      --primary-light: #A78BFA;
+      --secondary: #EC4899;
+      --accent: #22D3EE;
       --success: #10B981;
-      --text: #F1F5F9;
-      --text-muted: #94A3B8;
-      --text-dim: #64748B;
-      --border: #334155;
+      --text: #FAFAFA;
+      --text-muted: #A1A1AA;
+      --text-dim: #71717A;
+      --border: #27272A;
+      --gradient: linear-gradient(135deg, #8B5CF6, #EC4899, #22D3EE);
+      --gradient-btn: linear-gradient(135deg, #8B5CF6, #EC4899);
       --radius: 12px;
       --radius-lg: 16px;
       --radius-xl: 24px;
@@ -60,10 +63,10 @@
       right: 0;
       left: 0;
       z-index: 100;
-      background: rgba(15, 23, 42, 0.8);
+      background: rgba(9, 9, 11, 0.85);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+      border-bottom: 1px solid rgba(41, 37, 36, 0.6);
       transition: background 0.3s;
     }
 
@@ -126,25 +129,26 @@
     }
 
     .btn-primary {
-      background: var(--primary);
+      background: var(--gradient-btn);
       color: #fff;
+      font-weight: 700;
     }
 
     .btn-primary:hover {
-      background: var(--primary-light);
+      background: linear-gradient(135deg, #A78BFA, #F472B6);
       transform: translateY(-1px);
-      box-shadow: 0 8px 25px rgba(79, 70, 229, 0.35);
+      box-shadow: 0 8px 30px rgba(139, 92, 246, 0.4), 0 0 60px rgba(236, 72, 153, 0.15);
     }
 
     .btn-accent {
       background: var(--accent);
-      color: #0F172A;
+      color: #09090B;
     }
 
     .btn-accent:hover {
       background: #22D3EE;
       transform: translateY(-1px);
-      box-shadow: 0 8px 25px rgba(6, 182, 212, 0.35);
+      box-shadow: 0 8px 25px rgba(236, 72, 153, 0.35);
     }
 
     .btn-outline {
@@ -196,8 +200,8 @@
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(79, 70, 229, 0.15) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 40% at 30% 20%, rgba(6, 182, 212, 0.08) 0%, transparent 50%);
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(139, 92, 246, 0.15) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 30% 20%, rgba(236, 72, 153, 0.08) 0%, transparent 50%);
       pointer-events: none;
     }
 
@@ -205,8 +209,8 @@
       position: absolute;
       inset: 0;
       background-image:
-        repeating-linear-gradient(90deg, rgba(51, 65, 85, 0.15) 0, rgba(51, 65, 85, 0.15) 1px, transparent 1px, transparent 80px),
-        repeating-linear-gradient(0deg, rgba(51, 65, 85, 0.15) 0, rgba(51, 65, 85, 0.15) 1px, transparent 1px, transparent 80px);
+        repeating-linear-gradient(90deg, rgba(41, 37, 36, 0.15) 0, rgba(41, 37, 36, 0.15) 1px, transparent 1px, transparent 80px),
+        repeating-linear-gradient(0deg, rgba(41, 37, 36, 0.15) 0, rgba(41, 37, 36, 0.15) 1px, transparent 1px, transparent 80px);
       mask-image: radial-gradient(ellipse 70% 50% at 50% 30%, black 0%, transparent 70%);
       -webkit-mask-image: radial-gradient(ellipse 70% 50% at 50% 30%, black 0%, transparent 70%);
       pointer-events: none;
@@ -219,8 +223,8 @@
       align-items: center;
       gap: 8px;
       padding: 6px 16px;
-      background: rgba(79, 70, 229, 0.15);
-      border: 1px solid rgba(79, 70, 229, 0.3);
+      background: rgba(139, 92, 246, 0.15);
+      border: 1px solid rgba(139, 92, 246, 0.3);
       border-radius: 100px;
       font-size: 0.85rem;
       font-weight: 500;
@@ -234,7 +238,7 @@
       line-height: 1.15;
       letter-spacing: -0.03em;
       margin-bottom: 24px;
-      background: linear-gradient(135deg, #F1F5F9 0%, #CBD5E1 100%);
+      background: linear-gradient(135deg, #FAFAFA 0%, #A78BFA 40%, #EC4899 70%, #22D3EE 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -283,15 +287,43 @@
     }
 
     .dot:nth-child(1) { right: 15%; top: 25%; animation-delay: 0s; }
-    .dot:nth-child(2) { right: 70%; top: 35%; animation-delay: 1s; background: var(--accent); }
+    .dot:nth-child(2) { right: 70%; top: 35%; animation-delay: 1s; background: #22D3EE; }
     .dot:nth-child(3) { right: 40%; top: 70%; animation-delay: 2s; }
-    .dot:nth-child(4) { right: 85%; top: 55%; animation-delay: 3s; background: var(--accent); }
-    .dot:nth-child(5) { right: 25%; top: 80%; animation-delay: 4s; }
+    .dot:nth-child(4) { right: 85%; top: 55%; animation-delay: 3s; background: #22D3EE; }
+    .dot:nth-child(5) { right: 25%; top: 80%; animation-delay: 4s; background: #22D3EE; }
     .dot:nth-child(6) { right: 55%; top: 15%; animation-delay: 1.5s; background: var(--success); }
 
     @keyframes float-dot {
       0%, 100% { opacity: 0; transform: translateY(0); }
       50% { opacity: 0.6; transform: translateY(-20px); }
+    }
+
+    /* Glowing bar animation */
+    .hero-bar {
+      position: relative;
+      width: 280px;
+      height: 4px;
+      margin: 32px auto 0;
+      background: rgba(139, 92, 246, 0.15);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .hero-bar::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -40%;
+      width: 40%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, #8B5CF6, #EC4899, #22D3EE, transparent);
+      border-radius: 4px;
+      animation: bar-glow 2.5s ease-in-out infinite;
+    }
+
+    @keyframes bar-glow {
+      0% { left: -40%; }
+      100% { left: 100%; }
     }
 
     /* ═══════════════════ SECTIONS ═══════════════════ */
@@ -345,7 +377,7 @@
     .step-card:hover {
       background: var(--card-hover);
       transform: translateY(-4px);
-      border-color: rgba(79, 70, 229, 0.3);
+      border-color: rgba(139, 92, 246, 0.3);
     }
 
     .step-number {
@@ -367,7 +399,7 @@
       width: 64px;
       height: 64px;
       margin: 0 auto 20px;
-      background: rgba(79, 70, 229, 0.1);
+      background: rgba(139, 92, 246, 0.1);
       border-radius: 16px;
       display: flex;
       align-items: center;
@@ -375,7 +407,7 @@
       font-size: 1.6rem;
     }
 
-    .step-card:nth-child(2) .step-icon { background: rgba(6, 182, 212, 0.1); }
+    .step-card:nth-child(2) .step-icon { background: rgba(236, 72, 153, 0.1); }
     .step-card:nth-child(3) .step-icon { background: rgba(16, 185, 129, 0.1); }
 
     .step-card h3 {
@@ -418,9 +450,9 @@
     }
 
     .flow-step.accent {
-      border-color: rgba(6, 182, 212, 0.4);
+      border-color: rgba(236, 72, 153, 0.4);
       color: var(--accent);
-      background: rgba(6, 182, 212, 0.08);
+      background: rgba(236, 72, 153, 0.08);
     }
 
     .flow-step.success {
@@ -463,8 +495,9 @@
 
     .feature-card:hover {
       background: var(--card-hover);
-      border-color: rgba(79, 70, 229, 0.3);
+      border-color: rgba(139, 92, 246, 0.3);
       transform: translateY(-2px);
+      box-shadow: 0 0 30px rgba(139, 92, 246, 0.06);
     }
 
     .feature-icon {
@@ -508,15 +541,15 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: radial-gradient(circle at center, rgba(79, 70, 229, 0.08) 0%, transparent 60%);
+      background: radial-gradient(circle at center, rgba(139, 92, 246, 0.08) 0%, transparent 60%);
     }
 
     .play-btn {
       position: relative;
       width: 72px;
       height: 72px;
-      background: rgba(79, 70, 229, 0.2);
-      border: 2px solid rgba(79, 70, 229, 0.4);
+      background: rgba(139, 92, 246, 0.2);
+      border: 2px solid rgba(139, 92, 246, 0.4);
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -554,7 +587,7 @@
 
     .pricing-card.popular {
       border-color: var(--primary);
-      box-shadow: 0 0 40px rgba(79, 70, 229, 0.15), 0 0 0 1px var(--primary);
+      box-shadow: 0 0 40px rgba(139, 92, 246, 0.15), 0 0 0 1px var(--primary);
       transform: scale(1.03);
     }
 
@@ -635,7 +668,7 @@
     /* ═══════════════════ DOWNLOAD ═══════════════════ */
     .download-section {
       text-align: center;
-      background: linear-gradient(180deg, transparent 0%, rgba(79, 70, 229, 0.05) 50%, transparent 100%);
+      background: linear-gradient(180deg, transparent 0%, rgba(139, 92, 246, 0.05) 50%, transparent 100%);
     }
 
     .download-box {
@@ -651,7 +684,7 @@
       width: 72px;
       height: 72px;
       margin: 0 auto 24px;
-      background: rgba(79, 70, 229, 0.1);
+      background: rgba(139, 92, 246, 0.1);
       border-radius: 20px;
       display: flex;
       align-items: center;
@@ -673,8 +706,8 @@
     .download-note {
       margin-top: 24px;
       padding: 16px 20px;
-      background: rgba(6, 182, 212, 0.08);
-      border: 1px solid rgba(6, 182, 212, 0.2);
+      background: rgba(236, 72, 153, 0.08);
+      border: 1px solid rgba(236, 72, 153, 0.2);
       border-radius: var(--radius);
       font-size: 0.85rem;
       color: var(--text-muted);
@@ -696,11 +729,11 @@
     }
 
     .faq-list details:hover {
-      border-color: rgba(79, 70, 229, 0.3);
+      border-color: rgba(139, 92, 246, 0.3);
     }
 
     .faq-list details[open] {
-      border-color: rgba(79, 70, 229, 0.3);
+      border-color: rgba(139, 92, 246, 0.3);
     }
 
     .faq-list summary {
@@ -827,7 +860,7 @@
         top: 72px;
         right: 0;
         left: 0;
-        background: rgba(15, 23, 42, 0.98);
+        background: rgba(9, 9, 11, 0.98);
         backdrop-filter: blur(16px);
         flex-direction: column;
         padding: 24px;
@@ -869,13 +902,13 @@
     <div class="container">
       <a href="#" class="logo">
         <span class="logo-icon">
-          <img src="logo.svg" alt="Nudge logo" width="32" height="32" style="border-radius:6px">
+          <img src="copybar-logo.png" alt="CopyBar logo" width="32" height="32" style="border-radius:6px">
         </span>
-        <span class="en">Nudge</span>
+        <span class="en">CopyBar</span>
       </a>
 
       <ul class="nav-links" id="navLinks">
-        <li><a href="#how-it-works">מה זה Nudge?</a></li>
+        <li><a href="#how-it-works">מה זה CopyBar?</a></li>
         <li><a href="#pricing">תמחור</a></li>
         <li><a href="#download">הורדה</a></li>
         <li><a href="#faq">שאלות נפוצות</a></li>
@@ -903,17 +936,18 @@
     </div>
     <div class="container hero-content">
       <div class="hero-badge">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2"><path d="M12 2L14 8.5L20 6L16 12L20 18L14 15.5L12 22L10 15.5L4 18L8 12L4 6L10 8.5L12 2Z"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2"><path d="M12 2L14 8.5L20 6L16 12L20 18L14 15.5L12 22L10 15.5L4 18L8 12L4 6L10 8.5L12 2Z"/></svg>
         עוזר AI לכל טקסט
       </div>
       <h1>הטקסט שלך, חכם יותר</h1>
       <p class="hero-subtitle">
-        <span class="en">Nudge</span> הוא עוזר AI שיושב בשורת המשימות ומשדרג כל טקסט שאתה מעתיק — תקצור, שפר, תרגם, כתוב מייל ועוד. בלחיצה אחת.
+        <span class="en">CopyBar</span> הוא עוזר AI שיושב בשורת המשימות ומשדרג כל טקסט שאתה מעתיק — תקצור, שפר, תרגם, כתוב מייל ועוד. בלחיצה אחת.
       </p>
       <div class="hero-actions">
         <a href="#pricing" class="btn btn-primary btn-lg">נסה 7 ימים בחינם</a>
         <a href="#demo" class="hero-secondary">ראה איך זה עובד &larr;</a>
       </div>
+      <div class="hero-bar"></div>
     </div>
   </section>
 
@@ -927,7 +961,7 @@
         <div class="step-card reveal">
           <div class="step-number">1</div>
           <div class="step-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
           </div>
           <h3>העתק טקסט</h3>
           <p>העתק כל טקסט כרגיל עם <span class="en" style="direction:ltr;unicode-bidi:embed">Ctrl+C</span></p>
@@ -935,7 +969,7 @@
         <div class="step-card reveal">
           <div class="step-number">2</div>
           <div class="step-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#06B6D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L14 8.5L20 6L16 12L20 18L14 15.5L12 22L10 15.5L4 18L8 12L4 6L10 8.5L12 2Z"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L14 8.5L20 6L16 12L20 18L14 15.5L12 22L10 15.5L4 18L8 12L4 6L10 8.5L12 2Z"/></svg>
           </div>
           <h3>בחר פעולה</h3>
           <p>חלון קטן צץ ליד הסמן עם 8 פעולות AI</p>
@@ -1039,11 +1073,11 @@
   <section id="demo" class="demo-section">
     <div class="container text-center">
       <span class="section-label reveal">הדגמה</span>
-      <h2 class="section-title reveal">ראה את <span class="en">Nudge</span> בפעולה</h2>
+      <h2 class="section-title reveal">ראה את <span class="en">CopyBar</span> בפעולה</h2>
       <p class="section-desc reveal">60 שניות שישנו לך את העבודה</p>
       <div class="video-placeholder reveal">
         <div class="play-btn">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="#4F46E5"><path d="M8 5v14l11-7z"/></svg>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="#8B5CF6"><path d="M8 5v14l11-7z"/></svg>
         </div>
       </div>
       <p class="demo-caption reveal">סרטון הדגמה בקרוב</p>
@@ -1104,9 +1138,9 @@
     <div class="container">
       <div class="download-box reveal">
         <div class="download-icon">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         </div>
-        <h2 class="section-title" style="margin-bottom:12px">הורד את <span class="en">Nudge</span></h2>
+        <h2 class="section-title" style="margin-bottom:12px">הורד את <span class="en">CopyBar</span></h2>
         <a href="#" onclick="alert('הקישור להורדה יהיה זמין בקרוב!');return false;" class="btn btn-primary btn-lg" id="downloadBtn" style="margin-top:16px">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.45H0m10.949-9.596L24 0v11.4H10.949M0 12.6h9.75v9.45L0 20.699M10.949 12.6H24V24l-13.051-1.848"/></svg>
           הורד ל-<span class="en">Windows</span>
@@ -1128,21 +1162,21 @@
       <p class="section-desc reveal">כל מה שצריך לדעת לפני שמתחילים</p>
       <div class="faq-list">
         <details class="reveal">
-          <summary>מה זה <span class="en">Nudge</span>?</summary>
+          <summary>מה זה <span class="en">CopyBar</span>?</summary>
           <div class="faq-answer">
-            <span class="en">Nudge</span> הוא עוזר AI קטן שיושב בשורת המשימות של <span class="en">Windows</span>. כל פעם שאתה מעתיק טקסט, צץ חלון קטן עם פעולות חכמות — סיכום, שיפור, תרגום, כתיבת מייל ועוד. התוצאה מועתקת אוטומטית ואתה יכול להדביק אותה מיד.
+            <span class="en">CopyBar</span> הוא עוזר AI קטן שיושב בשורת המשימות של <span class="en">Windows</span>. כל פעם שאתה מעתיק טקסט, צץ חלון קטן עם פעולות חכמות — סיכום, שיפור, תרגום, כתיבת מייל ועוד. התוצאה מועתקת אוטומטית ואתה יכול להדביק אותה מיד.
           </div>
         </details>
         <details class="reveal">
           <summary>האם המידע שלי מאובטח?</summary>
           <div class="faq-answer">
-            כן. <span class="en">Nudge</span> לא שומר את הטקסטים שלך. כל בקשה מעובדת בזמן אמת ונמחקת. אנחנו משתמשים בהצפנה מקצה לקצה ובאימות <span class="en">JWT</span>.
+            כן. <span class="en">CopyBar</span> לא שומר את הטקסטים שלך. כל בקשה מעובדת בזמן אמת ונמחקת. אנחנו משתמשים בהצפנה מקצה לקצה ובאימות <span class="en">JWT</span>.
           </div>
         </details>
         <details class="reveal">
           <summary>האם זה עובד בעברית?</summary>
           <div class="faq-answer">
-            בהחלט! <span class="en">Nudge</span> תוכנן במיוחד לעברית ואנגלית, כולל זיהוי שפה אוטומטי ותמיכה ב-<span class="en">RTL</span>.
+            בהחלט! <span class="en">CopyBar</span> תוכנן במיוחד לעברית ואנגלית, כולל זיהוי שפה אוטומטי ותמיכה ב-<span class="en">RTL</span>.
           </div>
         </details>
         <details class="reveal">
@@ -1180,9 +1214,9 @@
         <div class="footer-brand">
           <a href="#" class="logo" style="font-size:1.2rem">
             <span class="logo-icon" style="width:24px;height:24px">
-              <img src="logo.svg" alt="Nudge logo" width="24" height="24" style="border-radius:4px">
+              <img src="copybar-logo.png" alt="CopyBar logo" width="24" height="24" style="border-radius:4px">
             </span>
-            <span class="en">Nudge</span>
+            <span class="en">CopyBar</span>
           </a>
           <span class="footer-tagline">הטקסט שלך, חכם יותר</span>
         </div>
@@ -1190,11 +1224,11 @@
           <li><a href="terms.html">תנאי שימוש</a></li>
           <li><a href="purchase.html">הסכם רכישה</a></li>
           <li><a href="accessibility.html">הצהרת נגישות</a></li>
-          <li><a href="mailto:support@nudge.co.il">צור קשר</a></li>
+          <li><a href="mailto:support@copybar.ai">צור קשר</a></li>
         </ul>
       </div>
       <div class="footer-copy">
-        &copy; 2026 <span class="en">Nudge</span>. כל הזכויות שמורות. &nbsp;|&nbsp; <span class="en">support@nudge.co.il</span>
+        &copy; 2026 <span class="en">CopyBar</span>. כל הזכויות שמורות. &nbsp;|&nbsp; <span class="en">support@copybar.ai</span>
       </div>
     </div>
   </footer>
@@ -1246,9 +1280,9 @@
     window.addEventListener('scroll', () => {
       const navbar = document.querySelector('.navbar');
       if (window.scrollY > 100) {
-        navbar.style.background = 'rgba(15, 23, 42, 0.95)';
+        navbar.style.background = 'rgba(9, 9, 11, 0.95)';
       } else {
-        navbar.style.background = 'rgba(15, 23, 42, 0.8)';
+        navbar.style.background = 'rgba(9, 9, 11, 0.85)';
       }
     }, { passive: true });
   </script>
