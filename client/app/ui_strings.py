@@ -124,7 +124,7 @@ PIN_SETUP_TITLE = "שמירת מפתח מוגן בסיסמה"
 PIN_SETUP_LICENSE_LABEL = "מפתח הפעלה"
 PIN_SETUP_CONFIRM_LABEL = "אימות סיסמה"
 PIN_SETUP_SUBMIT = "שמירה"
-PIN_ERROR_SHORT = "הסיסמה חייבת להכיל לפחות 4 תווים."
+PIN_ERROR_SHORT = "הסיסמה חייבת להכיל לפחות 6 תווים."
 PIN_ERROR_MISMATCH = "הסיסמאות אינן תואמות."
 PIN_ERROR_WRONG = "סיסמה שגויה או נתונים פגומים."
 PIN_OFFER_TITLE = "הפעלה מהירה"
@@ -133,6 +133,17 @@ PIN_OFFER_MESSAGE = (
     "כשהתוקף של החיבור יפוג או אחרי אתחול שרת, תוכלו להזין רק סיסמה קצרה במקום המפתח המלא.\n"
     "הסיסמה נשמרת רק במחשב זה ואינה נשלחת לשרת."
 )
+
+
+UPDATE_MANDATORY_TITLE = "עדכון חובה"
+UPDATE_MANDATORY_MESSAGE = (
+    "גרסה חדשה ({version}) זמינה וחובה לעדכן.\n"
+    "האפליקציה תיסגר. הורידו את הגרסה החדשה מהקישור שנפתח."
+)
+UPDATE_AVAILABLE_TITLE = "עדכון זמין"
+UPDATE_AVAILABLE_MESSAGE = "גרסה חדשה זמינה: {version}"
+UPDATE_NOW_BUTTON = "עדכן עכשיו"
+UPDATE_LATER_BUTTON = "אחר כך"
 
 
 def cloud_confirm_message(reason_text: str) -> str:

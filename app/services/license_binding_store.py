@@ -42,20 +42,28 @@ class RedisLicenseBindingStore(LicenseBindingStore):
     def _key(self, license_hash: str) -> str:
         return f"{self._prefix}:licbind:{license_hash}"
 
+    # Lua script for atomic check-and-set binding.
+    # Returns: "already_bound" | "bound" | "taken"
+    _BIND_SCRIPT = """
+local key = KEYS[1]
+local device_id = ARGV[1]
+local current = redis.call('GET', key)
+if current == device_id then
+    return 'already_bound'
+end
+if current then
+    return 'taken'
+end
+redis.call('SET', key, device_id)
+return 'bound'
+"""
+
     async def ensure_device_binding(self, license_hash: str, device_id: str) -> bool:
         if not license_hash or not device_id:
             return False
         key = self._key(license_hash)
-        existing = await self._client.get(key)
-        if existing == device_id:
-            return True
-        if existing is not None:
-            return False
-        acquired = await self._client.set(key, device_id, nx=True)
-        if acquired:
-            return True
-        existing2 = await self._client.get(key)
-        return existing2 == device_id
+        result = await self._client.eval(self._BIND_SCRIPT, 1, key, device_id)
+        return result in ("already_bound", "bound")
 
 
 def create_license_binding_store(settings) -> LicenseBindingStore:

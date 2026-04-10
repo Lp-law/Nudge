@@ -1,8 +1,8 @@
 import hashlib
 import sys
 
-from PySide6.QtCore import QByteArray, QBuffer, QEventLoop, QIODevice, QSettings, QTimer
-from PySide6.QtGui import QAction, QActionGroup, QClipboard, QIcon, QImage
+from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QSettings, QTimer, QUrl
+from PySide6.QtGui import QAction, QActionGroup, QClipboard, QDesktopServices, QIcon, QImage
 from PySide6.QtWidgets import QApplication, QDialog, QMenu, QMessageBox, QStyle, QSystemTrayIcon
 
 from .activation_dialog import ActivationDialog
@@ -14,6 +14,8 @@ from .action_contract import (
     validate_action_contract,
 )
 from .api_client import ApiClient
+from .update_checker import UpdateChecker
+from .error_reporting import capture_exception, set_user_context
 from .clipboard_monitor import ClipboardMonitor
 from .diagnostics import build_diagnostics_summary
 from .layout_converter import convert_en_layout_to_hebrew
@@ -71,6 +73,12 @@ from .ui_strings import (
     TRAY_MENU_POPUP_DURATION,
     TRAY_MENU_REACTIVATE,
     TRAY_MENU_USER_GUIDE,
+    UPDATE_AVAILABLE_MESSAGE,
+    UPDATE_AVAILABLE_TITLE,
+    UPDATE_LATER_BUTTON,
+    UPDATE_MANDATORY_MESSAGE,
+    UPDATE_MANDATORY_TITLE,
+    UPDATE_NOW_BUTTON,
     cloud_confirm_message,
 )
 from .user_guide import UserGuideDialog
@@ -195,77 +203,152 @@ class TrayApp:
         quit_action.triggered.connect(self.app.quit)
         self.tray.setContextMenu(menu)
         self.tray.show()
+
+        _ver = (self.app.applicationVersion() or "0.0.0").strip()
+        _chan = str(self.app.property("nudge_release_channel") or "stable").strip().lower()
+        self._update_checker = UpdateChecker(
+            backend_base_url=self.settings.backend_base_url,
+            current_version=_ver,
+            channel=_chan,
+            preferences=self._preferences,
+            parent=self.app,
+        )
+        self._update_checker.update_available.connect(self._on_update_available)
+
         QTimer.singleShot(300, self._run_initial_setup_flow)
+
+    def _on_update_available(self, version: str, download_url: str, mandatory: bool) -> None:
+        if mandatory:
+            msg = QMessageBox()
+            msg.setWindowTitle(UPDATE_MANDATORY_TITLE)
+            msg.setText(UPDATE_MANDATORY_MESSAGE.format(version=version))
+            msg.setIcon(QMessageBox.Warning)
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec()
+            if download_url:
+                QDesktopServices.openUrl(QUrl(download_url))
+            self.app.quit()
+            return
+
+        msg = QMessageBox()
+        msg.setWindowTitle(UPDATE_AVAILABLE_TITLE)
+        msg.setText(UPDATE_AVAILABLE_MESSAGE.format(version=version))
+        msg.setIcon(QMessageBox.Information)
+        update_btn = msg.addButton(UPDATE_NOW_BUTTON, QMessageBox.AcceptRole)
+        msg.addButton(UPDATE_LATER_BUTTON, QMessageBox.RejectRole)
+        msg.exec()
+        if msg.clickedButton() == update_btn:
+            if download_url:
+                QDesktopServices.openUrl(QUrl(download_url))
+        else:
+            self._update_checker.dismiss_version(version)
 
     def _run_initial_setup_flow(self) -> None:
         if self._is_shutting_down:
             return
-        if not self._ensure_cloud_auth_ready():
-            return
-        QTimer.singleShot(150, self._maybe_show_onboarding)
+        self._ensure_cloud_auth_ready(on_ready=lambda: QTimer.singleShot(150, self._maybe_show_onboarding))
 
-    def _ensure_cloud_auth_ready(self) -> bool:
+    def _ensure_cloud_auth_ready(self, on_ready: object = None) -> None:
+        """Non-blocking auth bootstrap.  *on_ready* is called (no args) once auth
+        is confirmed.  If authentication cannot be established the app quits."""
         st = self.settings
         if (st.backend_access_token or "").strip():
             self._session.update_access_only(st.backend_access_token.strip())
-            return True
+            if on_ready:
+                on_ready()  # type: ignore[operator]
+            return
         if (st.backend_api_key or "").strip():
-            return True
+            if on_ready:
+                on_ready()  # type: ignore[operator]
+            return
         if self._session.has_valid_access_token():
-            return True
+            if on_ready:
+                on_ready()  # type: ignore[operator]
+            return
         if (self._session.refresh_token or "").strip():
-            if self._blocking_refresh_tokens():
-                return True
-            if self._try_activate_with_pin_vault():
-                return True
-            self._session.clear_auth()
+            self._refresh_tokens_async(
+                on_done=lambda ok: self._setup_after_refresh(ok, on_ready, mandatory=True),
+            )
         else:
-            if self._try_activate_with_pin_vault():
-                return True
-        return self._blocking_activation_dialog(mandatory=True)
+            self._setup_after_refresh_no_token(on_ready, mandatory=True)
 
-    def _blocking_refresh_tokens(self) -> bool:
+    def _setup_after_refresh(self, refresh_ok: bool, on_ready: object, *, mandatory: bool) -> None:
+        if refresh_ok:
+            if on_ready:
+                on_ready()  # type: ignore[operator]
+            return
+        self._setup_after_refresh_no_token(on_ready, mandatory=mandatory)
+
+    def _setup_after_refresh_no_token(self, on_ready: object, *, mandatory: bool) -> None:
+        if self._try_activate_with_pin_vault(
+            on_activated=lambda ok: self._setup_after_vault(ok, on_ready, mandatory=mandatory),
+        ):
+            return  # async path in progress
+        # _try_activate_with_pin_vault returned False synchronously (no vault / dialog dismissed)
+        if mandatory:
+            self._session.clear_auth()
+        self._show_activation_dialog(mandatory=mandatory, on_ready=on_ready)
+
+    def _setup_after_vault(self, vault_ok: bool, on_ready: object, *, mandatory: bool) -> None:
+        if vault_ok:
+            if on_ready:
+                on_ready()  # type: ignore[operator]
+            return
+        if mandatory:
+            self._session.clear_auth()
+        self._show_activation_dialog(mandatory=mandatory, on_ready=on_ready)
+
+    def _refresh_tokens_async(self, on_done: object) -> None:
+        """Fire a non-blocking token refresh.  Calls *on_done(bool)* when finished."""
         rt = self._session.refresh_token
         if not rt:
-            return False
-        loop = QEventLoop()
-        outcome: dict[str, bool] = {"ok": False}
+            if on_done:
+                on_done(False)  # type: ignore[operator]
+            return
 
-        def done(success: bool, data: dict[str, object] | None, _err: str) -> None:
+        def _on_refresh_complete(success: bool, data: dict[str, object] | None, _err: str) -> None:
+            ok = False
             if success and data:
                 at = str(data.get("access_token", "")).strip()
                 nr = str(data.get("refresh_token", "")).strip()
                 if at and nr:
                     self._session.persist_tokens(at, nr)
-                    outcome["ok"] = True
-            loop.quit()
+                    ok = True
+            if ok:
+                self._arm_proactive_refresh_timer()
+            if on_done:
+                on_done(ok)  # type: ignore[operator]
 
-        self.api_client.request_refresh_token(rt, done)
-        loop.exec()
-        if outcome["ok"]:
-            self._arm_proactive_refresh_timer()
-        return bool(outcome["ok"])
+        self.api_client.request_refresh_token(rt, _on_refresh_complete)
 
-    def _activate_license_blocking(self, license_key: str) -> tuple[bool, str]:
-        loop = QEventLoop()
-        outcome: dict[str, str | bool] = {"ok": False, "err": ""}
+    def _activate_license_async(
+        self,
+        license_key: str,
+        on_done: object,
+    ) -> None:
+        """Fire a non-blocking license activation.  Calls *on_done(ok, err_msg)* when finished."""
 
-        def done(success: bool, data: dict[str, object] | None, err: str) -> None:
+        def _on_activate_complete(success: bool, data: dict[str, object] | None, err: str) -> None:
+            ok = False
             if success and data:
                 at = str(data.get("access_token", "")).strip()
                 rt = str(data.get("refresh_token", "")).strip()
                 if at and rt:
                     self._session.persist_tokens(at, rt)
-                    outcome["ok"] = True
-            if not outcome["ok"]:
-                outcome["err"] = (err or "").strip() or ACTIVATION_FAILED_GENERIC
-            loop.quit()
+                    principal = str(data.get("principal", "")).strip() or license_key[:8]
+                    set_user_context(principal)
+                    ok = True
+            err_msg = "" if ok else ((err or "").strip() or ACTIVATION_FAILED_GENERIC)
+            if on_done:
+                on_done(ok, err_msg)  # type: ignore[operator]
 
-        self.api_client.request_activate(license_key, self._session.installation_id(), done)
-        loop.exec()
-        return bool(outcome["ok"]), str(outcome["err"])
+        self.api_client.request_activate(license_key, self._session.installation_id(), _on_activate_complete)
 
-    def _try_activate_with_pin_vault(self) -> bool:
+    def _try_activate_with_pin_vault(self, on_activated: object = None) -> bool:
+        """Attempt activation from the PIN vault.  Returns True if the async
+        activation was started (result delivered via *on_activated(bool)*).
+        Returns False synchronously if there is no vault or the user cancelled
+        the PIN dialog."""
         bundle = self._session.load_pin_vault()
         if not bundle:
             return False
@@ -281,12 +364,19 @@ class TrayApp:
         if len(lic) < 8:
             QMessageBox.warning(self.popup, PIN_UNLOCK_TITLE, PIN_ERROR_WRONG)
             return False
-        ok, err = self._activate_license_blocking(lic)
-        if ok:
-            self._arm_proactive_refresh_timer()
-            return True
-        QMessageBox.warning(self.popup, ACTIVATION_TITLE, err)
-        return False
+
+        def _vault_activate_done(ok: bool, err: str) -> None:
+            if ok:
+                self._arm_proactive_refresh_timer()
+                if on_activated:
+                    on_activated(True)  # type: ignore[operator]
+                return
+            QMessageBox.warning(self.popup, ACTIVATION_TITLE, err)
+            if on_activated:
+                on_activated(False)  # type: ignore[operator]
+
+        self._activate_license_async(lic, on_done=_vault_activate_done)
+        return True  # async path started
 
     def _maybe_offer_pin_vault_after_activation(self, license_key: str) -> None:
         if self._session.has_pin_vault():
@@ -397,20 +487,28 @@ class TrayApp:
             return
         self._on_text_ready(text)
 
-    def _blocking_activation_dialog(self, *, mandatory: bool) -> bool:
-        while True:
-            dialog = ActivationDialog(self.popup, mandatory=mandatory)
-            if dialog.exec() != QDialog.DialogCode.Accepted:
-                if mandatory:
-                    self.app.quit()
-                return False
-            key = "".join((dialog.license_key or "").split())
-            ok, err = self._activate_license_blocking(key)
+    def _show_activation_dialog(self, *, mandatory: bool, on_ready: object = None) -> None:
+        """Show activation dialog (modal for user input), then activate
+        the license key asynchronously (non-blocking network call)."""
+        dialog = ActivationDialog(self.popup, mandatory=mandatory)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            if mandatory:
+                self.app.quit()
+            return
+        key = "".join((dialog.license_key or "").split())
+
+        def _on_activation_done(ok: bool, err: str) -> None:
             if ok:
                 self._arm_proactive_refresh_timer()
                 self._maybe_offer_pin_vault_after_activation(key)
-                return True
+                if on_ready:
+                    on_ready()  # type: ignore[operator]
+                return
             QMessageBox.warning(self.popup, ACTIVATION_TITLE, err)
+            # Re-show dialog so the user can retry
+            self._show_activation_dialog(mandatory=mandatory, on_ready=on_ready)
+
+        self._activate_license_async(key, on_done=_on_activation_done)
 
     def _arm_proactive_refresh_timer(self) -> None:
         if self._is_shutting_down:
@@ -455,8 +553,10 @@ class TrayApp:
     def _on_reactivate(self) -> None:
         self._session.clear_auth()
         self._session.clear_pin_vault()
-        self._blocking_activation_dialog(mandatory=False)
-        self._arm_proactive_refresh_timer()
+        self._show_activation_dialog(
+            mandatory=False,
+            on_ready=self._arm_proactive_refresh_timer,
+        )
 
     def _load_tray_icon(self) -> QIcon:
         icon_path = resource_path("assets", "nudge.ico")
@@ -624,6 +724,7 @@ class TrayApp:
             response_request_id=request_id,
         ):
             return
+        capture_exception(RuntimeError(message or "unknown backend error"))
         raw_message = (message or "").strip()
         action_snapshot = self._active_action_key
         text_snapshot = (self.popup.current_text or "").strip()
@@ -635,13 +736,21 @@ class TrayApp:
         ):
             self._auth_recovery_retry_used = True
             self._clear_active_request_state(clear_image=False)
-            if self._attempt_runtime_auth_recovery():
-                self._retry_action_after_auth_recovery(
-                    action=action_snapshot,
-                    text=text_snapshot,
-                    image_png=image_snapshot,
-                )
-                return
+
+            def _on_recovery(recovered: bool) -> None:
+                if recovered:
+                    self._retry_action_after_auth_recovery(
+                        action=action_snapshot,
+                        text=text_snapshot,
+                        image_png=image_snapshot,
+                    )
+                    return
+                display = resolve_status_text(raw_message)
+                self.popup.set_error(display)
+                self._present_queued_context_if_any()
+
+            self._attempt_runtime_auth_recovery_async(on_done=_on_recovery)
+            return
         self._clear_active_request_state(clear_image=False)
         display_message = resolve_status_text(raw_message)
         self.popup.set_error(display_message)
@@ -770,19 +879,44 @@ class TrayApp:
             return True
         return False
 
-    def _attempt_runtime_auth_recovery(self) -> bool:
+    def _attempt_runtime_auth_recovery_async(self, on_done: object) -> None:
+        """Non-blocking runtime auth recovery.  Calls *on_done(bool)* when finished."""
         # In dev explicit env auth mode there is no runtime token recovery path.
         if (self.settings.backend_access_token or "").strip():
-            return False
+            if on_done:
+                on_done(False)  # type: ignore[operator]
+            return
         if (self.settings.backend_api_key or "").strip():
-            return False
+            if on_done:
+                on_done(False)  # type: ignore[operator]
+            return
         # Clear stale local tokens and rebuild a fresh session path.
         self._session.clear_auth()
-        if self._blocking_refresh_tokens():
-            return True
-        if self._try_activate_with_pin_vault():
-            return True
-        return self._blocking_activation_dialog(mandatory=False)
+
+        def _after_refresh(ok: bool) -> None:
+            if ok:
+                if on_done:
+                    on_done(True)  # type: ignore[operator]
+                return
+            # Try PIN vault
+            if self._try_activate_with_pin_vault(
+                on_activated=lambda vault_ok: _after_vault(vault_ok),
+            ):
+                return  # async vault activation in progress
+            _after_vault(False)
+
+        def _after_vault(ok: bool) -> None:
+            if ok:
+                if on_done:
+                    on_done(True)  # type: ignore[operator]
+                return
+            # Last resort: show activation dialog (non-mandatory)
+            self._show_activation_dialog(
+                mandatory=False,
+                on_ready=lambda: on_done(True) if on_done else None,  # type: ignore[operator]
+            )
+
+        self._refresh_tokens_async(on_done=_after_refresh)
 
     def _retry_action_after_auth_recovery(
         self,

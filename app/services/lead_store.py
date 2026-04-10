@@ -1,8 +1,8 @@
-import sqlite3
-from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from app.services.db_utils import sqlite_connect
 
 
 @dataclass(frozen=True)
@@ -48,16 +48,9 @@ class LeadStore:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_user_leads_source ON user_leads(source)")
         self._initialized = True
 
-    @contextmanager
-    def _connect(self):
+    def _connect(self, *, readonly: bool = False):
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self._db_path)
-        conn.row_factory = sqlite3.Row
-        try:
-            yield conn
-            conn.commit()
-        finally:
-            conn.close()
+        return sqlite_connect(str(self._db_path), readonly=readonly)
 
     def upsert_lead(
         self,
@@ -153,7 +146,7 @@ class LeadStore:
             params.append(int(joined_to.timestamp()))
 
         where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-        with self._connect() as conn:
+        with self._connect(readonly=True) as conn:
             total = int(
                 conn.execute(f"SELECT COUNT(*) AS c FROM user_leads {where_sql}", params).fetchone()["c"]
             )
@@ -176,7 +169,7 @@ class LeadStore:
         week_start = today_start - timedelta(days=today_start.weekday())
         month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
 
-        with self._connect() as conn:
+        with self._connect(readonly=True) as conn:
             total = int(conn.execute("SELECT COUNT(*) AS c FROM user_leads").fetchone()["c"])
             joined_today = int(
                 conn.execute(

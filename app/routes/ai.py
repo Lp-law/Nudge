@@ -18,7 +18,9 @@ from app.core.security import (
     get_client_ip,
 )
 from app.schemas.ai import (
+    ACTION_MAX_TEXT,
     MAX_OCR_IMAGE_BYTES,
+    MAX_TEXT_CHARS,
     AIActionRequest,
     AIActionResponse,
     OCRRequest,
@@ -201,6 +203,18 @@ async def create_action(payload: AIActionRequest, request: Request) -> AIActionR
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=_detail("Text must not be empty or whitespace.", request),
+            )
+
+        # Enforce per-action text-length ceiling (stricter than the global schema limit).
+        action_limit = ACTION_MAX_TEXT.get(payload.action, MAX_TEXT_CHARS)
+        if len(payload.text) > action_limit:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=_detail(
+                    f"Text too long for '{payload.action}' action "
+                    f"({len(payload.text):,} chars, max {action_limit:,}).",
+                    request,
+                ),
             )
 
         logger.info(

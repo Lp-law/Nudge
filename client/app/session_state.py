@@ -1,10 +1,14 @@
 import base64
+import logging
 import time
 import uuid
 
 from PySide6.QtCore import QSettings
 
+from .credential_store import protect_token, unprotect_token
 from .token_schedule import access_token_expiry_unix
+
+log = logging.getLogger(__name__)
 
 
 class ClientSession:
@@ -32,10 +36,26 @@ class ClientSession:
 
     @property
     def refresh_token(self) -> str:
-        return (self._q.value(self._KEY_REFRESH) or "").strip()
+        return self._load_token(self._KEY_REFRESH)
+
+    def _load_token(self, key: str) -> str:
+        """Load a token from QSettings, decrypting via DPAPI if possible.
+
+        Backward-compatible: if DPAPI decryption fails the raw value is
+        treated as a legacy plain-text / base64 token.
+        """
+        raw = (self._q.value(key) or "").strip()
+        if not raw:
+            return ""
+        decrypted = unprotect_token(raw)
+        if decrypted is not None:
+            return decrypted
+        # Legacy unencrypted value — return as-is and re-encrypt on next save
+        log.debug("Token at %s not DPAPI-encrypted; using raw value", key)
+        return raw
 
     def _load_persisted_access_if_valid(self) -> None:
-        saved = (self._q.value(self._KEY_ACCESS) or "").strip()
+        saved = self._load_token(self._KEY_ACCESS)
         if not saved:
             return
         exp = access_token_expiry_unix(saved)
@@ -57,8 +77,9 @@ class ClientSession:
 
     def persist_tokens(self, access: str, refresh: str) -> None:
         self.access_token = (access or "").strip()
-        self._q.setValue(self._KEY_REFRESH, (refresh or "").strip())
-        self._q.setValue(self._KEY_ACCESS, self.access_token)
+        refresh_clean = (refresh or "").strip()
+        self._q.setValue(self._KEY_REFRESH, protect_token(refresh_clean) if refresh_clean else "")
+        self._q.setValue(self._KEY_ACCESS, protect_token(self.access_token) if self.access_token else "")
         self._q.sync()
 
     def update_access_only(self, access: str) -> None:

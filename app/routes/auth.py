@@ -103,10 +103,12 @@ def _license_active_now(row: dict[str, object]) -> tuple[bool, str]:
         try:
             expires_at = datetime.fromisoformat(expires_at_raw)
         except ValueError:
-            expires_at = None
-        if expires_at is not None and expires_at.tzinfo is None:
+            # Expiry value exists but is unparseable -- treat as an error,
+            # not as "no expiry", to avoid granting perpetual access.
+            return False, "invalid_expiry"
+        if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=UTC)
-        if expires_at is not None and expires_at <= datetime.now(UTC):
+        if expires_at <= datetime.now(UTC):
             return False, "expired"
     return True, ""
 
@@ -168,8 +170,15 @@ async def activate_customer(payload: ActivateRequest, request: Request) -> Token
 
     is_active, inactive_reason = _license_active_now(db_license)
     if not is_active:
-        result = "expired" if inactive_reason == "expired" else "inactive"
-        error_message = "License expired." if inactive_reason == "expired" else "License is not active."
+        if inactive_reason == "expired":
+            result = "expired"
+            error_message = "License expired."
+        elif inactive_reason == "invalid_expiry":
+            result = "invalid_expiry"
+            error_message = "License has an invalid expiry date."
+        else:
+            result = "inactive"
+            error_message = "License is not active."
         license_store.record_activation(
             license_id=str(db_license.get("license_id") or ""),
             account_id=str(db_license.get("account_id") or ""),

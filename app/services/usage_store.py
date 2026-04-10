@@ -1,11 +1,10 @@
-import sqlite3
-from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
 from app.core.config import get_settings
 from app.schemas.usage import UsageEventWrite
+from app.services.db_utils import sqlite_connect
 
 
 class UsageStore:
@@ -66,16 +65,9 @@ class UsageStore:
             )
         self._initialized = True
 
-    @contextmanager
-    def _connect(self):
+    def _connect(self, *, readonly: bool = False):
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self._db_path)
-        conn.row_factory = sqlite3.Row
-        try:
-            yield conn
-            conn.commit()
-        finally:
-            conn.close()
+        return sqlite_connect(str(self._db_path), readonly=readonly)
 
     def _openai_cost(self, prompt_tokens: int, completion_tokens: int) -> float:
         settings = get_settings()
@@ -181,7 +173,7 @@ class UsageStore:
     def summary(self, *, period: str, principals: list[str] | None = None) -> dict[str, object]:
         self.initialize()
         where_sql, params = self._build_where(period=period, principals=principals)
-        with self._connect() as conn:
+        with self._connect(readonly=True) as conn:
             row = conn.execute(
                 f"""
                 SELECT
@@ -251,7 +243,7 @@ class UsageStore:
             route_type=route_type,
             action=action,
         )
-        with self._connect() as conn:
+        with self._connect(readonly=True) as conn:
             total = int(
                 conn.execute(
                     f"SELECT COUNT(DISTINCT principal) AS c FROM usage_events {where_sql}",
@@ -291,7 +283,7 @@ class UsageStore:
         self.initialize()
         where_sql, params = self._build_where(period=period, principals=principals)
         order_sql = "cost_total DESC, total_events DESC" if metric == "cost" else "total_events DESC, cost_total DESC"
-        with self._connect() as conn:
+        with self._connect(readonly=True) as conn:
             rows = conn.execute(
                 f"""
                 SELECT

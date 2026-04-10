@@ -25,6 +25,7 @@ from app.core.security import (
 from app.routes.auth import router as auth_router
 from app.routes.ai import router as ai_router
 from app.routes.admin import lead_store, router as admin_router
+from app.routes.updates import router as updates_router
 from app.services.license_store import license_store
 from app.services.usage_store import usage_store
 
@@ -155,6 +156,14 @@ def validate_startup_config() -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     validate_startup_config()
+    settings = get_settings()
+    if settings.sentry_dsn:
+        import sentry_sdk
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            traces_sample_rate=0.1,
+            environment=settings.environment,
+        )
     lead_store.initialize()
     license_store.initialize()
     usage_store.initialize()
@@ -165,6 +174,14 @@ app = FastAPI(title="Nudge MVP Backend", version="0.1.0", lifespan=lifespan)
 app.include_router(ai_router)
 app.include_router(auth_router)
 app.include_router(admin_router)
+app.include_router(updates_router)
+
+# Register payments router only when Stripe is configured.
+_settings_for_payments = get_settings()
+if _settings_for_payments.stripe_secret_key.strip():
+    from app.routes.payments import router as payments_router
+
+    app.include_router(payments_router)
 
 
 @app.middleware("http")

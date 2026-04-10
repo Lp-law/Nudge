@@ -1,11 +1,12 @@
 import hmac
 import io
 import json
+import secrets
 import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
@@ -32,6 +33,18 @@ settings = get_settings()
 lead_store = LeadStore(settings.leads_db_path)
 
 
+_CSRF_COOKIE_NAME = "nudge_csrf"
+_CSRF_HEADER_NAME = "X-CSRF-Token"
+
+
+def _generate_csrf_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def _get_csrf_token_from_cookie(request: Request) -> str:
+    return (request.cookies.get(_CSRF_COOKIE_NAME) or "").strip()
+
+
 def _require_admin_enabled() -> None:
     if not settings.admin_dashboard_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found.")
@@ -55,6 +68,29 @@ def _verify_admin(credentials: HTTPBasicCredentials | None = security_dependency
             headers={"WWW-Authenticate": "Basic"},
         )
     return provided_username
+
+
+def _verify_csrf(request: Request) -> None:
+    """Validate CSRF token from header/form against the cookie value."""
+    cookie_token = _get_csrf_token_from_cookie(request)
+    header_token = (request.headers.get(_CSRF_HEADER_NAME) or "").strip()
+    provided_token = header_token
+    if not provided_token:
+        return  # Will be checked after body parse for form posts; for API calls header is required
+    if not cookie_token or not provided_token:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF validation failed.")
+    if not hmac.compare_digest(cookie_token, provided_token):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF validation failed.")
+
+
+def _require_csrf(request: Request) -> None:
+    """Strictly require a valid CSRF token (for state-changing endpoints)."""
+    cookie_token = _get_csrf_token_from_cookie(request)
+    header_token = (request.headers.get(_CSRF_HEADER_NAME) or "").strip()
+    if not cookie_token or not header_token:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF validation failed.")
+    if not hmac.compare_digest(cookie_token, header_token):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF validation failed.")
 
 
 def _parse_self_principals(raw: str) -> list[str]:
@@ -93,7 +129,7 @@ async def register_lead(payload: LeadCreateRequest) -> LeadCreateResponse:
 
 
 @router.get("/admin", response_class=HTMLResponse)
-async def admin_dashboard(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
+async def admin_dashboard(request: Request, _admin: str = Depends(_verify_admin)) -> HTMLResponse:
     html = """
 <!doctype html>
 <html>
@@ -210,8 +246,12 @@ async def admin_dashboard(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
   </div>
 
   <script>
+    function getCsrfToken() {
+      const m = document.cookie.match(/(?:^|;\\s*)nudge_csrf=([^;]*)/);
+      return m ? decodeURIComponent(m[1]) : '';
+    }
     async function fetchJson(url) {
-      const r = await fetch(url, { credentials: 'same-origin' });
+      const r = await fetch(url, { credentials: 'same-origin', headers: { 'X-CSRF-Token': getCsrfToken() } });
       if (!r.ok) throw new Error("Request failed");
       return r.json();
     }
@@ -265,8 +305,17 @@ async def admin_dashboard(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
     function logoutDashboard() {
       window.location.href = `/admin/logout?ts=${Date.now()}`;
     }
-    function downloadBackup() {
-      window.location.href = `/admin/api/backup?ts=${Date.now()}`;
+    async function downloadBackup() {
+      const r = await fetch('/admin/api/backup', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': getCsrfToken() } });
+      if (!r.ok) { alert('Backup failed.'); return; }
+      const blob = await r.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const cd = r.headers.get('Content-Disposition') || '';
+      const fnMatch = cd.match(/filename="?([^"]+)"?/);
+      a.download = fnMatch ? fnMatch[1] : 'nudge-admin-backup.zip';
+      a.click();
+      URL.revokeObjectURL(a.href);
     }
     function money(v) {
       const n = Number(v || 0);
@@ -329,7 +378,17 @@ async def admin_dashboard(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
 </body>
 </html>
     """.strip()
-    return HTMLResponse(content=html)
+    csrf_token = _get_csrf_token_from_cookie(request) or _generate_csrf_token()
+    response = HTMLResponse(content=html)
+    response.set_cookie(
+        key=_CSRF_COOKIE_NAME,
+        value=csrf_token,
+        httponly=False,  # JS needs to read it
+        samesite="strict",
+        secure=False,  # set True in production behind HTTPS
+        path="/admin",
+    )
+    return response
 
 
 @router.get("/admin/logout", response_class=HTMLResponse)
@@ -351,8 +410,9 @@ async def admin_logout(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
     )
 
 
-@router.get("/admin/api/backup")
-async def admin_backup(_admin: str = Depends(_verify_admin)) -> StreamingResponse:
+@router.post("/admin/api/backup")
+async def admin_backup(request: Request, _admin: str = Depends(_verify_admin)) -> StreamingResponse:
+    _require_csrf(request)
     candidates = [Path(settings.leads_db_path).expanduser()]
     existing = [p for p in candidates if p.exists() and p.is_file()]
     if not existing:

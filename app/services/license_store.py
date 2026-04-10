@@ -1,11 +1,11 @@
 import hashlib
 import sqlite3
-from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
 from app.core.config import get_settings
+from app.services.db_utils import sqlite_connect
 
 
 def _now_iso() -> str:
@@ -55,16 +55,9 @@ class LicenseStore:
         self._db_path = Path(db_path).expanduser()
         self._initialized = False
 
-    @contextmanager
-    def _connect(self):
+    def _connect(self, *, readonly: bool = False):
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self._db_path)
-        conn.row_factory = sqlite3.Row
-        try:
-            yield conn
-            conn.commit()
-        finally:
-            conn.close()
+        return sqlite_connect(str(self._db_path), readonly=readonly)
 
     def initialize(self) -> None:
         if self._initialized:
@@ -296,7 +289,7 @@ class LicenseStore:
     def resolve_by_plaintext_key(self, raw_key: str) -> dict[str, object] | None:
         self.initialize()
         key_hash = _hash_key((raw_key or "").strip())
-        with self._connect() as conn:
+        with self._connect(readonly=True) as conn:
             row = conn.execute(
                 """
                 SELECT l.*, a.full_name, a.email_normalized, a.status AS account_status
@@ -311,7 +304,7 @@ class LicenseStore:
 
     def has_any_license(self) -> bool:
         self.initialize()
-        with self._connect() as conn:
+        with self._connect(readonly=True) as conn:
             row = conn.execute("SELECT COUNT(*) AS c FROM licenses").fetchone()
             return bool(int(row["c"] or 0))
 
@@ -352,13 +345,27 @@ class LicenseStore:
                 ),
             )
 
+    def update_license_status(self, license_id: str, new_status: str) -> None:
+        """Update the status of a license (e.g. to 'revoked')."""
+        self.initialize()
+        now = _now_iso()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE licenses
+                SET status = ?, revoked_at = CASE WHEN ? IN ('revoked', 'disabled') THEN ? ELSE revoked_at END
+                WHERE license_id = ?
+                """,
+                (new_status, new_status, now, license_id),
+            )
+
     def profiles_by_principal(self, principals: list[str]) -> dict[str, dict[str, object]]:
         self.initialize()
         cleaned = [p.strip() for p in principals if p and p.strip()]
         if not cleaned:
             return {}
         placeholders = ",".join("?" for _ in cleaned)
-        with self._connect() as conn:
+        with self._connect(readonly=True) as conn:
             rows = conn.execute(
                 f"""
                 SELECT

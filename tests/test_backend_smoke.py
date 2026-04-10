@@ -684,7 +684,12 @@ def test_admin_logout_and_backup_endpoints() -> None:
     logout = client.get("/admin/logout", headers=_admin_headers())
     assert logout.status_code == 401
     assert "Basic" in str(logout.headers.get("www-authenticate", ""))
-    backup = client.get("/admin/api/backup", headers=_admin_headers())
+    # Backup changed from GET to POST (CSRF protection).
+    # In test client there is no CSRF cookie, so set one manually.
+    csrf = "test-csrf-token"
+    headers = {**_admin_headers(), "X-CSRF-Token": csrf}
+    client.cookies.set("nudge_csrf", csrf)
+    backup = client.post("/admin/api/backup", headers=headers)
     assert backup.status_code == 200
     assert backup.headers.get("content-type", "").startswith("application/zip")
     assert "attachment;" in str(backup.headers.get("content-disposition", ""))

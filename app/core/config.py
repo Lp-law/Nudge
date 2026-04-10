@@ -178,7 +178,17 @@ class Settings(BaseSettings):
     cost_openai_input_per_1k: float = Field(default=0.0, alias="COST_OPENAI_INPUT_PER_1K")
     cost_openai_output_per_1k: float = Field(default=0.0, alias="COST_OPENAI_OUTPUT_PER_1K")
     cost_ocr_per_page: float = Field(default=0.0, alias="COST_OCR_PER_PAGE")
+    stripe_secret_key: str = Field(default="", alias="STRIPE_SECRET_KEY")
+    stripe_publishable_key: str = Field(default="", alias="STRIPE_PUBLISHABLE_KEY")
+    stripe_webhook_secret: str = Field(default="", alias="STRIPE_WEBHOOK_SECRET")
+    stripe_price_id: str = Field(default="", alias="STRIPE_PRICE_ID")
+    latest_client_version: str = Field(default="", alias="NUDGE_LATEST_CLIENT_VERSION")
+    client_download_url: str = Field(default="", alias="NUDGE_CLIENT_DOWNLOAD_URL")
+    update_mandatory: bool = Field(default=False, alias="NUDGE_UPDATE_MANDATORY")
+    update_release_notes: str = Field(default="", alias="NUDGE_UPDATE_RELEASE_NOTES")
     port: int = Field(default=8000, alias="PORT")
+    sentry_dsn: str = Field(default="", alias="SENTRY_DSN")
+    environment: str = Field(default="production", alias="NUDGE_ENVIRONMENT")
 
     @model_validator(mode="after")
     def _normalize_azure_endpoints(self) -> "Settings":

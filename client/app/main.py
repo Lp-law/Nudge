@@ -4,17 +4,20 @@ from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
 try:
+    from .error_reporting import init_sentry
     from .release_info import load_release_info
     from .tray_app import TrayApp
     from .ui_strings import APP_TITLE, TRAY_UNAVAILABLE_MESSAGE
 except ImportError:
     try:
         # PyInstaller may execute this entrypoint without package context.
+        from app.error_reporting import init_sentry
         from app.release_info import load_release_info
         from app.tray_app import TrayApp
         from app.ui_strings import APP_TITLE, TRAY_UNAVAILABLE_MESSAGE
     except ImportError:
         # Local fallback when running from the app directory directly.
+        from error_reporting import init_sentry
         from release_info import load_release_info
         from tray_app import TrayApp
         from ui_strings import APP_TITLE, TRAY_UNAVAILABLE_MESSAGE
@@ -39,6 +42,7 @@ def _acquire_single_instance(app: QApplication) -> bool:
 
 
 def main() -> int:
+    init_sentry()
     app = QApplication(sys.argv)
     release = load_release_info()
     app.setApplicationName(APP_TITLE)

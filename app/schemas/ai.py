@@ -3,9 +3,9 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 
-# Rough ceiling for ~5 standard pages (mixed Hebrew/Latin, typical office density).
-MAX_TEXT_CHARS = 30000
-MAX_OCR_IMAGE_BYTES = 5 * 1024 * 1024
+# Global ceiling for text payloads (~8-10 standard pages).
+MAX_TEXT_CHARS = 50_000
+MAX_OCR_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
 MAX_IMAGE_BASE64_CHARS = ((MAX_OCR_IMAGE_BYTES + 2) // 3) * 4 + 128
 ACTION_KEYS: tuple[str, ...] = (
     "summarize",
@@ -35,6 +35,19 @@ if set(ACTION_KEYS) != set(ACTION_TYPE_KEYS):
         "Action schema mismatch between ACTION_KEYS and ActionType literal. "
         f"ACTION_KEYS={ACTION_KEYS}, ActionType={ACTION_TYPE_KEYS}"
     )
+
+# Per-action text-length ceilings (stricter than the global MAX_TEXT_CHARS).
+# Actions not listed here fall back to MAX_TEXT_CHARS.
+ACTION_MAX_TEXT: dict[str, int] = {
+    "summarize": 50_000,
+    "improve": 50_000,
+    "make_email": 20_000,
+    "reply_email": 30_000,
+    "fix_language": 50_000,
+    "explain_meaning": 10_000,
+    "translate_to_he": 50_000,
+    "translate_to_en": 50_000,
+}
 
 
 class AIActionRequest(BaseModel):

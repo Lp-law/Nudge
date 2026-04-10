@@ -9,7 +9,7 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-PIN_MIN_LENGTH = 4
+PIN_MIN_LENGTH = 6
 _PBKDF2_ITERATIONS = 390_000
 
 

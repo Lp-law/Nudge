@@ -252,7 +252,12 @@ class InMemoryTokenStateStore(TokenStateStore):
         with self._lock:
             self._cleanup()
             expires_at = self._refresh_tokens.pop(jti, None)
-            return bool(expires_at and expires_at > int(time.time()))
+            if not expires_at or expires_at <= int(time.time()):
+                return False
+            # Atomically revoke within the same lock hold to prevent
+            # concurrent refresh requests from both succeeding.
+            self._revoked[jti] = max(expires_at, int(time.time()) + 60)
+            return True
 
 
 class RedisTokenStateStore(TokenStateStore):
@@ -292,11 +297,30 @@ class RedisTokenStateStore(TokenStateStore):
         payload = json.dumps({"sub": subject, "did": device_id or ""}, separators=(",", ":"))
         await self._client.set(self._refresh_key(jti), payload, ex=ttl)
 
+    # Lua script: atomically delete the refresh key and set the revoked key.
+    # This prevents two concurrent refresh requests from both succeeding.
+    # KEYS[1] = refresh key, KEYS[2] = revoked key, ARGV[1] = revoked TTL
+    _CONSUME_SCRIPT = """
+local removed = redis.call('DEL', KEYS[1])
+if removed == 1 then
+    redis.call('SET', KEYS[2], '1', 'EX', ARGV[1])
+    return 1
+end
+return 0
+"""
+
     async def consume_refresh_jti(self, jti: str) -> bool:
         if not jti:
             return False
-        removed = await self._client.delete(self._refresh_key(jti))
-        return bool(removed)
+        refresh_key = self._refresh_key(jti)
+        revoked_key = self._revoked_key(jti)
+        # Use a generous TTL for the revoked marker; the caller may not know
+        # the exact expiry, so default to 24 hours as a safe upper bound.
+        ttl = 86400
+        result = await self._client.eval(
+            self._CONSUME_SCRIPT, 2, refresh_key, revoked_key, ttl,
+        )
+        return bool(result)
 
 
 def create_token_state_store(settings) -> TokenStateStore:
@@ -517,17 +541,31 @@ class RedisRateLimiter:
         if limit <= 0 or window_seconds <= 0:
             return RateLimitDecision(allowed=True, retry_after_seconds=0)
 
-        now = int(time.time())
-        window_bucket = now // window_seconds
-        redis_key = f"nudge:rl:{key}:{window_bucket}"
-        count = int(await self._client.incr(redis_key))
-        if count == 1:
-            await self._client.expire(redis_key, window_seconds + 2)
+        now = time.time()
+        window_start = now - window_seconds
+        redis_key = f"nudge:rl:{key}"
+        member = f"{now}:{uuid4().hex[:8]}"
 
+        pipe = self._client.pipeline(transaction=True)
+        pipe.zremrangebyscore(redis_key, "-inf", window_start)
+        pipe.zadd(redis_key, {member: now})
+        pipe.zcard(redis_key)
+        pipe.expire(redis_key, window_seconds + 2)
+        results = await pipe.execute()
+
+        count = int(results[2])
         if count <= limit:
             return RateLimitDecision(allowed=True, retry_after_seconds=0)
 
-        retry_after = max(1, window_seconds - (now % window_seconds))
+        # Over limit: remove the entry we just added and calculate retry delay.
+        await self._client.zrem(redis_key, member)
+        # Oldest entry determines when the window will free a slot.
+        oldest_scores = await self._client.zrange(redis_key, 0, 0, withscores=True)
+        if oldest_scores:
+            oldest_ts = float(oldest_scores[0][1])
+            retry_after = max(1, int(oldest_ts + window_seconds - now) + 1)
+        else:
+            retry_after = 1
         return RateLimitDecision(allowed=False, retry_after_seconds=retry_after)
 
 

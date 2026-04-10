@@ -78,7 +78,8 @@ class AuthIssuerService:
         if not consumed:
             raise ValueError("Refresh token is no longer active.")
 
-        await get_token_state_store(self.settings).revoke_jti(context.jti, context.expires_at)
+        # Note: consume_refresh_jti now atomically revokes the JTI, so a
+        # separate revoke_jti call is no longer needed.
         return await self.issue_token_pair(
             subject=context.principal,
             device_id=context.device_id,
