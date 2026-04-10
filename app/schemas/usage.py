@@ -42,6 +42,7 @@ class UsageUserRow(BaseModel):
     license_kind: str | None = None
     license_status: str | None = None
     key_masked: str | None = None
+    license_tier: str | None = None
     is_self: bool
     distinct_devices: int
     total_events: int
@@ -51,6 +52,12 @@ class UsageUserRow(BaseModel):
     estimated_cost_ocr_usd: float
     estimated_cost_usd: float
     last_seen_at: datetime
+    lead_full_name: str | None = None
+    lead_phone: str | None = None
+    lead_occupation: str | None = None
+    lead_source: str | None = None
+    quota_used: int | None = None
+    quota_limit: int | None = None
 
 
 class UsageUsersResponse(BaseModel):

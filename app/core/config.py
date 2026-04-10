@@ -181,6 +181,8 @@ class Settings(BaseSettings):
     cost_openai_input_per_1k: float = Field(default=0.0, alias="COST_OPENAI_INPUT_PER_1K")
     cost_openai_output_per_1k: float = Field(default=0.0, alias="COST_OPENAI_OUTPUT_PER_1K")
     cost_ocr_per_page: float = Field(default=0.0, alias="COST_OCR_PER_PAGE")
+    personal_price_ils: int = Field(default=29, alias="NUDGE_PERSONAL_PRICE_ILS")
+    pro_price_ils: int = Field(default=49, alias="NUDGE_PRO_PRICE_ILS")
     stripe_secret_key: str = Field(default="", alias="STRIPE_SECRET_KEY")
     stripe_publishable_key: str = Field(default="", alias="STRIPE_PUBLISHABLE_KEY")
     stripe_webhook_secret: str = Field(default="", alias="STRIPE_WEBHOOK_SECRET")

@@ -162,6 +162,39 @@ class LeadStore:
             ).fetchall()
             return total, [dict(row) for row in rows]
 
+    def leads_by_emails(self, emails: list[str]) -> dict[str, dict[str, str | None]]:
+        """Batch lookup leads by normalized email. Returns {email: {full_name, phone, occupation, source}}."""
+        self.initialize()
+        cleaned = [e.strip().lower() for e in emails if e and e.strip()]
+        if not cleaned:
+            return {}
+        # Deduplicate while preserving order
+        seen: set[str] = set()
+        unique: list[str] = []
+        for e in cleaned:
+            if e not in seen:
+                seen.add(e)
+                unique.append(e)
+        placeholders = ",".join("?" for _ in unique)
+        with self._connect(readonly=True) as conn:
+            rows = conn.execute(
+                f"""
+                SELECT email, full_name, phone, occupation, source
+                FROM user_leads
+                WHERE email IN ({placeholders})
+                """,
+                unique,
+            ).fetchall()
+        return {
+            str(r["email"]).strip().lower(): {
+                "full_name": str(r["full_name"]) if r["full_name"] else None,
+                "phone": str(r["phone"]) if r["phone"] else None,
+                "occupation": str(r["occupation"]) if r["occupation"] else None,
+                "source": str(r["source"]) if r["source"] else None,
+            }
+            for r in rows
+        }
+
     def stats(self) -> dict[str, object]:
         self.initialize()
         now = datetime.now(timezone.utc)

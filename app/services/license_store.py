@@ -369,6 +369,28 @@ class LicenseStore:
                 (new_status, new_status, now, license_id),
             )
 
+    def all_licenses_for_export(self) -> list[dict]:
+        """Return all licenses joined with account info for CSV export."""
+        self.initialize()
+        with self._connect(readonly=True) as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    a.email_normalized AS account_email,
+                    a.full_name,
+                    l.kind,
+                    l.tier,
+                    l.status,
+                    l.created_at,
+                    l.expires_at,
+                    l.key_masked
+                FROM licenses l
+                JOIN accounts a ON a.account_id = l.account_id
+                ORDER BY l.created_at DESC
+                """
+            ).fetchall()
+        return [dict(r) for r in rows]
+
     def profiles_by_principal(self, principals: list[str]) -> dict[str, dict[str, object]]:
         self.initialize()
         cleaned = [p.strip() for p in principals if p and p.strip()]
