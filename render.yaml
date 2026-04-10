@@ -112,3 +112,49 @@ services:
         sync: false
       - key: ADMIN_DASHBOARD_PASSWORD
         sync: false
+      - key: ADMIN_SELF_PRINCIPALS
+        value: ""
+
+      # --- Cost tracking ---
+      - key: COST_OPENAI_INPUT_PER_1K
+        value: "0.0"
+      - key: COST_OPENAI_OUTPUT_PER_1K
+        value: "0.0"
+      - key: COST_OCR_PER_PAGE
+        value: "0.0"
+
+      # --- Sentry error reporting ---
+      - key: SENTRY_DSN
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+
+      # --- PayPlus payments (Israeli market) ---
+      - key: PAYPLUS_API_KEY
+        sync: false
+      - key: PAYPLUS_SECRET_KEY
+        sync: false
+      - key: PAYPLUS_PAYMENT_PAGE_UID
+        sync: false
+      - key: PAYPLUS_API_URL
+        value: https://restapidev.payplus.co.il/api/v1.0
+
+      # --- Subscription plans ---
+      - key: TRIAL_DURATION_DAYS
+        value: "7"
+      - key: TRIAL_MAX_REQUESTS
+        value: "50"
+      - key: PERSONAL_MONTHLY_REQUESTS
+        value: "200"
+      - key: PERSONAL_PRICE_ILS
+        value: "29"
+      - key: PRO_PRICE_ILS
+        value: "49"
+
+      # --- Auto-update ---
+      - key: LATEST_CLIENT_VERSION
+        value: "1.0.0"
+      - key: CLIENT_DOWNLOAD_URL
+        value: ""
+      - key: UPDATE_MANDATORY
+        value: "false"
