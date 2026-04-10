@@ -151,6 +151,24 @@ services:
       - key: PRO_PRICE_ILS
         value: "49"
 
+      # --- AI Support Email System (Microsoft Graph) ---
+      - key: SUPPORT_EMAIL_ENABLED
+        value: "false"
+      - key: SUPPORT_GRAPH_TENANT_ID
+        sync: false
+      - key: SUPPORT_GRAPH_CLIENT_ID
+        sync: false
+      - key: SUPPORT_GRAPH_CLIENT_SECRET
+        sync: false
+      - key: SUPPORT_MAILBOX
+        sync: false
+      - key: SUPPORT_AI_CONFIDENCE_THRESHOLD
+        value: "0.75"
+      - key: SUPPORT_POLL_INTERVAL_SECONDS
+        value: "120"
+      - key: SUPPORT_DB_PATH
+        value: data/nudge_support.db
+
       # --- Auto-update ---
       - key: LATEST_CLIENT_VERSION
         value: "1.0.0"

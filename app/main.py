@@ -167,7 +167,25 @@ async def lifespan(_app: FastAPI):
     lead_store.initialize()
     license_store.initialize()
     usage_store.initialize()
+    # Initialize support system if enabled
+    if (
+        settings.support_email_enabled
+        and settings.support_graph_tenant_id
+        and settings.support_graph_client_id
+        and settings.support_graph_client_secret
+        and settings.support_mailbox
+    ):
+        from app.routes.support import support_store as _support_store, start_polling
+        _support_store.initialize()
+        start_polling()
     yield
+    # Stop support polling on shutdown
+    if settings.support_email_enabled:
+        try:
+            from app.routes.support import stop_polling
+            stop_polling()
+        except Exception:
+            pass
 
 
 app = FastAPI(title="Nudge MVP Backend", version="0.1.0", lifespan=lifespan)
@@ -186,6 +204,19 @@ if (
     from app.routes.payments import router as payments_router
 
     app.include_router(payments_router)
+
+# Register support router only when fully configured.
+_settings_for_support = get_settings()
+if (
+    _settings_for_support.support_email_enabled
+    and _settings_for_support.support_graph_tenant_id
+    and _settings_for_support.support_graph_client_id
+    and _settings_for_support.support_graph_client_secret
+    and _settings_for_support.support_mailbox
+):
+    from app.routes.support import router as support_router
+
+    app.include_router(support_router)
 
 
 @app.middleware("http")

@@ -195,6 +195,16 @@ class Settings(BaseSettings):
     sentry_dsn: str = Field(default="", alias="SENTRY_DSN")
     environment: str = Field(default="production", alias="NUDGE_ENVIRONMENT")
 
+    # --- AI Support Email System ---
+    support_email_enabled: bool = Field(default=False, alias="SUPPORT_EMAIL_ENABLED")
+    support_graph_tenant_id: str | None = Field(default=None, alias="SUPPORT_GRAPH_TENANT_ID")
+    support_graph_client_id: str | None = Field(default=None, alias="SUPPORT_GRAPH_CLIENT_ID")
+    support_graph_client_secret: str | None = Field(default=None, alias="SUPPORT_GRAPH_CLIENT_SECRET")
+    support_mailbox: str | None = Field(default=None, alias="SUPPORT_MAILBOX")
+    support_ai_confidence_threshold: float = Field(default=0.75, alias="SUPPORT_AI_CONFIDENCE_THRESHOLD")
+    support_poll_interval_seconds: int = Field(default=120, alias="SUPPORT_POLL_INTERVAL_SECONDS")
+    support_db_path: str = Field(default="data/nudge_support.db", alias="SUPPORT_DB_PATH")
+
     @model_validator(mode="after")
     def _normalize_azure_endpoints(self) -> "Settings":
         """Trailing slash + SDK path yields //openai/... and breaks Azure OpenAI requests."""
