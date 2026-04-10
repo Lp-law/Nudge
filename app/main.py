@@ -176,9 +176,9 @@ app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(updates_router)
 
-# Register payments router only when Stripe is configured.
+# Register payments router only when PayPlus is configured.
 _settings_for_payments = get_settings()
-if _settings_for_payments.stripe_secret_key.strip():
+if _settings_for_payments.payplus_api_key.strip():
     from app.routes.payments import router as payments_router
 
     app.include_router(payments_router)
