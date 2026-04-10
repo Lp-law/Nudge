@@ -1,4 +1,3 @@
-import hashlib
 import hmac
 from datetime import UTC, datetime
 

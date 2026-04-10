@@ -774,8 +774,8 @@ async def admin_users(
 @router.get("/admin/api/usage/summary", response_model=UsageSummaryResponse)
 async def admin_usage_summary(
     _admin: str = Depends(_verify_admin),
-    period: UsagePeriod = Query(default="month"),
-    self_only: bool = Query(default=False),
+    period: UsagePeriod = Query(default="month"),  # noqa: B008
+    self_only: bool = Query(default=False),  # noqa: B008
 ) -> UsageSummaryResponse:
     self_principals = _parse_self_principals(settings.admin_self_principals)
     principals_filter = self_principals if self_only else None
@@ -807,13 +807,13 @@ async def admin_usage_summary(
 @router.get("/admin/api/usage/users", response_model=UsageUsersResponse)
 async def admin_usage_users(
     _admin: str = Depends(_verify_admin),
-    period: UsagePeriod = Query(default="month"),
-    search: str = Query(default="", max_length=160),
-    route_type: str = Query(default="", max_length=40),
-    action: str = Query(default="", max_length=80),
-    self_only: bool = Query(default=False),
-    limit: int = Query(default=200, ge=1, le=1000),
-    offset: int = Query(default=0, ge=0),
+    period: UsagePeriod = Query(default="month"),  # noqa: B008
+    search: str = Query(default="", max_length=160),  # noqa: B008
+    route_type: str = Query(default="", max_length=40),  # noqa: B008
+    action: str = Query(default="", max_length=80),  # noqa: B008
+    self_only: bool = Query(default=False),  # noqa: B008
+    limit: int = Query(default=200, ge=1, le=1000),  # noqa: B008
+    offset: int = Query(default=0, ge=0),  # noqa: B008
 ) -> UsageUsersResponse:
     self_principals = _parse_self_principals(settings.admin_self_principals)
     principals_filter = self_principals if self_only else None
@@ -896,10 +896,10 @@ async def admin_usage_users(
 @router.get("/admin/api/usage/heavy", response_model=UsageHeavyResponse)
 async def admin_usage_heavy(
     _admin: str = Depends(_verify_admin),
-    period: UsagePeriod = Query(default="month"),
-    metric: UsageMetric = Query(default="events"),
-    self_only: bool = Query(default=False),
-    limit: int = Query(default=20, ge=1, le=200),
+    period: UsagePeriod = Query(default="month"),  # noqa: B008
+    metric: UsageMetric = Query(default="events"),  # noqa: B008
+    self_only: bool = Query(default=False),  # noqa: B008
+    limit: int = Query(default=20, ge=1, le=200),  # noqa: B008
 ) -> UsageHeavyResponse:
     self_principals = _parse_self_principals(settings.admin_self_principals)
     principals_filter = self_principals if self_only else None
@@ -993,8 +993,8 @@ async def admin_export_leads(
 async def admin_export_usage(
     request: Request,
     _admin: str = Depends(_verify_admin),
-    period: UsagePeriod = Query(default="month"),
-    format: str = Query(default="csv", max_length=10),
+    period: UsagePeriod = Query(default="month"),  # noqa: B008
+    format: str = Query(default="csv", max_length=10),  # noqa: B008
 ) -> StreamingResponse:
     _verify_csrf(request)
     total, rows = usage_store.users(

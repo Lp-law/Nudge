@@ -29,7 +29,7 @@ from app.schemas.ai import (
 from app.services.openai_service import AzureOpenAIService
 from app.services.ocr_service import AzureOCRService, OCRExtractResult
 from app.services.upstream_errors import UpstreamServiceError
-from app.services.quota_service import check_quota, TIER_TRIAL, TIER_PERSONAL
+from app.services.quota_service import check_quota, TIER_TRIAL
 from app.services.usage_store import usage_store
 from app.schemas.usage import UsageEventWrite
 
