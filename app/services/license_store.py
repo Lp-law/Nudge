@@ -90,6 +90,7 @@ class LicenseStore:
                     key_hash TEXT NOT NULL UNIQUE,
                     key_masked TEXT NOT NULL,
                     kind TEXT NOT NULL,
+                    tier TEXT NOT NULL DEFAULT 'personal',
                     status TEXT NOT NULL,
                     principal TEXT NOT NULL UNIQUE,
                     created_at TEXT NOT NULL,
@@ -109,6 +110,13 @@ class LicenseStore:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_licenses_status ON licenses(status)"
             )
+            # Migration: add tier column if missing (existing DBs before tier support)
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(licenses)").fetchall()}
+            if "tier" not in cols:
+                conn.execute("ALTER TABLE licenses ADD COLUMN tier TEXT NOT NULL DEFAULT 'personal'")
+                conn.execute("UPDATE licenses SET tier = 'trial' WHERE kind = 'trial'")
+                conn.execute("UPDATE licenses SET tier = 'personal' WHERE kind != 'trial'")
+
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS license_activations (
@@ -234,6 +242,7 @@ class LicenseStore:
         if not key_clean:
             raise ValueError("empty license key")
         kind_norm = "trial" if kind == "trial" else "paid"
+        tier = "trial" if kind_norm == "trial" else "personal"
         key_hash = _hash_key(key_clean)
         with self._connect() as conn:
             existing = conn.execute(
@@ -247,9 +256,9 @@ class LicenseStore:
             conn.execute(
                 """
                 INSERT INTO licenses (
-                    license_id, account_id, key_hash, key_masked, kind, status, principal,
+                    license_id, account_id, key_hash, key_masked, kind, tier, status, principal,
                     created_at, expires_at, max_devices, issued_by, revoked_at, revoked_reason, source
-                ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, NULL, 1, NULL, NULL, NULL, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, NULL, 1, NULL, NULL, NULL, ?)
                 """,
                 (
                     license_id,
@@ -257,6 +266,7 @@ class LicenseStore:
                     key_hash,
                     _mask_key(kind_norm, key_hash),
                     kind_norm,
+                    tier,
                     _principal_from_hash(key_hash, kind_norm),
                     _now_iso(),
                     source,
@@ -371,6 +381,7 @@ class LicenseStore:
                 SELECT
                     l.principal,
                     l.kind AS license_kind,
+                    l.tier AS license_tier,
                     l.status AS license_status,
                     l.key_masked,
                     a.account_id,
@@ -386,6 +397,7 @@ class LicenseStore:
         return {
             str(r["principal"]): {
                 "license_kind": str(r["license_kind"]),
+                "license_tier": str(r["license_tier"]),
                 "license_status": str(r["license_status"]),
                 "key_masked": str(r["key_masked"]),
                 "account_id": str(r["account_id"]),

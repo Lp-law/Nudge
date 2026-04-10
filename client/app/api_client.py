@@ -21,10 +21,14 @@ class ApiClient(QObject):
         session: ClientSession,
         *,
         on_tokens_persisted: Callable[[], None] | None = None,
+        on_quota_warning: Callable[[int], None] | None = None,
+        on_quota_exceeded: Callable[[], None] | None = None,
     ) -> None:
         super().__init__()
         self.session = session
         self._on_tokens_persisted = on_tokens_persisted
+        self._on_quota_warning = on_quota_warning
+        self._on_quota_exceeded = on_quota_exceeded
         self.settings = get_settings()
         self._network = QNetworkAccessManager(self)
         self._next_request_id = 0
@@ -232,6 +236,26 @@ class ApiClient(QObject):
         )
         reply.destroyed.connect(lambda _obj=None, r=reply: self._active_replies.discard(r))
         return request_id
+
+    def _parse_quota_headers(self, reply: QNetworkReply) -> dict[str, int | None]:
+        """Extract X-Quota-Used, X-Quota-Limit, X-Quota-Remaining from response headers."""
+        result: dict[str, int | None] = {"used": None, "limit": None, "remaining": None}
+        for header_name, key in (
+            (b"X-Quota-Used", "used"),
+            (b"X-Quota-Limit", "limit"),
+            (b"X-Quota-Remaining", "remaining"),
+        ):
+            raw = bytes(reply.rawHeader(header_name)).decode("utf-8", errors="replace").strip()
+            if raw.isdigit():
+                result[key] = int(raw)
+        return result
+
+    def _check_quota_warning(self, reply: QNetworkReply) -> None:
+        """If remaining quota is low, fire the warning callback."""
+        quota = self._parse_quota_headers(reply)
+        remaining = quota.get("remaining")
+        if remaining is not None and remaining < 20 and self._on_quota_warning:
+            self._on_quota_warning(remaining)
 
     def _notify_tokens_persisted(self) -> None:
         if self._on_tokens_persisted:
@@ -513,6 +537,23 @@ class ApiClient(QObject):
                         )
                         return
 
+            if int(status_code or 0) == 429:
+                self._replay_contexts.pop(request_id, None)
+                # Check if this is a quota-exceeded 429
+                try:
+                    data = json.loads(body)
+                    detail = self._extract_detail_message(data.get("detail"))
+                except (json.JSONDecodeError, Exception):
+                    detail = ""
+                lowered_detail = (detail or "").lower()
+                if "quota" in lowered_detail or "limit" in lowered_detail:
+                    if self._on_quota_exceeded:
+                        self._on_quota_exceeded()
+                    on_error(request_id, "Quota exceeded")
+                    return
+                on_error(request_id, self._short_message(detail or "Rate limit exceeded"))
+                return
+
             if status_code != 200:
                 self._replay_contexts.pop(request_id, None)
                 if int(status_code or 0) == 401:
@@ -529,6 +570,8 @@ class ApiClient(QObject):
                 except json.JSONDecodeError:
                     on_error(request_id, "Request failed")
                 return
+
+            self._check_quota_warning(reply)
 
             try:
                 data = json.loads(body)

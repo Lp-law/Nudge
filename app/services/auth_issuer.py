@@ -16,6 +16,7 @@ class TokenPair:
     token_type: str
     expires_in: int
     refresh_expires_in: int
+    tier: str = "personal"
 
 
 class AuthIssuerService:
@@ -28,7 +29,7 @@ class AuthIssuerService:
             raise ValueError("Missing token signing key.")
         return key
 
-    async def issue_token_pair(self, *, subject: str, device_id: str) -> TokenPair:
+    async def issue_token_pair(self, *, subject: str, device_id: str, tier: str = "personal") -> TokenPair:
         signing_key = self._signing_key()
         access_claims = build_token_claims(
             subject=subject,
@@ -38,6 +39,7 @@ class AuthIssuerService:
             token_type="access",
             ttl_seconds=self.settings.nudge_access_token_ttl_seconds,
             device_id=device_id,
+            tier=tier,
         )
         refresh_claims = build_token_claims(
             subject=subject,
@@ -47,6 +49,7 @@ class AuthIssuerService:
             token_type="refresh",
             ttl_seconds=self.settings.nudge_refresh_token_ttl_seconds,
             device_id=device_id,
+            tier=tier,
         )
         access_token = issue_signed_token(access_claims, signing_key)
         refresh_token = issue_signed_token(refresh_claims, signing_key)
@@ -62,6 +65,7 @@ class AuthIssuerService:
             token_type="Bearer",
             expires_in=int(self.settings.nudge_access_token_ttl_seconds),
             refresh_expires_in=int(self.settings.nudge_refresh_token_ttl_seconds),
+            tier=tier or "personal",
         )
 
     async def refresh(self, refresh_token: str) -> TokenPair:
@@ -83,6 +87,7 @@ class AuthIssuerService:
         return await self.issue_token_pair(
             subject=context.principal,
             device_id=context.device_id,
+            tier=context.tier,
         )
 
     async def revoke(self, token: str) -> None:

@@ -63,6 +63,8 @@ def resolve_status_text(message: str) -> str:
         return "ההפעלה לא זמינה כרגע. צרו קשר עם התמיכה."
     if "too many activation" in lowered:
         return "ניסיונות הפעלה רבים מדי. נסו שוב בעוד כמה דקות."
+    if "quota exceeded" in lowered:
+        return QUOTA_EXCEEDED
     if "rate limit exceeded" in lowered:
         return "יותר מדי בקשות ברצף. נסה שוב בעוד רגע."
     if "request body is too large" in lowered:
@@ -134,6 +136,14 @@ PIN_OFFER_MESSAGE = (
     "הסיסמה נשמרת רק במחשב זה ואינה נשלחת לשרת."
 )
 
+
+PLAN_TRIAL = "תקופת ניסיון"
+PLAN_PERSONAL = "תוכנית Personal"
+PLAN_PRO = "תוכנית Pro"
+QUOTA_WARNING = "נותרו לך {remaining} בקשות החודש"
+QUOTA_EXCEEDED = "חרגת ממכסת הבקשות החודשית. שדרג ל-Pro לשימוש ללא הגבלה."
+TRIAL_EXPIRED = "תקופת הניסיון הסתיימה. רכוש מנוי כדי להמשיך."
+UPGRADE_BUTTON = "שדרג עכשיו"
 
 UPDATE_MANDATORY_TITLE = "עדכון חובה"
 UPDATE_MANDATORY_MESSAGE = (

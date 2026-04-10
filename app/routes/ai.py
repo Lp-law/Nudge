@@ -2,7 +2,7 @@ import logging
 import base64
 from time import perf_counter
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from app.core.config import get_settings
 from app.core.metrics import (
@@ -29,6 +29,7 @@ from app.schemas.ai import (
 from app.services.openai_service import AzureOpenAIService
 from app.services.ocr_service import AzureOCRService, OCRExtractResult
 from app.services.upstream_errors import UpstreamServiceError
+from app.services.quota_service import check_quota, TIER_TRIAL, TIER_PERSONAL
 from app.services.usage_store import usage_store
 from app.schemas.usage import UsageEventWrite
 
@@ -153,6 +154,36 @@ async def _enforce_rate_limit(request: Request, route_key: str, limit: int) -> N
         )
 
 
+async def _enforce_quota(request: Request) -> None:
+    """Enforce per-principal tier-aware request quota.
+
+    Must be called **after** ``_enforce_auth`` so that ``request.state.auth_context``
+    is populated.  On success the :class:`QuotaResult` is stashed on
+    ``request.state.quota_result`` for later header injection.
+    """
+    context = _auth_context(request)
+    if context is None:
+        return
+    tier = getattr(context, "tier", None) or "personal"
+    result = await check_quota(context.principal, tier)
+    request.state.quota_result = result
+    if not result.allowed:
+        if tier == TIER_TRIAL:
+            message = (
+                f"Trial quota exceeded ({result.limit} requests). "
+                "Upgrade to continue."
+            )
+        else:
+            message = (
+                f"Monthly quota reached ({result.used}/{result.limit}). "
+                "Upgrade to Pro for unlimited."
+            )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=_detail(message, request),
+        )
+
+
 def _map_upstream_error(
     exc: UpstreamServiceError,
     request: Request,
@@ -193,11 +224,12 @@ def _map_upstream_error(
 
 
 @router.post("/action", response_model=AIActionResponse)
-async def create_action(payload: AIActionRequest, request: Request) -> AIActionResponse:
+async def create_action(payload: AIActionRequest, request: Request, response: Response) -> AIActionResponse:
     started = perf_counter()
     await _enforce_auth(request)
     try:
         await _enforce_rate_limit(request, "action", settings.rate_limit_action_requests)
+        await _enforce_quota(request)
 
         if not payload.text:
             raise HTTPException(
@@ -264,6 +296,11 @@ async def create_action(payload: AIActionRequest, request: Request) -> AIActionR
             model=model,
             deployment=deployment,
         )
+        quota = getattr(request.state, "quota_result", None)
+        if quota is not None:
+            response.headers["X-Quota-Used"] = str(quota.used)
+            response.headers["X-Quota-Limit"] = str(quota.limit) if quota.limit is not None else "unlimited"
+            response.headers["X-Quota-Remaining"] = str(quota.remaining) if quota.remaining is not None else "unlimited"
         return AIActionResponse(result=response_text)
     except HTTPException as exc:
         _usage_event(
@@ -326,12 +363,13 @@ async def create_action(payload: AIActionRequest, request: Request) -> AIActionR
 
 
 @router.post("/ocr", response_model=OCRResponse)
-async def extract_ocr(payload: OCRRequest, request: Request) -> OCRResponse:
+async def extract_ocr(payload: OCRRequest, request: Request, response: Response) -> OCRResponse:
     started = perf_counter()
     await _enforce_auth(request)
     image_bytes = b""
     try:
         await _enforce_rate_limit(request, "ocr", settings.rate_limit_ocr_requests)
+        await _enforce_quota(request)
         if not _ocr_is_configured():
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -387,6 +425,11 @@ async def extract_ocr(payload: OCRRequest, request: Request) -> OCRResponse:
             image_bytes=len(image_bytes),
             ocr_pages=pages,
         )
+        quota = getattr(request.state, "quota_result", None)
+        if quota is not None:
+            response.headers["X-Quota-Used"] = str(quota.used)
+            response.headers["X-Quota-Limit"] = str(quota.limit) if quota.limit is not None else "unlimited"
+            response.headers["X-Quota-Remaining"] = str(quota.remaining) if quota.remaining is not None else "unlimited"
         return OCRResponse(result=text)
     except HTTPException as exc:
         _usage_event(

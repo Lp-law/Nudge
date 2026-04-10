@@ -19,6 +19,7 @@ class ClientSession:
     _KEY_INSTALL = "device/installation_id"
     _KEY_VAULT_SALT = "auth/pin_vault_salt"
     _KEY_VAULT_CIPHER = "auth/pin_vault_cipher"
+    _KEY_TIER = "auth/tier"
 
     def __init__(self, preferences: QSettings) -> None:
         self._q = preferences
@@ -75,6 +76,18 @@ class ClientSession:
             return False
         return exp > int(time.time()) + 60
 
+    @property
+    def tier(self) -> str:
+        raw = (self._q.value(self._KEY_TIER) or "").strip().lower()
+        return raw if raw in {"trial", "personal", "pro"} else "personal"
+
+    def persist_tier(self, tier: str) -> None:
+        clean = (tier or "").strip().lower()
+        if clean not in {"trial", "personal", "pro"}:
+            clean = "personal"
+        self._q.setValue(self._KEY_TIER, clean)
+        self._q.sync()
+
     def persist_tokens(self, access: str, refresh: str) -> None:
         self.access_token = (access or "").strip()
         refresh_clean = (refresh or "").strip()
@@ -90,6 +103,7 @@ class ClientSession:
         self.access_token = ""
         self._q.remove(self._KEY_REFRESH)
         self._q.remove(self._KEY_ACCESS)
+        self._q.remove(self._KEY_TIER)
         self._q.sync()
 
     def has_pin_vault(self) -> bool:

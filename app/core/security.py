@@ -40,6 +40,7 @@ class AuthContext:
     token_type: str = "access"
     device_id: str = ""
     expires_at: int = 0
+    tier: str = "personal"
 
 
 def _clean_auth_mode(value: str) -> str:
@@ -173,6 +174,7 @@ def _verify_bearer_token(
         return None
 
     device_id = str(payload.get("did") or "").strip()
+    tier = str(payload.get("tier") or "personal").strip().lower()
     return AuthContext(
         principal=principal,
         auth_type="bearer",
@@ -180,6 +182,7 @@ def _verify_bearer_token(
         token_type=token_type,
         device_id=device_id,
         expires_at=exp,
+        tier=tier,
     )
 
 
@@ -393,6 +396,7 @@ def build_token_claims(
     token_type: str,
     ttl_seconds: int,
     device_id: str = "",
+    tier: str = "personal",
 ) -> dict[str, object]:
     now = int(time.time())
     exp = now + max(60, int(ttl_seconds))
@@ -405,6 +409,7 @@ def build_token_claims(
         "exp": exp,
         "jti": str(uuid4()),
         "typ": token_type,
+        "tier": tier or "personal",
     }
     if scope:
         claims["scope"] = scope

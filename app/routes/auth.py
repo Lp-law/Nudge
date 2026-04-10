@@ -47,6 +47,7 @@ class TokenResponse(BaseModel):
     token_type: str
     expires_in: int
     refresh_expires_in: int
+    tier: str = "personal"
 
 
 def _ensure_issuer_enabled() -> None:
@@ -224,9 +225,13 @@ async def activate_customer(payload: ActivateRequest, request: Request) -> Token
         digest = license_hash[:24]
         kind = str(db_license.get("kind") or "paid").strip().lower()
         subject = f"tlic:{digest}" if kind == "trial" else f"lic:{digest}"
+    tier = str(db_license.get("tier") or "personal").strip().lower()
+    if tier not in ("trial", "personal", "pro"):
+        tier = "personal"
     pair = await auth_issuer.issue_token_pair(
         subject=subject,
         device_id=payload.device_id.strip(),
+        tier=tier,
     )
     activation_result = "success_trial" if subject.startswith("tlic:") else "success_paid"
     license_store.record_activation(

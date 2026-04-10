@@ -73,6 +73,11 @@ from .ui_strings import (
     TRAY_MENU_POPUP_DURATION,
     TRAY_MENU_REACTIVATE,
     TRAY_MENU_USER_GUIDE,
+    PLAN_PERSONAL,
+    PLAN_PRO,
+    PLAN_TRIAL,
+    QUOTA_EXCEEDED,
+    QUOTA_WARNING,
     UPDATE_AVAILABLE_MESSAGE,
     UPDATE_AVAILABLE_TITLE,
     UPDATE_LATER_BUTTON,
@@ -132,6 +137,8 @@ class TrayApp:
         self.api_client = ApiClient(
             self._session,
             on_tokens_persisted=self._arm_proactive_refresh_timer,
+            on_quota_warning=self._on_quota_warning,
+            on_quota_exceeded=self._on_quota_exceeded,
         )
         self.popup = ActionPopup(
             accessibility_mode=self._accessibility_mode,
@@ -153,6 +160,9 @@ class TrayApp:
         else:
             self.tray.setToolTip("Nudge")
         menu = QMenu()
+        self._tier_menu_action = menu.addAction(self._tier_display_label())
+        self._tier_menu_action.setEnabled(False)
+        menu.addSeparator()
         help_action = menu.addAction(TRAY_MENU_USER_GUIDE)
         help_action.triggered.connect(self._open_user_guide)
         diagnostics_action = menu.addAction(TRAY_MENU_DIAGNOSTICS)
@@ -335,6 +345,10 @@ class TrayApp:
                 rt = str(data.get("refresh_token", "")).strip()
                 if at and rt:
                     self._session.persist_tokens(at, rt)
+                    tier = str(data.get("tier", "")).strip().lower()
+                    if tier in {"trial", "personal", "pro"}:
+                        self._session.persist_tier(tier)
+                    self._refresh_tier_menu()
                     principal = str(data.get("principal", "")).strip() or license_key[:8]
                     set_user_context(principal)
                     ok = True
@@ -976,6 +990,25 @@ class TrayApp:
                 return f"image:{hashlib.sha1(png_data).hexdigest()}" if png_data else "image:empty"
         text = self.clipboard.text(mode=QClipboard.Clipboard) or ""
         return f"text:{hashlib.sha1(text.encode('utf-8', errors='ignore')).hexdigest()}"
+
+    def _tier_display_label(self) -> str:
+        tier = self._session.tier
+        if tier == "trial":
+            return PLAN_TRIAL
+        if tier == "pro":
+            return PLAN_PRO
+        return PLAN_PERSONAL
+
+    def _refresh_tier_menu(self) -> None:
+        if hasattr(self, "_tier_menu_action"):
+            self._tier_menu_action.setText(self._tier_display_label())
+
+    def _on_quota_warning(self, remaining: int) -> None:
+        if self._session.tier == "personal":
+            self.tray.setToolTip(f"Nudge - {QUOTA_WARNING.format(remaining=remaining)}")
+
+    def _on_quota_exceeded(self) -> None:
+        QMessageBox.warning(self.popup, "Nudge", QUOTA_EXCEEDED)
 
     def _load_accessibility_mode(self) -> bool:
         persisted = self._preferences.value("accessibility_mode", None)
