@@ -116,6 +116,29 @@ class LicenseStore:
                 conn.execute("ALTER TABLE licenses ADD COLUMN tier TEXT NOT NULL DEFAULT 'personal'")
                 conn.execute("UPDATE licenses SET tier = 'trial' WHERE kind = 'trial'")
                 conn.execute("UPDATE licenses SET tier = 'personal' WHERE kind != 'trial'")
+            # Migration: add PayPlus subscription tracking columns
+            if "payplus_approval_num" not in cols:
+                conn.execute("ALTER TABLE licenses ADD COLUMN payplus_approval_num TEXT")
+            if "billing_period_end" not in cols:
+                conn.execute("ALTER TABLE licenses ADD COLUMN billing_period_end TEXT")
+
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS cancellation_requests (
+                    request_id TEXT PRIMARY KEY,
+                    license_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    reason_code TEXT NOT NULL,
+                    reason_text TEXT,
+                    requested_at TEXT NOT NULL,
+                    effective_at TEXT,
+                    payplus_cancelled INTEGER DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    FOREIGN KEY(license_id) REFERENCES licenses(license_id)
+                )
+                """
+            )
 
             conn.execute(
                 """
@@ -431,24 +454,88 @@ class LicenseStore:
         }
 
 
-    def resolve_by_email(self, email: str) -> list[dict]:
-        """Return all licenses for an email address."""
+    def store_payment_info(
+        self, license_id: str, approval_num: str, billing_period_end: str
+    ) -> None:
         self.initialize()
-        email_norm = (email or "").strip().lower()
-        if not email_norm:
-            return []
-        with self._connect(readonly=True) as conn:
-            rows = conn.execute(
+        with self._connect() as conn:
+            conn.execute(
                 """
-                SELECT l.*, a.full_name, a.email_normalized, a.status AS account_status
+                UPDATE licenses
+                SET payplus_approval_num = ?, billing_period_end = ?
+                WHERE license_id = ?
+                """,
+                (approval_num, billing_period_end, license_id),
+            )
+
+    def verify_cancel_identity(
+        self, email: str, raw_key: str
+    ) -> dict[str, object] | None:
+        self.initialize()
+        key_hash = _hash_key((raw_key or "").strip())
+        email_norm = (email or "").strip().lower()
+        with self._connect(readonly=True) as conn:
+            row = conn.execute(
+                """
+                SELECT l.*, a.email_normalized, a.full_name
                 FROM licenses l
                 JOIN accounts a ON a.account_id = l.account_id
-                WHERE a.email_normalized = ?
-                ORDER BY l.created_at DESC
+                WHERE l.key_hash = ? AND a.email_normalized = ?
+                LIMIT 1
                 """,
-                (email_norm,),
-            ).fetchall()
-        return [dict(r) for r in rows]
+                (key_hash, email_norm),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def insert_cancellation_request(
+        self,
+        *,
+        license_id: str,
+        account_id: str,
+        email: str,
+        reason_code: str,
+        reason_text: str,
+        effective_at: str,
+        payplus_cancelled: bool,
+    ) -> str:
+        self.initialize()
+        request_id = f"cxl_{uuid4().hex}"
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO cancellation_requests (
+                    request_id, license_id, account_id, email,
+                    reason_code, reason_text, requested_at, effective_at,
+                    payplus_cancelled, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed')
+                """,
+                (
+                    request_id,
+                    license_id,
+                    account_id,
+                    email,
+                    reason_code,
+                    (reason_text or "")[:500],
+                    _now_iso(),
+                    effective_at,
+                    1 if payplus_cancelled else 0,
+                ),
+            )
+        return request_id
+
+    def revoke_expired_cancellations(self) -> int:
+        self.initialize()
+        now = _now_iso()
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE licenses
+                SET status = 'revoked', revoked_at = ?, revoked_reason = 'subscription_cancelled'
+                WHERE status = 'cancelling' AND billing_period_end IS NOT NULL AND billing_period_end < ?
+                """,
+                (now, now),
+            )
+            return cursor.rowcount
 
 
 license_store = LicenseStore(get_settings().leads_db_path)

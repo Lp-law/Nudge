@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -120,37 +121,6 @@ async def verify_ipn(page_request_uid: str) -> dict:
         return resp.json()
 
 
-async def refund_charge(approval_num: str, amount: int) -> dict:
-    """Process a refund via PayPlus API.
-
-    Returns a dict with ``status`` and ``message``.
-    """
-    _ensure_configured()
-    settings = get_settings()
-
-    url = f"{settings.payplus_api_url.rstrip('/')}/Transactions/RefundByApprovalNumber"
-    body = {
-        "related_transaction_approval_num": approval_num,
-        "amount": amount,
-    }
-
-    _log.info("PayPlus refund request: approval_num=%s amount=%s", approval_num, amount)
-
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(url, headers=_auth_headers(), json=body)
-        resp.raise_for_status()
-        data = resp.json()
-
-    results = data.get("results", {})
-    if results.get("status") == "success":
-        _log.info("PayPlus refund successful: approval_num=%s", approval_num)
-        return {"status": "ok", "message": "Refund processed successfully."}
-    else:
-        desc = results.get("description", "unknown error")
-        _log.warning("PayPlus refund failed: approval_num=%s error=%s", approval_num, desc)
-        return {"status": "failed", "message": f"Refund failed: {desc}"}
-
-
 def handle_ipn_callback(payload: dict) -> dict:
     """Process a PayPlus IPN callback payload.
 
@@ -200,20 +170,23 @@ def handle_ipn_callback(payload: dict) -> dict:
                     "License already exists for PayPlus checkout: license_id=%s",
                     db_license.get("license_id"),
                 )
-            # Persist transaction for refund support
-            try:
-                from app.services.support_store import SupportStore
-                from app.core.config import get_settings as _gs
-                _support_store = SupportStore(_gs().support_db_path)
-                _support_store.record_transaction(
-                    page_request_uid=payload.get("page_request_uid", ""),
-                    customer_email=customer_email,
-                    amount=int(amount),
-                    approval_num=approval_num,
-                    license_id=db_license.get("license_id") if db_license else None,
-                )
-            except Exception:
-                _log.warning("Failed to persist PayPlus transaction for refund tracking", exc_info=True)
+            # Store PayPlus approval_num for future cancellation
+            if db_license and approval_num:
+                license_id = str(db_license.get("license_id", ""))
+                if license_id:
+                    billing_end = (datetime.now(UTC) + timedelta(days=30)).isoformat(
+                        timespec="seconds"
+                    )
+                    license_store.store_payment_info(
+                        license_id, approval_num, billing_end
+                    )
+                    # Re-activate if currently cancelling (customer renewed)
+                    if str(db_license.get("status", "")) == "cancelling":
+                        license_store.update_license_status(license_id, "active")
+                        _log.info(
+                            "License reactivated via recurring payment: license_id=%s",
+                            license_id,
+                        )
             return {"status": "ok", "message": "Payment approved; license activated."}
         else:
             _log.warning(
@@ -241,3 +214,39 @@ def handle_ipn_callback(payload: dict) -> dict:
                         license_id,
                     )
         return {"status": "failed", "message": f"Payment declined (status_code={status_code})."}
+
+
+async def cancel_recurring_payment(approval_num: str) -> dict:
+    """Cancel a recurring PayPlus payment.
+
+    Calls the PayPlus API to stop future charges for the given approval number.
+    Returns dict with ``success`` (bool) and ``message``.
+    """
+    _ensure_configured()
+    settings = get_settings()
+
+    if not approval_num or not approval_num.strip():
+        return {"success": False, "message": "No approval number available."}
+
+    url = f"{settings.payplus_api_url.rstrip('/')}/Transactions/Approval/{approval_num.strip()}/Cancel"
+    body = {"approval_num": approval_num.strip()}
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(url, headers=_auth_headers(), json=body)
+            resp.raise_for_status()
+            data = resp.json()
+
+        results = data.get("results", {})
+        if results.get("status") == "success":
+            _log.info("PayPlus recurring cancelled: approval_num=%s", approval_num)
+            return {"success": True, "message": "Recurring payment cancelled."}
+        else:
+            desc = results.get("description", "unknown error")
+            _log.warning(
+                "PayPlus cancel failed: approval_num=%s desc=%s", approval_num, desc
+            )
+            return {"success": False, "message": f"PayPlus error: {desc}"}
+    except Exception:
+        _log.exception("Failed to cancel PayPlus recurring: approval_num=%s", approval_num)
+        return {"success": False, "message": "Failed to contact payment provider."}
