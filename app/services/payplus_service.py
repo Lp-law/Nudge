@@ -120,6 +120,37 @@ async def verify_ipn(page_request_uid: str) -> dict:
         return resp.json()
 
 
+async def refund_charge(approval_num: str, amount: int) -> dict:
+    """Process a refund via PayPlus API.
+
+    Returns a dict with ``status`` and ``message``.
+    """
+    _ensure_configured()
+    settings = get_settings()
+
+    url = f"{settings.payplus_api_url.rstrip('/')}/Transactions/RefundByApprovalNumber"
+    body = {
+        "related_transaction_approval_num": approval_num,
+        "amount": amount,
+    }
+
+    _log.info("PayPlus refund request: approval_num=%s amount=%s", approval_num, amount)
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(url, headers=_auth_headers(), json=body)
+        resp.raise_for_status()
+        data = resp.json()
+
+    results = data.get("results", {})
+    if results.get("status") == "success":
+        _log.info("PayPlus refund successful: approval_num=%s", approval_num)
+        return {"status": "ok", "message": "Refund processed successfully."}
+    else:
+        desc = results.get("description", "unknown error")
+        _log.warning("PayPlus refund failed: approval_num=%s error=%s", approval_num, desc)
+        return {"status": "failed", "message": f"Refund failed: {desc}"}
+
+
 def handle_ipn_callback(payload: dict) -> dict:
     """Process a PayPlus IPN callback payload.
 
@@ -169,6 +200,20 @@ def handle_ipn_callback(payload: dict) -> dict:
                     "License already exists for PayPlus checkout: license_id=%s",
                     db_license.get("license_id"),
                 )
+            # Persist transaction for refund support
+            try:
+                from app.services.support_store import SupportStore
+                from app.core.config import get_settings as _gs
+                _support_store = SupportStore(_gs().support_db_path)
+                _support_store.record_transaction(
+                    page_request_uid=payload.get("page_request_uid", ""),
+                    customer_email=customer_email,
+                    amount=int(amount),
+                    approval_num=approval_num,
+                    license_id=db_license.get("license_id") if db_license else None,
+                )
+            except Exception:
+                _log.warning("Failed to persist PayPlus transaction for refund tracking", exc_info=True)
             return {"status": "ok", "message": "Payment approved; license activated."}
         else:
             _log.warning(

@@ -431,4 +431,24 @@ class LicenseStore:
         }
 
 
+    def resolve_by_email(self, email: str) -> list[dict]:
+        """Return all licenses for an email address."""
+        self.initialize()
+        email_norm = (email or "").strip().lower()
+        if not email_norm:
+            return []
+        with self._connect(readonly=True) as conn:
+            rows = conn.execute(
+                """
+                SELECT l.*, a.full_name, a.email_normalized, a.status AS account_status
+                FROM licenses l
+                JOIN accounts a ON a.account_id = l.account_id
+                WHERE a.email_normalized = ?
+                ORDER BY l.created_at DESC
+                """,
+                (email_norm,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+
 license_store = LicenseStore(get_settings().leads_db_path)

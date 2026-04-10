@@ -73,6 +73,115 @@ def _ts_to_iso(ts: float | None) -> str:
 
 # ── Email Polling ────────────────────────────────────────────────────
 
+async def _execute_action(action: str, sender_email: str, ai_answer: str) -> str | None:
+    """Execute an automated support action. Returns a reply string or None on failure."""
+    try:
+        if action == "release_device":
+            return await _action_release_device(sender_email)
+        elif action == "resend_key":
+            return await _action_resend_key(sender_email)
+        elif action == "refund":
+            return await _action_refund(sender_email)
+    except Exception:
+        logger.exception("Failed to execute support action=%s for %s", action, sender_email)
+    return None
+
+
+async def _action_release_device(sender_email: str) -> str | None:
+    """Release device binding for all licenses under this email."""
+    from app.services.license_store import license_store as _lic_store
+    from app.services.license_binding_store import get_license_binding_store
+
+    _lic_store.initialize()
+    licenses = _lic_store.resolve_by_email(sender_email)
+    if not licenses:
+        return None  # Can't find license — escalate to human
+
+    binding_store = get_license_binding_store(_settings)
+    released = 0
+    for lic in licenses:
+        if lic.get("status") != "active":
+            continue
+        key_hash = lic.get("key_hash", "")
+        if key_hash:
+            result = await binding_store.release_binding(key_hash)
+            if result:
+                released += 1
+
+    if released > 0:
+        return (
+            "שלום,\n\n"
+            "שחררנו את הקישור של מפתח ההפעלה שלך מהמחשב הקודם.\n"
+            "כעת תוכל/י להפעיל את CopyBar על המחשב החדש באמצעות אותו מפתח.\n\n"
+            "פשוט הפעל/י את CopyBar והזן/י את מפתח ההפעלה.\n\n"
+            "אם נתקלת בבעיה נוספת, אנחנו כאן לעזור.\n\n"
+            "בברכה,\nצוות CopyBar"
+        )
+    return None
+
+
+async def _action_resend_key(sender_email: str) -> str | None:
+    """Look up license key by email and include masked version in reply."""
+    from app.services.license_store import license_store as _lic_store
+
+    _lic_store.initialize()
+    licenses = _lic_store.resolve_by_email(sender_email)
+    active = [lic for lic in licenses if lic.get("status") == "active"]
+    if not active:
+        return None
+
+    lic = active[0]
+    masked = lic.get("key_masked", "???")
+    tier = lic.get("tier", "personal")
+    tier_labels = {"trial": "ניסיון", "personal": "Personal", "pro": "Pro"}
+
+    return (
+        "שלום,\n\n"
+        f"מצאנו את הרישיון שלך. הנה הפרטים:\n\n"
+        f"מפתח הפעלה: {masked}\n"
+        f"חבילה: {tier_labels.get(tier, tier)}\n\n"
+        "אם אינך מצליח/ה להפעיל עם המפתח, שלח/י לנו מייל נוסף ונעזור.\n\n"
+        "בברכה,\nצוות CopyBar"
+    )
+
+
+async def _action_refund(sender_email: str) -> str | None:
+    """Process a refund if within 14-day window."""
+    txn = support_store.find_refundable_transaction(sender_email)
+    if not txn:
+        # No refundable transaction — reply with policy
+        return (
+            "שלום,\n\n"
+            "בדקנו את החשבון שלך. לצערנו לא נמצאה עסקה שעומדת בתנאי ההחזר "
+            "(החזר מלא תוך 14 ימים מהרכישה).\n\n"
+            "אם את/ה סבור/ה שמדובר בטעות, אנא השב/י למייל זה עם פרטים נוספים "
+            "ונציג אנושי ייבדוק את הפנייה.\n\n"
+            "בברכה,\nצוות CopyBar"
+        )
+
+    approval_num = txn.get("approval_num", "")
+    amount = int(txn.get("amount", 0))
+    if not approval_num or not amount:
+        return None  # Missing data — escalate
+
+    try:
+        from app.services.payplus_service import refund_charge
+        result = await refund_charge(approval_num, amount)
+        if result.get("status") == "ok":
+            support_store.mark_refunded(txn["transaction_id"], amount)
+            return (
+                "שלום,\n\n"
+                f"בקשת ההחזר שלך אושרה. סכום של {amount} ש\"ח יוחזר לאמצעי התשלום "
+                "המקורי תוך 14 ימי עסקים.\n\n"
+                "הרישיון שלך יישאר פעיל עד סוף תקופת החיוב הנוכחית.\n\n"
+                "בברכה,\nצוות CopyBar"
+            )
+    except Exception:
+        logger.exception("PayPlus refund failed for %s", sender_email)
+
+    return None  # Refund failed — escalate
+
+
 async def poll_mailbox() -> dict:
     """Fetch unread emails and process them with AI."""
     graph = _get_graph_client()
@@ -134,18 +243,26 @@ async def poll_mailbox() -> dict:
                 category=ai_result.category,
             )
 
-            threshold = _settings.support_ai_confidence_threshold
+            # Execute automated action if detected
+            action_reply = None
+            if ai_result.action:
+                action_reply = await _execute_action(
+                    ai_result.action, sender_email, ai_result.answer
+                )
 
-            if ai_result.confidence >= threshold:
+            threshold = _settings.support_ai_confidence_threshold
+            final_answer = action_reply if action_reply else ai_result.answer
+
+            if action_reply or ai_result.confidence >= threshold:
                 # Auto-reply
-                reply_html = _format_reply_html(ai_result.answer)
+                reply_html = _format_reply_html(final_answer)
                 await graph.send_reply(msg_id, reply_html)
                 support_store.update_ticket(ticket_id, status="ai_replied")
                 support_store.add_message(
                     ticket_id=ticket_id,
                     graph_message_id=None,
                     direction="outbound",
-                    body_text=ai_result.answer,
+                    body_text=final_answer,
                     body_html=reply_html,
                 )
                 results["auto_replied"] += 1

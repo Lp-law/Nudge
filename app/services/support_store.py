@@ -70,6 +70,26 @@ class SupportStore:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_messages_ticket ON support_messages(ticket_id)"
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS payplus_transactions (
+                    transaction_id TEXT PRIMARY KEY,
+                    page_request_uid TEXT UNIQUE,
+                    license_id TEXT,
+                    customer_email TEXT NOT NULL,
+                    amount INTEGER NOT NULL,
+                    currency TEXT DEFAULT 'ILS',
+                    approval_num TEXT,
+                    status TEXT NOT NULL,
+                    created_ts REAL NOT NULL,
+                    refunded_at REAL,
+                    refund_amount INTEGER
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_transactions_email ON payplus_transactions(customer_email)"
+            )
         self._initialized = True
 
     def _connect(self, *, readonly: bool = False):
@@ -244,6 +264,54 @@ class SupportStore:
                 "SELECT * FROM support_kb WHERE kb_id = ?", (kb_id,)
             ).fetchone()
             return dict(row) if row else None
+
+    # ── Transactions ──────────────────────────────────────────────────
+
+    def record_transaction(
+        self,
+        *,
+        page_request_uid: str,
+        customer_email: str,
+        amount: int,
+        approval_num: str,
+        license_id: str | None = None,
+        status: str = "success",
+    ) -> str:
+        self.initialize()
+        txn_id = uuid.uuid4().hex[:12]
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO payplus_transactions
+                    (transaction_id, page_request_uid, license_id, customer_email, amount, approval_num, status, created_ts)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (txn_id, page_request_uid, license_id, customer_email, amount, approval_num, status, time.time()),
+            )
+        return txn_id
+
+    def find_refundable_transaction(self, email: str, max_age_days: int = 14) -> dict | None:
+        """Find the most recent successful, non-refunded transaction for an email within max_age_days."""
+        self.initialize()
+        cutoff = time.time() - (max_age_days * 86400)
+        with self._connect(readonly=True) as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM payplus_transactions
+                WHERE customer_email = ? AND status = 'success' AND refunded_at IS NULL AND created_ts >= ?
+                ORDER BY created_ts DESC LIMIT 1
+                """,
+                (email.strip().lower(), cutoff),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def mark_refunded(self, transaction_id: str, refund_amount: int) -> None:
+        self.initialize()
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE payplus_transactions SET status = 'refunded', refunded_at = ?, refund_amount = ? WHERE transaction_id = ?",
+                (time.time(), refund_amount, transaction_id),
+            )
 
     # ── Stats ────────────────────────────────────────────────────────
 

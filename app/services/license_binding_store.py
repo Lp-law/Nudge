@@ -15,6 +15,10 @@ class LicenseBindingStore:
         """Return True if this device may use the license; False if bound elsewhere."""
         raise NotImplementedError
 
+    async def release_binding(self, license_hash: str) -> bool:
+        """Delete device binding for a license. Returns True if a binding was removed."""
+        raise NotImplementedError
+
 
 class InMemoryLicenseBindingStore(LicenseBindingStore):
     def __init__(self) -> None:
@@ -32,6 +36,15 @@ class InMemoryLicenseBindingStore(LicenseBindingStore):
                 return False
             self._map[license_hash] = device_id
             return True
+
+    async def release_binding(self, license_hash: str) -> bool:
+        if not license_hash:
+            return False
+        with self._lock:
+            if license_hash in self._map:
+                del self._map[license_hash]
+                return True
+        return False
 
 
 class RedisLicenseBindingStore(LicenseBindingStore):
@@ -64,6 +77,13 @@ return 'bound'
         key = self._key(license_hash)
         result = await self._client.eval(self._BIND_SCRIPT, 1, key, device_id)
         return result in ("already_bound", "bound")
+
+    async def release_binding(self, license_hash: str) -> bool:
+        if not license_hash:
+            return False
+        key = self._key(license_hash)
+        result = await self._client.delete(key)
+        return result > 0
 
 
 def create_license_binding_store(settings) -> LicenseBindingStore:
