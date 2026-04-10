@@ -158,3 +158,16 @@ services:
         value: ""
       - key: UPDATE_MANDATORY
         value: "false"
+
+  # --- Landing page (static site) ---
+  - type: web
+    name: nudge-landing
+    env: static
+    staticPublishPath: landing
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
