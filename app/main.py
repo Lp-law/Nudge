@@ -167,6 +167,10 @@ async def lifespan(_app: FastAPI):
     lead_store.initialize()
     license_store.initialize()
     usage_store.initialize()
+    revoked = license_store.revoke_expired_cancellations()
+    if revoked:
+        import logging
+        logging.getLogger(__name__).info("Revoked %d expired cancelling license(s) on startup.", revoked)
     yield
 
 
