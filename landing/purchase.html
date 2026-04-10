@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="הסכם רכישה ומנוי — Nudge, עוזר AI לכל טקסט">
+  <title>הסכם רכישה — Nudge</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0F172A;
+      --card: #1E293B;
+      --card-hover: #253349;
+      --primary: #4F46E5;
+      --primary-light: #6366F1;
+      --accent: #06B6D4;
+      --success: #10B981;
+      --text: #F1F5F9;
+      --text-muted: #94A3B8;
+      --text-dim: #64748B;
+      --border: #334155;
+      --radius: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Heebo', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .en { font-family: 'Inter', sans-serif; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+    }
+
+    .navbar .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .logo:hover { text-decoration: none; }
+    .logo-icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+    .logo-icon svg { width: 32px; height: 32px; }
+
+    .nav-back {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+    .nav-back:hover { color: var(--text); text-decoration: none; }
+
+    .page-content {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 60px 24px 100px;
+    }
+
+    .page-content h1 {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    .page-meta {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      margin-bottom: 48px;
+    }
+
+    .page-content h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-top: 48px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .page-content p {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.8;
+      margin-bottom: 16px;
+    }
+
+    .page-content ul, .page-content ol {
+      padding-right: 24px;
+      margin-bottom: 16px;
+    }
+
+    .page-content li {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.8;
+      margin-bottom: 6px;
+    }
+
+    .page-content strong { color: var(--text); }
+
+    /* Plans table */
+    .plans-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 24px 0 32px;
+      font-size: 0.95rem;
+    }
+
+    .plans-table th,
+    .plans-table td {
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      text-align: right;
+    }
+
+    .plans-table th {
+      background: var(--card);
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .plans-table td {
+      color: var(--text-muted);
+    }
+
+    .plans-table tr:hover td {
+      background: rgba(30, 41, 59, 0.5);
+    }
+
+    .footer {
+      border-top: 1px solid var(--border);
+      padding: 48px 0;
+    }
+
+    .footer .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .footer-tagline {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--text); text-decoration: none; }
+
+    .footer-copy {
+      width: 100%;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 768px) {
+      .page-content { padding: 40px 20px 80px; }
+      .plans-table { font-size: 0.85rem; }
+      .plans-table th, .plans-table td { padding: 10px 12px; }
+      .footer-inner { flex-direction: column; text-align: center; }
+      .footer-links { flex-wrap: wrap; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="container">
+      <a href="index.html" class="logo">
+        <span class="logo-icon">
+          <img src="logo.svg" alt="Nudge logo" width="32" height="32" style="border-radius:6px">
+        </span>
+        <span class="en">Nudge</span>
+      </a>
+      <a href="index.html" class="nav-back">חזרה לעמוד הראשי &larr;</a>
+    </div>
+  </nav>
+
+  <div class="page-content">
+    <h1>הסכם רכישה</h1>
+    <p class="page-meta">עדכון אחרון: אפריל 2026</p>
+
+    <!-- פרטי המוצר -->
+    <h2>1. פרטי המוצר</h2>
+    <p><span class="en">Nudge</span> — תוכנת עוזר AI למחשב (<span class="en">Windows</span>). התוכנה מאפשרת עיבוד טקסט חכם באמצעות בינה מלאכותית, כולל סיכום, שיפור, תרגום, כתיבת מיילים, תיקון שפה, הסברים וחילוץ טקסט מתמונות.</p>
+
+    <!-- תוכניות ומחירים -->
+    <h2>2. תוכניות ומחירים</h2>
+    <table class="plans-table">
+      <thead>
+        <tr>
+          <th>תוכנית</th>
+          <th>מחיר</th>
+          <th>בקשות</th>
+          <th>פרטים</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong><span class="en">Trial</span> (ניסיון)</strong></td>
+          <td>חינם</td>
+          <td>50 בקשות</td>
+          <td>7 ימים, ללא כרטיס אשראי</td>
+        </tr>
+        <tr>
+          <td><strong><span class="en">Personal</span></strong></td>
+          <td>29 &#x20AA;/חודש</td>
+          <td>200 בקשות</td>
+          <td>חיוב חודשי אוטומטי</td>
+        </tr>
+        <tr>
+          <td><strong><span class="en">Pro</span></strong></td>
+          <td>49 &#x20AA;/חודש</td>
+          <td>ללא הגבלה</td>
+          <td>חיוב חודשי אוטומטי</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>כל המחירים כוללים מע"מ בהתאם לחוק.</p>
+
+    <!-- אופן התשלום -->
+    <h2>3. אופן התשלום</h2>
+    <p>התשלום מתבצע באמצעות כרטיס אשראי או <span class="en">Bit</span>, דרך מערכת <span class="en">PayPlus</span> — פתרון סליקה מאובטח העומד בתקן <span class="en">PCI-DSS</span>. החברה אינה שומרת את פרטי כרטיס האשראי שלך; כל הנתונים הפיננסיים מנוהלים על ידי <span class="en">PayPlus</span> בלבד.</p>
+
+    <!-- מועד החיוב -->
+    <h2>4. מועד החיוב</h2>
+    <p>החיוב החודשי מתבצע ב-1 לכל חודש, או ביום ההרשמה לשירות (לפי המוקדם). מועד החיוב הראשון נקבע ביום ההרשמה לתוכנית בתשלום.</p>
+
+    <!-- ביטול עסקה -->
+    <h2>5. ביטול עסקה</h2>
+    <p>ביטול עסקה מתבצע בהתאם לחוק הגנת הצרכן, התשמ"א-1981:</p>
+    <ul>
+      <li><strong>תוך 14 יום ממועד הרכישה</strong> — ביטול מלא עם החזר כספי מלא.</li>
+      <li><strong>לאחר 14 יום</strong> — הביטול ייכנס לתוקף בסוף תקופת החיוב הנוכחית. לא יינתן החזר יחסי עבור התקופה שנותרה.</li>
+    </ul>
+    <p>ביטול ניתן לבצע באחת מהדרכים הבאות:</p>
+    <ul>
+      <li>שליחת בקשה לדוא"ל: <a href="mailto:support@nudge.co.il"><span class="en">support@nudge.co.il</span></a></li>
+      <li>דרך חשבון <span class="en">PayPlus</span> האישי</li>
+    </ul>
+
+    <!-- מדיניות החזרים -->
+    <h2>6. מדיניות החזרים</h2>
+    <p>החזר כספי מלא יינתן לבקשות ביטול שהוגשו תוך 14 ימים ממועד הרכישה הראשונה, בהתאם לחוק. לאחר תקופה זו, לא יינתן החזר יחסי. ההחזר יבוצע לאמצעי התשלום המקורי תוך 14 ימי עסקים.</p>
+
+    <!-- חשבוניות -->
+    <h2>7. חשבוניות</h2>
+    <p>חשבונית מס/קבלה נשלחת אוטומטית לכתובת הדוא"ל של המשתמש לאחר כל חיוב. לקבלת עותק נוסף או לתיקון פרטים בחשבונית, ניתן לפנות אלינו בדוא"ל.</p>
+
+    <!-- שדרוג/שנמוך תוכנית -->
+    <h2>8. שדרוג או שנמוך תוכנית</h2>
+    <p>ניתן לשדרג או לשנמך את התוכנית בכל עת. השינוי ייכנס לתוקף במחזור החיוב הבא. במקרה של שדרוג, ייתכן חיוב יחסי עבור ההפרש בתקופה הנוכחית.</p>
+
+    <!-- זכויות הצרכן -->
+    <h2>9. זכויות הצרכן</h2>
+    <p>הסכם זה כפוף לחוק הגנת הצרכן, התשמ"א-1981, ולתקנות הגנת הצרכן (ביטול עסקה), התשע"א-2010. כל זכות המוקנית לצרכן בחוק תחול גם אם לא צוינה במפורש בהסכם זה.</p>
+    <p>לכל שאלה או בירור, ניתן לפנות אלינו: <a href="mailto:support@nudge.co.il"><span class="en">support@nudge.co.il</span></a></p>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <a href="index.html" class="logo" style="font-size:1.2rem">
+            <span class="logo-icon" style="width:24px;height:24px">
+              <img src="logo.svg" alt="Nudge logo" width="24" height="24" style="border-radius:4px">
+            </span>
+            <span class="en">Nudge</span>
+          </a>
+          <span class="footer-tagline">הטקסט שלך, חכם יותר</span>
+        </div>
+        <ul class="footer-links">
+          <li><a href="terms.html">תנאי שימוש</a></li>
+          <li><a href="purchase.html">הסכם רכישה</a></li>
+          <li><a href="accessibility.html">הצהרת נגישות</a></li>
+          <li><a href="mailto:support@nudge.co.il">צור קשר</a></li>
+        </ul>
+      </div>
+      <div class="footer-copy">
+        &copy; 2026 <span class="en">Nudge</span>. כל הזכויות שמורות. &nbsp;|&nbsp; <span class="en">support@nudge.co.il</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

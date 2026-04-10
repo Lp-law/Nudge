@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="הצהרת נגישות — Nudge, עוזר AI לכל טקסט">
+  <title>הצהרת נגישות — Nudge</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0F172A;
+      --card: #1E293B;
+      --card-hover: #253349;
+      --primary: #4F46E5;
+      --primary-light: #6366F1;
+      --accent: #06B6D4;
+      --success: #10B981;
+      --text: #F1F5F9;
+      --text-muted: #94A3B8;
+      --text-dim: #64748B;
+      --border: #334155;
+      --radius: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Heebo', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .en { font-family: 'Inter', sans-serif; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+    }
+
+    .navbar .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .logo:hover { text-decoration: none; }
+    .logo-icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+    .logo-icon svg { width: 32px; height: 32px; }
+
+    .nav-back {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+    .nav-back:hover { color: var(--text); text-decoration: none; }
+
+    .page-content {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 60px 24px 100px;
+    }
+
+    .page-content h1 {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    .page-meta {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      margin-bottom: 48px;
+    }
+
+    .page-content h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-top: 48px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .page-content h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-top: 28px;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+
+    .page-content p {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.8;
+      margin-bottom: 16px;
+    }
+
+    .page-content ul {
+      padding-right: 24px;
+      margin-bottom: 16px;
+    }
+
+    .page-content li {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.8;
+      margin-bottom: 6px;
+    }
+
+    .page-content strong { color: var(--text); }
+
+    .highlight-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      margin: 24px 0;
+    }
+
+    .highlight-box p {
+      margin-bottom: 0;
+    }
+
+    .footer {
+      border-top: 1px solid var(--border);
+      padding: 48px 0;
+    }
+
+    .footer .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .footer-tagline {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--text); text-decoration: none; }
+
+    .footer-copy {
+      width: 100%;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 768px) {
+      .page-content { padding: 40px 20px 80px; }
+      .footer-inner { flex-direction: column; text-align: center; }
+      .footer-links { flex-wrap: wrap; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="container">
+      <a href="index.html" class="logo">
+        <span class="logo-icon">
+          <img src="logo.svg" alt="Nudge logo" width="32" height="32" style="border-radius:6px">
+        </span>
+        <span class="en">Nudge</span>
+      </a>
+      <a href="index.html" class="nav-back">חזרה לעמוד הראשי &larr;</a>
+    </div>
+  </nav>
+
+  <div class="page-content">
+    <h1>הצהרת נגישות</h1>
+    <p class="page-meta">עדכון אחרון: אפריל 2026</p>
+
+    <div class="highlight-box">
+      <p>אנו מחויבים להנגיש את אתר <span class="en">Nudge</span> ואת התוכנה לכלל האוכלוסייה, כולל אנשים עם מוגבלויות, בהתאם לתקנות שוויון זכויות לאנשים עם מוגבלות (התאמות נגישות לשירות), התשע"ג-2013.</p>
+    </div>
+
+    <!-- תקן -->
+    <h2>1. תקן נגישות</h2>
+    <p>האתר והתוכנה פותחו ונבדקו במטרה לעמוד בדרישות תקן <span class="en">WCAG 2.1</span> ברמת <span class="en">AA</span> (הנחיות לנגישות תוכן אינטרנט). תקן זה מגדיר כיצד להנגיש תכנים דיגיטליים לאנשים עם מוגבלויות שונות.</p>
+
+    <!-- פעולות שננקטו -->
+    <h2>2. פעולות שננקטו באתר</h2>
+    <p>במסגרת מחויבותנו לנגישות, ננקטו הפעולות הבאות:</p>
+    <ul>
+      <li><strong>ניגודיות צבעים מספקת</strong> — שמירה על יחס ניגודיות גבוה בין הטקסט לרקע בכל עמודי האתר.</li>
+      <li><strong>תמיכה בניווט מקלדת</strong> — ניתן לנווט בכל רכיבי האתר באמצעות מקלדת בלבד, ללא צורך בעכבר.</li>
+      <li><strong>תמיכה בקוראי מסך</strong> — האתר בנוי עם תגיות סמנטיות ותכונות <span class="en">ARIA</span> לתמיכה בקוראי מסך.</li>
+      <li><strong>טקסט חלופי לתמונות</strong> — כל התמונות והאיקונים באתר מלוות בטקסט חלופי תיאורי.</li>
+      <li><strong>מבנה כותרות היררכי</strong> — שימוש במבנה כותרות מסודר (<span class="en">H1-H6</span>) המאפשר ניווט יעיל לקוראי מסך.</li>
+      <li><strong>אפשרות להגדלת טקסט</strong> — האתר תומך בהגדלת טקסט עד 200% ללא פגיעה בתפקוד.</li>
+    </ul>
+
+    <!-- נגישות התוכנה -->
+    <h2>3. נגישות התוכנה</h2>
+    <p>תוכנת <span class="en">Nudge</span> למחשב כוללת התאמות נגישות מובנות:</p>
+    <ul>
+      <li><strong>מצב נגישות (<span class="en">Accessibility Mode</span>)</strong> — מצב מובנה המותאם לצרכי משתמשים עם מוגבלויות, כולל הגדלת ממשק וניגודיות מוגברת.</li>
+      <li><strong>תמיכה מלאה בניווט מקלדת</strong> — כל הפעולות בתוכנה נגישות באמצעות מקלדת בלבד, כולל קיצורי דרך ייעודיים.</li>
+      <li><strong>תאימות עם קוראי מסך</strong> — התוכנה נבדקה ותואמת לקוראי מסך <span class="en">NVDA</span> ו-<span class="en">JAWS</span>.</li>
+    </ul>
+
+    <!-- סייגים -->
+    <h2>4. סייגים</h2>
+    <p>למרות מאמצינו, חלק מהתכנים עשויים שלא להיות נגישים באופן מלא. הדבר עשוי לנבוע מ:</p>
+    <ul>
+      <li>תכנים או רכיבים של צדדים שלישיים שאינם בשליטתנו</li>
+      <li>תכנים חדשים שטרם עברו התאמת נגישות</li>
+      <li>מגבלות טכנולוגיות של דפדפנים או מערכות הפעלה מסוימות</li>
+    </ul>
+    <p>אנו עובדים על שיפור מתמיד של הנגישות ומתחייבים לטפל בכל בעיה שתובא לידיעתנו בהקדם האפשרי.</p>
+
+    <!-- רכז נגישות -->
+    <h2>5. רכז נגישות</h2>
+    <p>לכל שאלה, בעיה או הצעה בנושא נגישות, ניתן לפנות לרכז הנגישות שלנו:</p>
+    <ul>
+      <li><strong>דוא"ל:</strong> <a href="mailto:support@nudge.co.il"><span class="en">support@nudge.co.il</span></a></li>
+    </ul>
+    <p>אנו מתחייבים לטפל בכל פנייה בנושא נגישות תוך 7 ימי עסקים.</p>
+
+    <!-- תאריך עדכון -->
+    <h2>6. תאריך עדכון</h2>
+    <p>הצהרת נגישות זו עודכנה לאחרונה באפריל 2026. ההצהרה נבדקת ומתעדכנת באופן שוטף.</p>
+
+    <!-- פניות -->
+    <h2>7. דיווח על בעיית נגישות</h2>
+    <p>נתקלתם בבעיית נגישות באתר או בתוכנה? נשמח לשמוע ולטפל. אנא פנו אלינו בדוא"ל: <a href="mailto:support@nudge.co.il"><span class="en">support@nudge.co.il</span></a></p>
+    <p>בפנייתכם, אנא ציינו:</p>
+    <ul>
+      <li>תיאור הבעיה</li>
+      <li>העמוד או המסך בו נתקלתם בבעיה</li>
+      <li>הדפדפן/מערכת ההפעלה בשימוש</li>
+      <li>טכנולוגיית הנגישות בשימוש (קורא מסך, מקלדת בלבד וכו')</li>
+    </ul>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <a href="index.html" class="logo" style="font-size:1.2rem">
+            <span class="logo-icon" style="width:24px;height:24px">
+              <img src="logo.svg" alt="Nudge logo" width="24" height="24" style="border-radius:4px">
+            </span>
+            <span class="en">Nudge</span>
+          </a>
+          <span class="footer-tagline">הטקסט שלך, חכם יותר</span>
+        </div>
+        <ul class="footer-links">
+          <li><a href="terms.html">תנאי שימוש</a></li>
+          <li><a href="purchase.html">הסכם רכישה</a></li>
+          <li><a href="accessibility.html">הצהרת נגישות</a></li>
+          <li><a href="mailto:support@nudge.co.il">צור קשר</a></li>
+        </ul>
+      </div>
+      <div class="footer-copy">
+        &copy; 2026 <span class="en">Nudge</span>. כל הזכויות שמורות. &nbsp;|&nbsp; <span class="en">support@nudge.co.il</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

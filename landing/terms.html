@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="תקנון אתר ותנאי שימוש — Nudge, עוזר AI לכל טקסט">
+  <title>תקנון ותנאי שימוש — Nudge</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0F172A;
+      --card: #1E293B;
+      --card-hover: #253349;
+      --primary: #4F46E5;
+      --primary-light: #6366F1;
+      --accent: #06B6D4;
+      --success: #10B981;
+      --text: #F1F5F9;
+      --text-muted: #94A3B8;
+      --text-dim: #64748B;
+      --border: #334155;
+      --radius: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Heebo', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .en { font-family: 'Inter', sans-serif; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ═══════════════════ NAVBAR ═══════════════════ */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+    }
+
+    .navbar .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .logo:hover { text-decoration: none; }
+
+    .logo-icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+    .logo-icon svg { width: 32px; height: 32px; }
+
+    .nav-back {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+    .nav-back:hover { color: var(--text); text-decoration: none; }
+
+    /* ═══════════════════ CONTENT ═══════════════════ */
+    .page-content {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 60px 24px 100px;
+    }
+
+    .page-content h1 {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    .page-meta {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      margin-bottom: 48px;
+    }
+
+    .page-content h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-top: 48px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .page-content h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-top: 28px;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+
+    .page-content p {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.8;
+      margin-bottom: 16px;
+    }
+
+    .page-content ul, .page-content ol {
+      padding-right: 24px;
+      margin-bottom: 16px;
+    }
+
+    .page-content li {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.8;
+      margin-bottom: 6px;
+    }
+
+    .page-content strong { color: var(--text); }
+
+    /* ═══════════════════ FOOTER ═══════════════════ */
+    .footer {
+      border-top: 1px solid var(--border);
+      padding: 48px 0;
+    }
+
+    .footer .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .footer-tagline {
+      font-size: 0.9rem;
+      color: var(--text-dim);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--text); text-decoration: none; }
+
+    .footer-copy {
+      width: 100%;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 768px) {
+      .page-content { padding: 40px 20px 80px; }
+      .footer-inner { flex-direction: column; text-align: center; }
+      .footer-links { flex-wrap: wrap; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════ NAVBAR ═══════════════════ -->
+  <nav class="navbar">
+    <div class="container">
+      <a href="index.html" class="logo">
+        <span class="logo-icon">
+          <img src="logo.svg" alt="Nudge logo" width="32" height="32" style="border-radius:6px">
+        </span>
+        <span class="en">Nudge</span>
+      </a>
+      <a href="index.html" class="nav-back">חזרה לעמוד הראשי &larr;</a>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════ CONTENT ═══════════════════ -->
+  <div class="page-content">
+    <h1>תקנון אתר ותנאי שימוש</h1>
+    <p class="page-meta">עדכון אחרון: אפריל 2026</p>
+
+    <!-- מבוא -->
+    <h2>1. מבוא</h2>
+    <p><span class="en">Nudge</span> היא תוכנת עוזר AI שפותחה על ידי נאדג' טכנולוגיות בע"מ ("החברה"). תקנון זה מהווה הסכם מחייב בינך ("המשתמש") לבין החברה. השימוש בשירות, באתר או בתוכנה מהווה הסכמה לתנאים אלה. אם אינך מסכים לתנאים, אנא הימנע משימוש בשירות.</p>
+
+    <!-- הגדרות -->
+    <h2>2. הגדרות</h2>
+    <ul>
+      <li><strong>"המוצר"</strong> — תוכנת <span class="en">Nudge</span>, לרבות כל הגרסאות, העדכונים והתוספות שלה.</li>
+      <li><strong>"משתמש"</strong> — כל אדם שמוריד, מתקין או משתמש במוצר או באתר.</li>
+      <li><strong>"שירות"</strong> — כלל השירותים המסופקים באמצעות המוצר, לרבות עיבוד טקסט, תרגום, סיכום ופעולות AI נוספות.</li>
+      <li><strong>"תוכן"</strong> — כל טקסט, תמונה או מידע שהמשתמש מזין למערכת.</li>
+      <li><strong>"חשבון"</strong> — חשבון המשתמש הנוצר בעת ההרשמה לשירות, הכולל פרטים אישיים ומפתח הפעלה.</li>
+    </ul>
+
+    <!-- תנאי שימוש כלליים -->
+    <h2>3. תנאי שימוש כלליים</h2>
+    <ul>
+      <li>השימוש בשירות מותר למשתמשים מגיל 18 ומעלה בלבד.</li>
+      <li>המשתמש מתחייב להשתמש בשירות לצרכים חוקיים בלבד ובהתאם להוראות כל דין.</li>
+      <li>המשתמש נושא באחריות המלאה לכל תוכן שהוא שולח או מעבד באמצעות השירות.</li>
+      <li>אין להשתמש בשירות לצורך הפקת תוכן פוגעני, מאיים, מטעה, מפר זכויות יוצרים או בלתי חוקי.</li>
+      <li>החברה רשאית להפסיק או להגביל את גישת המשתמש לשירות בכל מקרה של הפרת תנאי השימוש.</li>
+    </ul>
+
+    <!-- הרשמה וחשבון -->
+    <h2>4. הרשמה וחשבון</h2>
+    <p>בעת ההרשמה, המשתמש מתחייב לספק פרטים מדויקים ומעודכנים. המשתמש אחראי באופן בלעדי על שמירת הסיסמה ומפתח ההפעלה שלו בסודיות. כל פעולה המבוצעת באמצעות חשבון המשתמש תיחשב כפעולה שבוצעה על ידי המשתמש עצמו.</p>
+    <p>החברה רשאית לבטל או להשעות חשבון משתמש במקרה של חשש סביר לשימוש לרעה או הפרת תנאי השימוש.</p>
+
+    <!-- קניין רוחני -->
+    <h2>5. קניין רוחני</h2>
+    <p>כל הזכויות במוצר, כולל זכויות יוצרים, סימני מסחר, פטנטים, סודות מסחריים, קוד מקור, עיצוב ותכנון — שייכות לחברה באופן בלעדי. המשתמש מקבל רישיון שימוש אישי, מוגבל, לא בלעדי וניתן לביטול. רישיון זה אינו מהווה העברת בעלות מכל סוג שהוא.</p>
+    <p>אין להעתיק, לשנות, להפיץ, למכור, לפרק או לבצע הנדסה לאחור על המוצר או על כל חלק ממנו.</p>
+
+    <!-- מדיניות פרטיות -->
+    <h2>6. מדיניות פרטיות</h2>
+
+    <h3>6.1 מידע שנאסף</h3>
+    <p>במסגרת השימוש בשירות, החברה אוספת את המידע הבא:</p>
+    <ul>
+      <li>שם מלא, כתובת דוא"ל וטלפון (בעת ההרשמה)</li>
+      <li>מקצוע או תחום עיסוק (אופציונלי)</li>
+      <li>נתוני שימוש: כמות בקשות, סוגי פעולות שבוצעו, זמני שימוש</li>
+    </ul>
+
+    <h3>6.2 מידע שלא נאסף</h3>
+    <p>החברה <strong>אינה שומרת</strong> את תוכן הטקסטים שהמשתמש מעבד, את תוצאות העיבוד, או תמונות שנשלחו לצורך <span class="en">OCR</span>. כל עיבוד מתבצע בזמן אמת ולא נשמר בשרתי החברה.</p>
+
+    <h3>6.3 שימוש במידע</h3>
+    <p>המידע שנאסף משמש לצרכים הבאים:</p>
+    <ul>
+      <li>שיפור השירות וחוויית המשתמש</li>
+      <li>תקשורת עם המשתמש (עדכונים, תמיכה טכנית)</li>
+      <li>ניהול חיוב ותשלומים</li>
+      <li>עמידה בדרישות חוק</li>
+    </ul>
+
+    <h3>6.4 אבטחת מידע</h3>
+    <p>החברה נוקטת באמצעי אבטחה מתקדמים להגנה על מידע המשתמשים, לרבות:</p>
+    <ul>
+      <li>הצפנת תקשורת באמצעות <span class="en">HTTPS/TLS</span></li>
+      <li>אימות משתמשים באמצעות <span class="en">JWT</span> (אסימוני אימות מאובטחים)</li>
+      <li>הגנה מקומית באמצעות <span class="en">DPAPI</span> (הצפנת נתונים ברמת מערכת ההפעלה)</li>
+    </ul>
+
+    <h3>6.5 שיתוף עם צדדים שלישיים</h3>
+    <p>החברה משתפת מידע עם צדדים שלישיים אך ורק במידה הנדרשת לתפעול השירות:</p>
+    <ul>
+      <li><strong><span class="en">Microsoft Azure</span></strong> — לצורך עיבוד בקשות AI. רק הטקסט הנדרש לעיבוד נשלח ואינו נשמר.</li>
+      <li><strong><span class="en">PayPlus</span></strong> — לצורך עיבוד תשלומים. החברה אינה שומרת פרטי כרטיס אשראי.</li>
+    </ul>
+
+    <h3>6.6 עוגיות (Cookies)</h3>
+    <p>האתר והתוכנה משתמשים בעוגיות מינימליות הנדרשות לצורך אימות המשתמש ותפעול השירות בלבד. אין שימוש בעוגיות לצרכי פרסום או מעקב.</p>
+
+    <h3>6.7 זכות למחיקת מידע</h3>
+    <p>כל משתמש רשאי לבקש מחיקת חשבונו וכל המידע הקשור אליו. לביצוע בקשת מחיקה, יש לפנות אלינו בדוא"ל: <a href="mailto:support@nudge.co.il"><span class="en">support@nudge.co.il</span></a>. המחיקה תתבצע תוך 30 ימי עסקים.</p>
+
+    <!-- תנאי תשלום -->
+    <h2>7. תנאי תשלום</h2>
+    <ul>
+      <li>השירות מוצע במסגרת מנוי חודשי בהתאם לתוכנית שנבחרה.</li>
+      <li>החיוב מתבצע באופן אוטומטי מדי חודש, במועד שנקבע בעת ההרשמה.</li>
+      <li>ניתן לבטל את המנוי בכל עת; הביטול ייכנס לתוקף בתום תקופת החיוב הנוכחית.</li>
+      <li>לא יינתנו החזרים יחסיים עבור תקופת חיוב שכבר החלה, למעט במקרים המפורטים בסעיף ביטול עסקה.</li>
+    </ul>
+
+    <!-- הגבלת אחריות -->
+    <h2>8. הגבלת אחריות</h2>
+    <p>השירות מסופק במצבו כפי שהוא (<span class="en">"AS IS"</span>) וללא כל מצג או אחריות מכל סוג שהוא, מפורשת או משתמעת.</p>
+    <ul>
+      <li>החברה אינה אחראית לדיוק, שלמות או נכונות תוצאות עיבוד ה-AI.</li>
+      <li>החברה אינה אחראית לכל נזק ישיר, עקיף, מקרי, תוצאתי או מיוחד הנובע מהשימוש בשירות או מחוסר היכולת להשתמש בו.</li>
+      <li>המשתמש אחראי לבדוק ולוודא את תוצאות העיבוד לפני שימוש בהן.</li>
+      <li>בכל מקרה, אחריות החברה לא תעלה על הסכום ששולם על ידי המשתמש בשלושת החודשים שקדמו לאירוע.</li>
+    </ul>
+
+    <!-- ביטול מנוי -->
+    <h2>9. ביטול מנוי</h2>
+    <p>ניתן לבטל את המנוי בכל עת באחת מהדרכים הבאות:</p>
+    <ul>
+      <li>שליחת בקשת ביטול לדוא"ל <a href="mailto:support@nudge.co.il"><span class="en">support@nudge.co.il</span></a></li>
+      <li>דרך חשבון <span class="en">PayPlus</span></li>
+    </ul>
+    <p>לאחר הביטול, המשתמש ימשיך ליהנות מהשירות עד תום תקופת החיוב הנוכחית, ולא יחויב מהחודש הבא.</p>
+
+    <!-- שינויים בתקנון -->
+    <h2>10. שינויים בתקנון</h2>
+    <p>החברה רשאית לשנות תקנון זה מעת לעת. במקרה של שינוי מהותי, תישלח הודעה למשתמשים 30 יום מראש באמצעות דוא"ל או הודעה בתוכנה. המשך השימוש בשירות לאחר כניסת השינויים לתוקף מהווה הסכמה לתקנון המעודכן.</p>
+
+    <!-- דין חל וסמכות שיפוט -->
+    <h2>11. דין חל וסמכות שיפוט</h2>
+    <p>תקנון זה כפוף לדין הישראלי. סמכות השיפוט הבלעדית בכל סכסוך הנובע מתקנון זה או הקשור לשירות תהיה לבתי המשפט המוסמכים בתל אביב-יפו בלבד.</p>
+
+    <!-- יצירת קשר -->
+    <h2>12. יצירת קשר</h2>
+    <p>לכל שאלה, בקשה או תלונה בנוגע לתקנון זה או לשירות, ניתן לפנות אלינו:</p>
+    <ul>
+      <li>דוא"ל: <a href="mailto:support@nudge.co.il"><span class="en">support@nudge.co.il</span></a></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════════ FOOTER ═══════════════════ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <a href="index.html" class="logo" style="font-size:1.2rem">
+            <span class="logo-icon" style="width:24px;height:24px">
+              <img src="logo.svg" alt="Nudge logo" width="24" height="24" style="border-radius:4px">
+            </span>
+            <span class="en">Nudge</span>
+          </a>
+          <span class="footer-tagline">הטקסט שלך, חכם יותר</span>
+        </div>
+        <ul class="footer-links">
+          <li><a href="terms.html">תנאי שימוש</a></li>
+          <li><a href="purchase.html">הסכם רכישה</a></li>
+          <li><a href="accessibility.html">הצהרת נגישות</a></li>
+          <li><a href="mailto:support@nudge.co.il">צור קשר</a></li>
+        </ul>
+      </div>
+      <div class="footer-copy">
+        &copy; 2026 <span class="en">Nudge</span>. כל הזכויות שמורות. &nbsp;|&nbsp; <span class="en">support@nudge.co.il</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
