@@ -132,6 +132,8 @@
       background: var(--gradient-btn);
       color: #fff;
       font-weight: 700;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      letter-spacing: 0.01em;
     }
 
     .btn-primary:hover {
@@ -163,8 +165,8 @@
     }
 
     .btn-lg {
-      padding: 14px 32px;
-      font-size: 1.05rem;
+      padding: 16px 40px;
+      font-size: 1.15rem;
       border-radius: var(--radius);
     }
 
@@ -261,8 +263,9 @@
     }
 
     .hero-secondary {
-      color: var(--text-muted);
-      font-weight: 500;
+      color: var(--text);
+      font-weight: 600;
+      font-size: 1.05rem;
       transition: color 0.2s;
     }
 
@@ -333,10 +336,10 @@
 
     .section-label {
       display: inline-block;
-      font-size: 0.8rem;
-      font-weight: 600;
+      font-size: 0.95rem;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.12em;
       color: var(--accent);
       margin-bottom: 16px;
     }
@@ -520,48 +523,69 @@
 
     /* ═══════════════════ DEMO ═══════════════════ */
     .demo-section {
-      background: linear-gradient(180deg, transparent 0%, rgba(30, 41, 59, 0.3) 50%, transparent 100%);
+      background: linear-gradient(180deg, transparent 0%, rgba(24, 24, 27, 0.5) 50%, transparent 100%);
     }
 
     .video-placeholder {
       aspect-ratio: 16 / 9;
-      max-width: 800px;
+      max-width: 860px;
       margin: 0 auto 24px;
-      background: #1a2338;
+      background: var(--card);
       border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
+      border-radius: var(--radius-xl);
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 16px;
       position: relative;
       overflow: hidden;
+      box-shadow: 0 0 80px rgba(139, 92, 246, 0.08), 0 0 0 1px rgba(139, 92, 246, 0.1);
     }
 
     .video-placeholder::before {
       content: '';
       position: absolute;
       inset: 0;
-      background: radial-gradient(circle at center, rgba(139, 92, 246, 0.08) 0%, transparent 60%);
+      background: radial-gradient(ellipse 60% 50% at 50% 40%, rgba(139, 92, 246, 0.06) 0%, transparent 70%),
+                  radial-gradient(ellipse 40% 30% at 60% 60%, rgba(236, 72, 153, 0.04) 0%, transparent 60%);
     }
 
     .play-btn {
       position: relative;
-      width: 72px;
-      height: 72px;
-      background: rgba(139, 92, 246, 0.2);
-      border: 2px solid rgba(139, 92, 246, 0.4);
+      width: 80px;
+      height: 80px;
+      background: var(--gradient-btn);
+      border: none;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
+      box-shadow: 0 0 40px rgba(139, 92, 246, 0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
     }
 
-    .play-btn svg { margin-right: -2px; }
+    .play-btn:hover {
+      transform: scale(1.08);
+      box-shadow: 0 0 60px rgba(139, 92, 246, 0.4);
+    }
+
+    .play-btn svg { margin-right: -2px; fill: #fff; }
+
+    .video-label {
+      position: relative;
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+    }
 
     .demo-caption {
       text-align: center;
-      color: var(--text-muted);
-      font-size: 1rem;
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      margin-top: 8px;
     }
 
     /* ═══════════════════ PRICING ═══════════════════ */
@@ -902,7 +926,7 @@
     <div class="container">
       <a href="#" class="logo">
         <span class="logo-icon">
-          <img src="copybar-wordmark.png" alt="CopyBar" height="28" style="display:block">
+          <img src="copybar-wordmark.png" alt="CopyBar" height="40" style="display:block">
         </span>
       </a>
 
@@ -944,7 +968,7 @@
       </p>
       <div class="hero-actions">
         <a href="#pricing" class="btn btn-primary btn-lg">נסה 7 ימים בחינם</a>
-        <a href="#demo" class="hero-secondary">ראה איך זה עובד &larr;</a>
+        <a href="#how-it-works" class="hero-secondary">ראה איך זה עובד &larr;</a>
       </div>
       <div class="hero-bar"></div>
     </div>
@@ -1068,20 +1092,6 @@
     </div>
   </section>
 
-  <!-- ═══════════════════ DEMO ═══════════════════ -->
-  <section id="demo" class="demo-section">
-    <div class="container text-center">
-      <span class="section-label reveal">הדגמה</span>
-      <h2 class="section-title reveal">ראה את <span class="en">CopyBar</span> בפעולה</h2>
-      <p class="section-desc reveal">60 שניות שישנו לך את העבודה</p>
-      <div class="video-placeholder reveal">
-        <div class="play-btn">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="#8B5CF6"><path d="M8 5v14l11-7z"/></svg>
-        </div>
-      </div>
-      <p class="demo-caption reveal">סרטון הדגמה בקרוב</p>
-    </div>
-  </section>
 
   <!-- ═══════════════════ PRICING ═══════════════════ -->
   <section id="pricing">
