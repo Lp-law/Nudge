@@ -41,7 +41,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 if ($SkipInstaller) {
-    Write-Host "Build completed: client\dist\Nudge"
+    Write-Host "Build completed: client\dist\CopyBar"
     exit 0
 }
 
