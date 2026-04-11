@@ -174,7 +174,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="Nudge MVP Backend", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="CopyBar MVP Backend", version="0.1.0", lifespan=lifespan)
 app.include_router(ai_router)
 app.include_router(auth_router)
 app.include_router(admin_router)

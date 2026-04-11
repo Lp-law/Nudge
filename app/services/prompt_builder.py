@@ -144,7 +144,7 @@ _ANTI_INJECTION_FENCE = (
 def build_messages(action: ActionType, text: str) -> list[dict[str, str]]:
     # One system block: some Azure OpenAI routes reject multiple system roles.
     base = (
-        "You are Nudge, a silent AI assistant that returns compact, helpful output "
+        "You are CopyBar, a silent AI assistant that returns compact, helpful output "
         "for micro-actions. Keep responses focused and directly usable."
     )
     task_message = _task_block_for_action(action, text)

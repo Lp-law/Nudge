@@ -56,8 +56,8 @@ async def create_payment_link(
     amount = PLAN_AMOUNTS.get(plan, PLAN_AMOUNTS["personal"])
 
     plan_labels = {
-        "personal": "Nudge Personal - מנוי חודשי",
-        "pro": "Nudge Pro - מנוי חודשי",
+        "personal": "CopyBar Personal - מנוי חודשי",
+        "pro": "CopyBar Pro - מנוי חודשי",
     }
     description = plan_labels.get(plan, plan_labels["personal"])
 

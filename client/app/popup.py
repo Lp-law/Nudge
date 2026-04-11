@@ -174,7 +174,7 @@ class ActionPopup(QWidget):
         else:
             icon_label.hide()
 
-        title = QLabel("Nudge")
+        title = QLabel("CopyBar")
         title.setStyleSheet("font-weight: 700; font-size: 15px; color: #F7FAFF;")
         title.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
@@ -231,7 +231,7 @@ class ActionPopup(QWidget):
             button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
             button.setAccessibleName(f"פעולה: {button.text()}")
             button.setAccessibleDescription(
-                "כפתור פעולה של Nudge. לחיצה מפעילה את הפעולה על התוכן שהועתק."
+                "כפתור פעולה של CopyBar. לחיצה מפעילה את הפעולה על התוכן שהועתק."
             )
 
         self.text_actions_widget = QWidget()

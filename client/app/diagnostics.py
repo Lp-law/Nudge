@@ -74,7 +74,7 @@ def build_diagnostics_summary(
         warnings.append("System Tray לא זמין בסשן הנוכחי")
 
     lines = [
-        "Nudge Diagnostics (safe support summary)",
+        "CopyBar Diagnostics (safe support summary)",
         f"generated_utc: {datetime.now(timezone.utc).isoformat(timespec='seconds')}",
         "sensitive_content_included: no",
         "--- app ---",

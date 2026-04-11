@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /c/Nudge/marketing)",
+      "Bash(cp \"C:\\\\Nudge\\\\.claude\\\\worktrees\\\\angry-lamport\\\\marketing\\\\social-media-kit.md\" /c/Nudge/marketing/)",
+      "WebFetch(domain:nudge.co.il)",
+      "WebSearch",
+      "Bash(py generate_pdf.py)",
+      "Bash(py -c ':*)",
+      "Bash(py -m pip install pypdf -q)",
+      "WebFetch(domain:copybar.com)",
+      "WebFetch(domain:copybar.app)",
+      "WebFetch(domain:copybar.ai)",
+      "WebFetch(domain:getcopybar.com)",
+      "WebFetch(domain:copybar.co.il)",
+      "WebFetch(domain:www3.wipo.int)",
+      "WebFetch(domain:branddb.wipo.int)",
+      "WebFetch(domain:israelpatents.justice.gov.il)",
+      "Bash(cmd.exe /c start \"\" \"C:\\\\Nudge\\\\.claude\\\\worktrees\\\\angry-lamport\\\\landing\\\\index.html\")",
+      "Bash(ls -t \"/c/Users/ליאורפריעורךדין/Downloads/\"*opy* \"/c/Users/ליאורפריעורךדין/Downloads/\"*logo* \"/c/Users/ליאורפריעורךדין/Downloads/\"*bar* \"/c/Users/ליאורפריעורךדין/Downloads/\"*nano*)",
+      "Bash(cp \"/c/Users/ליאורפריעורךדין/Downloads/Gemini_Generated_Image_1z753i1z753i1z75.png\" \"/c/Nudge/marketing/copybar-logo.png\")",
+      "Bash(cp \"/c/Users/ליאורפריעורךדין/Downloads/Gemini_Generated_Image_1z753i1z753i1z75.png\" \"/c/Nudge/.claude/worktrees/angry-lamport/landing/copybar-logo.png\")",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(git push:*)",
+      "Bash(ls -t \"/c/Users/ליאורפריעורךדין/Downloads/\"*ANOTHER* \"/c/Users/ליאורפריעורךדין/Downloads/\"*another* \"/c/Users/ליאורפריעורךדין/Downloads/\"*Anotherone* \"/c/Users/ליאורפריעורךדין/Downloads/\"*ANOTHERONE*)",
+      "Bash(cp \"/c/Users/ליאורפריעורךדין/Downloads/anotherone.png\" \"/c/Nudge/marketing/copybar-wordmark.png\")",
+      "Bash(cp \"/c/Users/ליאורפריעורךדין/Downloads/anotherone.png\" \"/c/Nudge/.claude/worktrees/angry-lamport/landing/copybar-wordmark.png\")",
+      "WebFetch(domain:copybar.co)",
+      "WebFetch(domain:copybar.io)",
+      "WebFetch(domain:copybar.dev)",
+      "Bash(gh api:*)",
+      "Bash(py -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('homepage',''\\)\\)\")",
+      "Bash(curl -s https://api.render.com)",
+      "Bash(py -m pytest -q)",
+      "Bash(ruff check:*)",
+      "Bash(py -m ruff check --select F,E9,B app)"
+    ]
+  }
+}

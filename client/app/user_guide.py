@@ -19,7 +19,7 @@ GUIDES = load_guides()
 class UserGuideDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Nudge - מדריך משתמש")
+        self.setWindowTitle("CopyBar - מדריך משתמש")
         self.setMinimumSize(700, 620)
 
         root = QVBoxLayout()

@@ -1,15 +1,15 @@
 {
   "he": {
     "label": "עברית",
-    "title": "מדריך משתמש - Nudge",
+    "title": "מדריך משתמש - CopyBar",
     "layout": "rtl",
     "language_label": "שפה",
     "close_button": "סגירה",
     "short_install_title": "גרסה קצרה לאתר - התקנה",
     "short_use_title": "גרסה קצרה לאתר - שימוש",
     "full_lines": [
-      "מה זה Nudge",
-      "Nudge הוא עוזר קטן ל-Windows לשיפור טקסטים במהירות.",
+      "מה זה CopyBar",
+      "CopyBar הוא עוזר קטן ל-Windows לשיפור טקסטים במהירות.",
       "לאחר Ctrl+C מופיע חלון פעולות קצר, בוחרים פעולה, והתוצאה מועתקת ללוח.",
       "",
       "דרישות בסיסיות",
@@ -52,7 +52,7 @@
       "https://www.nudge.example/help",
       "",
       "פתרון תקלות קצר",
-      "- אין חלון: ודאו ש-Nudge פעיל ב-Tray והועתק טקסט משמעותי.",
+      "- אין חלון: ודאו ש-CopyBar פעיל ב-Tray והועתק טקסט משמעותי.",
       "- אין תוצאה: בדקו אינטרנט ונסו שוב.",
       "- OCR חלש: נסו תמונה חדה יותר."
     ],
@@ -61,27 +61,27 @@
       "1) הורידו מהאתר הרשמי.",
       "2) פתחו את הקובץ ואשרו הרשאות.",
       "3) אם מופיע SmartScreen: More info -> Run anyway.",
-      "4) בסיום Nudge יופיע ב-System Tray."
+      "4) בסיום CopyBar יופיע ב-System Tray."
     ],
     "short_use_lines": [
       "שימוש מהיר:",
       "1) Ctrl+C על טקסט.",
-      "2) בחרו פעולה בחלון Nudge.",
+      "2) בחרו פעולה בחלון CopyBar.",
       "3) Ctrl+V להדבקה.",
       "לתמונה: העתיקו תמונה -> חלץ טקסט -> הדבקה."
     ]
   },
   "en": {
     "label": "English",
-    "title": "Nudge User Guide",
+    "title": "CopyBar User Guide",
     "layout": "ltr",
     "language_label": "Language",
     "close_button": "Close",
     "short_install_title": "Short website version - install",
     "short_use_title": "Short website version - use",
     "full_lines": [
-      "What is Nudge",
-      "Nudge is a lightweight Windows assistant for fast text improvements.",
+      "What is CopyBar",
+      "CopyBar is a lightweight Windows assistant for fast text improvements.",
       "After Ctrl+C, a small action popup appears. Choose one action and paste the result.",
       "",
       "Basic requirements",
@@ -90,7 +90,7 @@
       "- Background tray session available",
       "",
       "First run",
-      "- Nudge icon appears in system tray.",
+      "- CopyBar icon appears in system tray.",
       "- No large main window opens.",
       "- Trigger by selecting text and pressing Ctrl+C.",
       "",
@@ -111,7 +111,7 @@
       "Privacy and transparency",
       "- English > Hebrew Layout runs locally only.",
       "- Other text actions and OCR use cloud AI/OCR processing.",
-      "- If potentially sensitive content is detected, Nudge asks for confirmation before sending.",
+      "- If potentially sensitive content is detected, CopyBar asks for confirmation before sending.",
       "- Detection is pattern-based and does not guarantee full sensitive-data detection.",
       "",
       "Accessibility",
@@ -133,27 +133,27 @@
       "1) Download from official website.",
       "2) Run file and allow prompts.",
       "3) If SmartScreen appears: More info -> Run anyway.",
-      "4) Nudge appears in system tray."
+      "4) CopyBar appears in system tray."
     ],
     "short_use_lines": [
       "Quick use:",
       "1) Copy text with Ctrl+C.",
-      "2) Choose an action in Nudge popup.",
+      "2) Choose an action in CopyBar popup.",
       "3) Paste result with Ctrl+V.",
       "For OCR: copy image -> Extract Text -> paste."
     ]
   },
   "ar": {
     "label": "العربية",
-    "title": "دليل Nudge",
+    "title": "دليل CopyBar",
     "layout": "rtl",
     "language_label": "اللغة",
     "close_button": "إغلاق",
     "short_install_title": "نسخة مختصرة للموقع - التثبيت",
     "short_use_title": "نسخة مختصرة للموقع - الاستخدام",
     "full_lines": [
-      "ما هو Nudge",
-      "Nudge مساعد خفيف على Windows لتحسين النص بسرعة.",
+      "ما هو CopyBar",
+      "CopyBar مساعد خفيف على Windows لتحسين النص بسرعة.",
       "بعد Ctrl+C تظهر نافذة صغيرة بالإجراءات. اختر إجراءً واحدًا ثم الصق النتيجة.",
       "",
       "المتطلبات",
@@ -162,7 +162,7 @@
       "- توفر التشغيل في شريط النظام",
       "",
       "أول تشغيل",
-      "- تظهر أيقونة Nudge قرب الساعة.",
+      "- تظهر أيقونة CopyBar قرب الساعة.",
       "- لا توجد نافذة رئيسية كبيرة.",
       "- للتشغيل: حدّد نصًا واضغط Ctrl+C.",
       "",
@@ -183,7 +183,7 @@
       "الخصوصية والشفافية",
       "- إجراء إنجليزي > عبري يعمل محليًا فقط.",
       "- بقية إجراءات النص وOCR تستخدم معالجة سحابية AI/OCR.",
-      "- عند اكتشاف محتوى حساس محتمل يطلب Nudge تأكيدًا قبل الإرسال.",
+      "- عند اكتشاف محتوى حساس محتمل يطلب CopyBar تأكيدًا قبل الإرسال.",
       "- آلية الاكتشاف تعتمد على الأنماط ولا تضمن اكتشاف كل البيانات الحساسة.",
       "",
       "إمكانية الوصول",
@@ -199,27 +199,27 @@
       "1) تنزيل من الموقع الرسمي.",
       "2) تشغيل الملف والموافقة على الرسائل.",
       "3) إذا ظهر SmartScreen: More info ثم Run anyway.",
-      "4) ستظهر أيقونة Nudge في شريط النظام."
+      "4) ستظهر أيقونة CopyBar في شريط النظام."
     ],
     "short_use_lines": [
       "استخدام سريع:",
       "1) انسخ نصًا بـ Ctrl+C.",
-      "2) اختر إجراءً من نافذة Nudge.",
+      "2) اختر إجراءً من نافذة CopyBar.",
       "3) الصق بـ Ctrl+V.",
       "للصور: انسخ صورة -> استخراج النص -> لصق."
     ]
   },
   "ru": {
     "label": "Русский",
-    "title": "Руководство Nudge",
+    "title": "Руководство CopyBar",
     "layout": "ltr",
     "language_label": "Язык",
     "close_button": "Закрыть",
     "short_install_title": "Краткая версия для сайта - установка",
     "short_use_title": "Краткая версия для сайта - использование",
     "full_lines": [
-      "Что такое Nudge",
-      "Nudge - легкий помощник Windows для быстрого улучшения текста.",
+      "Что такое CopyBar",
+      "CopyBar - легкий помощник Windows для быстрого улучшения текста.",
       "После Ctrl+C появляется небольшое окно действий. Выберите действие и вставьте результат.",
       "",
       "Требования",
@@ -228,7 +228,7 @@
       "- Доступ к системному трею",
       "",
       "Первый запуск",
-      "- Иконка Nudge рядом с часами.",
+      "- Иконка CopyBar рядом с часами.",
       "- Большое главное окно не открывается.",
       "- Запуск по Ctrl+C на выделенном тексте.",
       "",
@@ -249,7 +249,7 @@
       "Конфиденциальность и прозрачность",
       "- Английская > Иврит раскладка выполняется локально.",
       "- Остальные текстовые действия и OCR используют облачную AI/OCR обработку.",
-      "- При обнаружении чувствительных данных Nudge запрашивает подтверждение перед отправкой.",
+      "- При обнаружении чувствительных данных CopyBar запрашивает подтверждение перед отправкой.",
       "- Обнаружение основано на шаблонах и не гарантирует выявление всех чувствительных данных.",
       "",
       "Доступность",
@@ -265,12 +265,12 @@
       "1) Скачайте с официального сайта.",
       "2) Запустите файл и подтвердите запросы.",
       "3) Если SmartScreen: More info -> Run anyway.",
-      "4) Иконка Nudge появится в трее."
+      "4) Иконка CopyBar появится в трее."
     ],
     "short_use_lines": [
       "Быстрое использование:",
       "1) Ctrl+C по тексту.",
-      "2) Выберите действие в окне Nudge.",
+      "2) Выберите действие в окне CopyBar.",
       "3) Вставьте через Ctrl+V.",
       "Для OCR: скопируйте изображение -> Извлечь текст -> вставить."
     ]
