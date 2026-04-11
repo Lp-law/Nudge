@@ -241,11 +241,12 @@ class ApiClient(QObject):
         """Extract X-Quota-Used, X-Quota-Limit, X-Quota-Remaining from response headers."""
         result: dict[str, int | None] = {"used": None, "limit": None, "remaining": None}
         for header_name, key in (
-            (b"X-Quota-Used", "used"),
-            (b"X-Quota-Limit", "limit"),
-            (b"X-Quota-Remaining", "remaining"),
+            ("X-Quota-Used", "used"),
+            ("X-Quota-Limit", "limit"),
+            ("X-Quota-Remaining", "remaining"),
         ):
-            raw = bytes(reply.rawHeader(header_name)).decode("utf-8", errors="replace").strip()
+            raw_bytes = reply.rawHeader(header_name.encode("utf-8"))
+            raw = bytes(raw_bytes).decode("utf-8", errors="replace").strip()
             if raw.isdigit():
                 result[key] = int(raw)
         return result
