@@ -22,8 +22,8 @@
       --accent: #22D3EE;
       --success: #10B981;
       --text: #FAFAFA;
-      --text-muted: #A1A1AA;
-      --text-dim: #71717A;
+      --text-muted: #B0B0B8;
+      --text-dim: #8B8B94;
       --border: #27272A;
       --gradient-btn: linear-gradient(135deg, #8B5CF6, #EC4899);
       --radius: 12px;
@@ -232,7 +232,6 @@
       font-family: 'Heebo', sans-serif;
       font-size: 0.95rem;
       transition: border-color 0.2s;
-      outline: none;
     }
 
     .form-group input::placeholder,
@@ -256,7 +255,7 @@
       display: none;
       background: rgba(239, 68, 68, 0.1);
       border: 1px solid rgba(239, 68, 68, 0.3);
-      color: #FCA5A5;
+      color: #F87171;
       padding: 12px 16px;
       border-radius: 10px;
       font-size: 0.9rem;
@@ -307,7 +306,7 @@
       padding: 14px 18px;
       margin-top: 12px;
       font-size: 0.9rem;
-      color: #6EE7B7;
+      color: #34D399;
       text-align: center;
     }
 
@@ -318,7 +317,7 @@
       padding: 14px 18px;
       margin-top: 12px;
       font-size: 0.9rem;
-      color: #FDE68A;
+      color: #FBBF24;
       text-align: center;
     }
 
@@ -475,7 +474,7 @@
       font-size: 1.3rem;
       font-weight: 700;
       margin-bottom: 12px;
-      color: #FCA5A5;
+      color: #F87171;
     }
 
     .done-error p {
@@ -517,6 +516,52 @@
 
     .footer-links a:hover { color: var(--text); }
 
+    /* ═══════════════════ SKIP LINK ═══════════════════ */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--primary);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 0 0 var(--radius) var(--radius);
+      font-weight: 600;
+      z-index: 200;
+      transition: top 0.2s;
+    }
+
+    .skip-link:focus {
+      top: 0;
+    }
+
+    /* ═══════════════════ FOCUS INDICATORS ═══════════════════ */
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    input:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 0;
+      border-color: var(--accent);
+    }
+
+    .radio-option input[type="radio"]:focus-visible + label {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* ═══════════════════ REDUCED MOTION ═══════════════════ */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
     /* ═══════════════════ RESPONSIVE ═══════════════════ */
     @media (max-width: 600px) {
       .main { padding-top: 100px; }
@@ -539,10 +584,12 @@
 </head>
 <body>
 
+  <a href="#main-content" class="skip-link">דלג/י לתוכן הראשי</a>
+
   <!-- NAVBAR -->
   <nav class="navbar">
     <div class="container">
-      <a href="index.html" class="logo">
+      <a href="index.html" class="logo" aria-label="CopyBar - עמוד הבית">
         <img src="copybar-wordmark.png" alt="CopyBar">
       </a>
       <ul class="nav-links">
@@ -552,28 +599,28 @@
   </nav>
 
   <!-- MAIN -->
-  <main class="main">
+  <main id="main-content" class="main">
     <div class="container">
 
       <!-- ════════ STEP 1 — Identity ════════ -->
       <div id="step1" class="step">
         <div class="page-header">
           <h1>ביטול מנוי</h1>
-          <p>נשמח שנשארת, אבל אנחנו מבינים. התהליך פשוט ומהיר.</p>
+          <p>שמחים שנשארים, אבל אנחנו מבינים. התהליך פשוט ומהיר.</p>
         </div>
 
         <div class="card">
           <form id="verifyForm" novalidate>
             <div class="form-group">
               <label for="email">אימייל</label>
-              <input type="email" id="email" required placeholder="האימייל שנרשמת איתו">
+              <input type="email" id="email" required aria-required="true" aria-describedby="step1Error" placeholder="האימייל שנעשתה בו ההרשמה">
             </div>
             <div class="form-group">
               <label for="licenseKey">מפתח רישיון</label>
-              <input type="text" id="licenseKey" required placeholder="נשלח אליך במייל בעת ההרשמה">
-              <p class="form-helper">לא מוצא/ת את מפתח הרישיון? בדוק/י במייל שקיבלת מ-<span class="en">CopyBar</span> בעת ההרשמה.</p>
+              <input type="text" id="licenseKey" required aria-required="true" aria-describedby="step1Error" placeholder="נשלח אליך במייל בעת ההרשמה">
+              <p class="form-helper">לא מוצא/ת את מפתח הרישיון? בדוק/י במייל שהתקבל מ-<span class="en" lang="en">CopyBar</span> בעת ההרשמה.</p>
             </div>
-            <div id="step1Error" class="error-msg"></div>
+            <div id="step1Error" class="error-msg" aria-live="polite"></div>
             <div class="form-actions">
               <button type="submit" id="step1Btn" class="btn btn-primary btn-lg">המשך</button>
             </div>
@@ -596,7 +643,7 @@
             </div>
             <div class="info-row">
               <span class="label">מפתח:</span>
-              <span class="value en" id="infoKey"></span>
+              <span class="value en" lang="en" id="infoKey"></span>
             </div>
             <div id="accessNotice" class="access-notice"></div>
             <div id="cancelWarning" class="cancel-warning" style="display:none;"></div>
@@ -604,9 +651,9 @@
 
           <!-- Survey -->
           <div class="survey-section">
-            <h3>נשמח לדעת למה — זה עוזר לנו להשתפר</h3>
+            <h3 id="surveyLabel">נשמח לדעת למה — זה עוזר לנו להשתפר</h3>
 
-            <div class="radio-group" id="reasonGroup">
+            <div class="radio-group" id="reasonGroup" role="radiogroup" aria-labelledby="surveyLabel">
               <div class="radio-option">
                 <input type="radio" name="reason" id="r_expensive" value="too_expensive">
                 <label for="r_expensive">המחיר גבוה מדי</label>
@@ -643,7 +690,7 @@
             </div>
           </div>
 
-          <div id="step2Error" class="error-msg"></div>
+          <div id="step2Error" class="error-msg" aria-live="polite"></div>
 
           <div class="step2-actions">
             <button type="button" id="confirmCancelBtn" class="btn btn-danger btn-lg">בטל את המנוי שלי</button>
@@ -664,7 +711,7 @@
           <h2>המנוי בוטל בהצלחה</h2>
           <p>לא יבוצעו חיובים נוספים.</p>
           <p>הגישה שלך פעילה עד <span class="effective-date" id="effectiveDate"></span>.</p>
-          <p>אם תשנה/י דעתך, תמיד אפשר לחדש.</p>
+          <p>אם תשתנה הדעה, תמיד אפשר לחדש.</p>
           <a href="index.html" class="btn btn-primary btn-lg">חזרה לאתר</a>
         </div>
 
@@ -679,7 +726,7 @@
           </div>
           <h2>שגיאה בביטול המנוי</h2>
           <p id="step3ErrorMsg"></p>
-          <p>אנא נסה שוב או פנה אלינו: <a href="mailto:hello@copybar.net"><span class="en">hello@copybar.net</span></a></p>
+          <p>נא לנסות שוב או לפנות אלינו: <a href="mailto:hello@copybar.net"><span class="en" lang="en">hello@copybar.net</span></a></p>
           <a href="index.html" class="btn btn-outline btn-lg" style="margin-top:24px;">חזרה לאתר</a>
         </div>
       </div>
@@ -691,7 +738,7 @@
   <footer class="footer">
     <div class="container">
       <div class="footer-copy">
-        &copy; 2026 <span class="en">CopyBar</span>. כל הזכויות שמורות.
+        &copy; 2026 <span class="en" lang="en">CopyBar</span>. כל הזכויות שמורות.
       </div>
       <ul class="footer-links">
         <li><a href="terms.html">תנאי שימוש</a></li>
@@ -741,11 +788,13 @@
     function showError(el, msg) {
       el.textContent = msg;
       el.classList.add("visible");
+      el.setAttribute("role", "alert");
     }
 
     function hideError(el) {
       el.textContent = "";
       el.classList.remove("visible");
+      el.removeAttribute("role");
     }
 
     function setLoading(btn, loading) {
@@ -799,7 +848,7 @@
 
         if (data.already_cancelling) {
           cancelWarning.style.display = "";
-          cancelWarning.textContent = "כבר התחלת תהליך ביטול. הגישה פעילה עד " + data.period_end + ".";
+          cancelWarning.textContent = "תהליך ביטול כבר החל. הגישה פעילה עד " + data.period_end + ".";
         } else {
           cancelWarning.style.display = "none";
         }
