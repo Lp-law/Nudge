@@ -245,8 +245,7 @@ class ApiClient(QObject):
             ("X-Quota-Limit", "limit"),
             ("X-Quota-Remaining", "remaining"),
         ):
-            raw_bytes = reply.rawHeader(header_name.encode("utf-8"))
-            raw = bytes(raw_bytes).decode("utf-8", errors="replace").strip()
+            raw = bytes(reply.rawHeader(header_name)).decode("utf-8", errors="replace").strip()
             if raw.isdigit():
                 result[key] = int(raw)
         return result
