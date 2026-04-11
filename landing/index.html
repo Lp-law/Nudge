@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="CopyBar — עוזר AI שיושב בשורת המשימות ומשדרג כל טקסט שאתה מעתיק. סיכום, שיפור, תרגום, כתיבת מייל ועוד. בלחיצה אחת.">
+  <meta name="description" content="CopyBar — עוזר AI שיושב בשורת המשימות ומשדרג כל טקסט בעת העתקה. סיכום, שיפור, תרגום, כתיבת מייל ועוד. בלחיצה אחת.">
   <title>CopyBar — הטקסט שלך, חכם יותר</title>
   <link rel="icon" type="image/svg+xml" href="copybar-logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,8 +22,8 @@
       --accent: #22D3EE;
       --success: #10B981;
       --text: #FAFAFA;
-      --text-muted: #A1A1AA;
-      --text-dim: #71717A;
+      --text-muted: #B0B0B8;
+      --text-dim: #8B8B94;
       --border: #27272A;
       --gradient: linear-gradient(135deg, #8B5CF6, #EC4899, #22D3EE);
       --gradient-btn: linear-gradient(135deg, #8B5CF6, #EC4899);
@@ -917,14 +917,60 @@
 
       .hero-actions { flex-direction: column; }
     }
+    /* ═══════════════════ ACCESSIBILITY ═══════════════════ */
+    /* Visible focus indicators */
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+      box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.4);
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* Skip navigation link */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      right: 0;
+      background: var(--primary);
+      color: #fff;
+      padding: 12px 24px;
+      z-index: 200;
+      font-weight: 600;
+      border-radius: 0 0 8px 8px;
+      transition: top 0.2s;
+    }
+    .skip-link:focus {
+      top: 0;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      html { scroll-behavior: auto; }
+    }
   </style>
 </head>
 <body>
 
+  <a href="#main-content" class="skip-link">דלג/י לתוכן הראשי</a>
+
   <!-- ═══════════════════ NAVBAR ═══════════════════ -->
   <nav class="navbar">
     <div class="container">
-      <a href="#" class="logo">
+      <a href="/" class="logo" aria-label="CopyBar - עמוד הבית">
         <span class="logo-icon">
           <img src="copybar-wordmark.png" alt="CopyBar" height="52" style="display:block">
         </span>
@@ -935,10 +981,10 @@
         <li><a href="#pricing">תמחור</a></li>
         <li><a href="#download">הורדה</a></li>
         <li><a href="#faq">שאלות נפוצות</a></li>
-        <li><a href="#pricing" class="btn btn-primary">התחל בחינם</a></li>
+        <li><a href="#pricing" class="btn btn-primary">להתחלה בחינם</a></li>
       </ul>
 
-      <button class="hamburger" id="hamburger" aria-label="תפריט">
+      <button class="hamburger" id="hamburger" aria-label="תפריט" aria-expanded="false" aria-controls="navLinks">
         <span></span>
         <span></span>
         <span></span>
@@ -946,10 +992,12 @@
     </div>
   </nav>
 
+  <main id="main-content">
+
   <!-- ═══════════════════ HERO ═══════════════════ -->
   <section class="hero">
     <div class="hero-grid"></div>
-    <div class="hero-dots">
+    <div class="hero-dots" aria-hidden="true">
       <div class="dot"></div>
       <div class="dot"></div>
       <div class="dot"></div>
@@ -959,18 +1007,18 @@
     </div>
     <div class="container hero-content">
       <div class="hero-badge">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2"><path d="M12 2L14 8.5L20 6L16 12L20 18L14 15.5L12 22L10 15.5L4 18L8 12L4 6L10 8.5L12 2Z"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" aria-hidden="true"><path d="M12 2L14 8.5L20 6L16 12L20 18L14 15.5L12 22L10 15.5L4 18L8 12L4 6L10 8.5L12 2Z"/></svg>
         עוזר AI לכל טקסט
       </div>
       <h1>הטקסט שלך, חכם יותר</h1>
       <p class="hero-subtitle">
-        <span class="en">CopyBar</span> הוא עוזר AI שיושב בשורת המשימות ומשדרג כל טקסט שאתה מעתיק — תקצור, שפר, תרגם, כתוב מייל ועוד. בלחיצה אחת.
+        <span class="en" lang="en">CopyBar</span> הוא עוזר AI שיושב בשורת המשימות ומשדרג כל טקסט בעת העתקה — סיכום, שיפור, תרגום, כתיבת מייל ועוד. בלחיצה אחת.
       </p>
       <div class="hero-actions">
-        <a href="#pricing" class="btn btn-primary btn-lg">נסה 7 ימים בחינם</a>
-        <a href="#how-it-works" class="hero-secondary">ראה איך זה עובד &larr;</a>
+        <a href="#pricing" class="btn btn-primary btn-lg">ניסיון חינמי ל-7 ימים</a>
+        <a href="#how-it-works" class="hero-secondary">לראות איך זה עובד &larr;</a>
       </div>
-      <div class="hero-bar"></div>
+      <div class="hero-bar" aria-hidden="true"></div>
     </div>
   </section>
 
@@ -979,31 +1027,31 @@
     <div class="container text-center">
       <span class="section-label reveal">איך זה עובד</span>
       <h2 class="section-title reveal">שלושה צעדים. זה הכל.</h2>
-      <p class="section-desc reveal">אין הגדרות מסובכות, אין ממשקים מיותרים. פשוט העתק, בחר, והדבק.</p>
+      <p class="section-desc reveal">אין הגדרות מסובכות, אין ממשקים מיותרים. פשוט להעתיק, לבחור, ולהדביק.</p>
       <div class="steps-grid">
         <div class="step-card reveal">
           <div class="step-number">1</div>
           <div class="step-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
           </div>
-          <h3>העתק טקסט</h3>
-          <p>העתק כל טקסט כרגיל עם <span class="en" style="direction:ltr;unicode-bidi:embed">Ctrl+C</span></p>
+          <h3>העתקת טקסט</h3>
+          <p>יש להעתיק כל טקסט כרגיל עם <span class="en" lang="en" style="direction:ltr;unicode-bidi:embed">Ctrl+C</span></p>
         </div>
         <div class="step-card reveal">
           <div class="step-number">2</div>
           <div class="step-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L14 8.5L20 6L16 12L20 18L14 15.5L12 22L10 15.5L4 18L8 12L4 6L10 8.5L12 2Z"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2L14 8.5L20 6L16 12L20 18L14 15.5L12 22L10 15.5L4 18L8 12L4 6L10 8.5L12 2Z"/></svg>
           </div>
-          <h3>בחר פעולה</h3>
+          <h3>בחירת פעולה</h3>
           <p>חלון קטן צץ ליד הסמן עם 9 פעולות AI</p>
         </div>
         <div class="step-card reveal">
           <div class="step-number">3</div>
           <div class="step-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
           </div>
-          <h3>קבל תוצאה</h3>
-          <p>התוצאה מועתקת אוטומטית ללוח. פשוט הדבק.</p>
+          <h3>קבלת תוצאה</h3>
+          <p>התוצאה מועתקת אוטומטית ללוח. פשוט להדביק.</p>
         </div>
       </div>
 
@@ -1017,7 +1065,7 @@
           <span class="flow-arrow">&larr;</span>
           <span class="flow-step">לחיצה על פעולה</span>
           <span class="flow-arrow">&larr;</span>
-          <span class="flow-step accent"><span class="en">AI</span> מעבד</span>
+          <span class="flow-step accent"><span class="en" lang="en">AI</span> מעבד</span>
           <span class="flow-arrow">&larr;</span>
           <span class="flow-step success">תוצאה מועתקת</span>
           <span class="flow-arrow">&larr;</span>
@@ -1029,7 +1077,7 @@
       <div class="use-case-box reveal" style="margin-top:40px;max-width:640px;margin-left:auto;margin-right:auto;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px 28px;text-align:right">
         <div style="font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent);margin-bottom:12px">דוגמה מהשטח</div>
         <p style="font-size:1rem;color:var(--text-muted);line-height:1.8;margin:0">
-          קיבלת מייל ארוך באנגלית. העתקת אותו, לחצת <strong style="color:var(--text)">"סיכום"</strong> — ותוך שניות קיבלת תקציר קצר בעברית. פשוט הדבקת אותו וחסכת 10 דקות קריאה.
+          מייל ארוך באנגלית? מעתיקים אותו, לוחצים <strong style="color:var(--text)">"סיכום"</strong> — ותוך שניות מתקבל תקציר קצר בעברית. פשוט להדביק ולחסוך 10 דקות קריאה.
         </p>
       </div>
 
@@ -1046,7 +1094,7 @@
         <div class="feature-card reveal">
           <span class="feature-icon" role="img" aria-label="סיכום">&#x1F4DD;</span>
           <h3>סיכום</h3>
-          <p>קבל תקציר חכם של כל טקסט ארוך</p>
+          <p>תקציר חכם של כל טקסט ארוך</p>
         </div>
         <div class="feature-card reveal">
           <span class="feature-icon" role="img" aria-label="שיפור ניסוח">&#x2728;</span>
@@ -1054,24 +1102,24 @@
           <p>ניסוח מקצועי יותר, ברור ויפה</p>
         </div>
         <div class="feature-card reveal">
-          <span class="feature-icon" role="img" aria-label="הפוך למייל">&#x2709;&#xFE0F;</span>
-          <h3>הפוך למייל</h3>
-          <p>הפוך רעיון למייל מסודר עם נושא</p>
+          <span class="feature-icon" role="img" aria-label="הפיכה למייל">&#x2709;&#xFE0F;</span>
+          <h3>הפיכה למייל</h3>
+          <p>הפיכת רעיון למייל מסודר עם נושא</p>
         </div>
         <div class="feature-card reveal">
           <span class="feature-icon" role="img" aria-label="טיוטת תשובה למייל">&#x21A9;&#xFE0F;</span>
           <h3>טיוטת תשובה למייל</h3>
-          <p>צור תשובה מקצועית למייל שקיבלת</p>
+          <p>יצירת תשובה מקצועית למייל שהתקבל</p>
         </div>
         <div class="feature-card reveal">
           <span class="feature-icon" role="img" aria-label="תיקון שפה">&#x1F524;</span>
           <h3>תיקון שפה</h3>
-          <p>תקן שגיאות כתיב ודקדוק</p>
+          <p>תיקון שגיאות כתיב ודקדוק</p>
         </div>
         <div class="feature-card reveal">
           <span class="feature-icon" role="img" aria-label="הסבר משמעות">&#x1F4A1;</span>
           <h3>הסבר משמעות</h3>
-          <p>קבל הסבר פשוט למונח או קטע מורכב</p>
+          <p>הסבר פשוט למונח או קטע מורכב</p>
         </div>
         <div class="feature-card reveal">
           <span class="feature-icon" role="img" aria-label="תרגום לעברית">&#x1F1EE;&#x1F1F1;</span>
@@ -1085,8 +1133,8 @@
         </div>
         <div class="feature-card reveal">
           <span class="feature-icon" role="img" aria-label="OCR">&#x1F4F7;</span>
-          <h3>חילוץ טקסט <span class="en">(OCR)</span></h3>
-          <p>צלם תמונה וחלץ ממנה טקסט</p>
+          <h3>חילוץ טקסט <span class="en" lang="en">(OCR)</span></h3>
+          <p>צילום תמונה וחילוץ טקסט ממנה</p>
         </div>
       </div>
     </div>
@@ -1098,7 +1146,7 @@
     <div class="container text-center">
       <span class="section-label reveal">תמחור</span>
       <h2 class="section-title reveal">תוכנית לכל צורך</h2>
-      <p class="section-desc reveal">התחל בחינם, שדרג כשתרצה. ללא התחייבות.</p>
+      <p class="section-desc reveal">להתחיל בחינם, לשדרג בכל עת. ללא התחייבות.</p>
       <div class="pricing-grid">
         <!-- Trial -->
         <div class="pricing-card reveal">
@@ -1110,11 +1158,11 @@
             <li>כל הפעולות</li>
             <li>ללא כרטיס אשראי</li>
           </ul>
-          <a href="#download" class="btn btn-outline">התחל ניסיון חינמי</a>
+          <a href="#download" class="btn btn-outline">ניסיון חינמי</a>
         </div>
         <!-- Personal -->
         <div class="pricing-card reveal">
-          <h3><span class="en">Personal</span></h3>
+          <h3><span class="en" lang="en">Personal</span></h3>
           <div class="pricing-price">29 <span class="currency">&#x20AA;/חודש</span></div>
           <div class="pricing-period">200 בקשות בחודש</div>
           <ul class="pricing-features">
@@ -1122,12 +1170,12 @@
             <li>כל הפעולות</li>
             <li>תמיכה במייל</li>
           </ul>
-          <a href="#" class="btn btn-primary checkout-btn" data-plan="personal">רכוש עכשיו</a>
+          <a href="#" class="btn btn-primary checkout-btn" data-plan="personal">לרכישה</a>
         </div>
         <!-- Pro -->
         <div class="pricing-card popular reveal">
           <div class="popular-badge">הכי פופולרי</div>
-          <h3><span class="en">Pro</span></h3>
+          <h3><span class="en" lang="en">Pro</span></h3>
           <div class="pricing-price">49 <span class="currency">&#x20AA;/חודש</span></div>
           <div class="pricing-period">שימוש ללא הגבלה</div>
           <ul class="pricing-features">
@@ -1136,7 +1184,7 @@
             <li>תמיכה עדיפה</li>
             <li>עדכונים ראשונים</li>
           </ul>
-          <a href="#" class="btn btn-accent checkout-btn" data-plan="pro">רכוש עכשיו</a>
+          <a href="#" class="btn btn-accent checkout-btn" data-plan="pro">לרכישה</a>
         </div>
       </div>
     </div>
@@ -1149,15 +1197,15 @@
         <div class="download-icon">
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         </div>
-        <h2 class="section-title" style="margin-bottom:12px">הורד את <span class="en">CopyBar</span></h2>
+        <h2 class="section-title" style="margin-bottom:12px">הורדת <span class="en" lang="en">CopyBar</span></h2>
         <a href="#" onclick="alert('הקישור להורדה יהיה זמין בקרוב!');return false;" class="btn btn-primary btn-lg" id="downloadBtn" style="margin-top:16px">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.45H0m10.949-9.596L24 0v11.4H10.949M0 12.6h9.75v9.45L0 20.699M10.949 12.6H24V24l-13.051-1.848"/></svg>
-          הורד ל-<span class="en">Windows</span>
+          הורדה ל-<span class="en" lang="en">Windows</span>
         </a>
-        <p class="download-meta">גרסה 1.0.0 &nbsp;|&nbsp; <span class="en">Windows 10/11</span></p>
-        <p class="download-soon">בקרוב: <span class="en">iOS</span> &nbsp;|&nbsp; <span class="en">Android</span></p>
+        <p class="download-meta">גרסה 1.0.0 &nbsp;|&nbsp; <span class="en" lang="en">Windows 10/11</span></p>
+        <p class="download-soon">בקרוב: <span class="en" lang="en">iOS</span> &nbsp;|&nbsp; <span class="en" lang="en">Android</span></p>
         <div class="download-note">
-          לאחר ההורדה, הפעל את התוכנה והזן את מפתח ההפעלה שקיבלת במייל.
+          לאחר ההורדה, יש להפעיל את התוכנה ולהזין את מפתח ההפעלה שהתקבל במייל.
         </div>
       </div>
     </div>
@@ -1171,39 +1219,39 @@
       <p class="section-desc reveal">כל מה שצריך לדעת לפני שמתחילים</p>
       <div class="faq-list">
         <details class="reveal">
-          <summary>מה זה <span class="en">CopyBar</span>?</summary>
+          <summary>מה זה <span class="en" lang="en">CopyBar</span>?</summary>
           <div class="faq-answer">
-            <span class="en">CopyBar</span> הוא עוזר AI קטן שיושב בשורת המשימות של <span class="en">Windows</span>. כל פעם שאתה מעתיק טקסט, צץ חלון קטן עם פעולות חכמות — סיכום, שיפור, תרגום, כתיבת מייל ועוד. התוצאה מועתקת אוטומטית ואתה יכול להדביק אותה מיד.
+            <span class="en" lang="en">CopyBar</span> הוא עוזר AI קטן שיושב בשורת המשימות של <span class="en" lang="en">Windows</span>. בכל העתקת טקסט, צץ חלון קטן עם פעולות חכמות — סיכום, שיפור, תרגום, כתיבת מייל ועוד. התוצאה מועתקת אוטומטית וניתן להדביק אותה מיד.
           </div>
         </details>
         <details class="reveal">
           <summary>האם המידע שלי מאובטח?</summary>
           <div class="faq-answer">
-            כן. <span class="en">CopyBar</span> לא שומר את הטקסטים שלך. כל בקשה מעובדת בזמן אמת ונמחקת. התעבורה מוצפנת (<span class="en">HTTPS</span>) והגישה מאובטחת באימות <span class="en">JWT</span>.
+            כן. <span class="en" lang="en">CopyBar</span> לא שומר את הטקסטים שלך. כל בקשה מעובדת בזמן אמת ונמחקת. התעבורה מוצפנת (<span class="en" lang="en">HTTPS</span>) והגישה מאובטחת באימות <span class="en" lang="en">JWT</span>.
           </div>
         </details>
         <details class="reveal">
           <summary>האם זה עובד בעברית?</summary>
           <div class="faq-answer">
-            בהחלט! <span class="en">CopyBar</span> תוכנן במיוחד לעברית ואנגלית, כולל זיהוי שפה אוטומטי ותמיכה ב-<span class="en">RTL</span>.
+            בהחלט! <span class="en" lang="en">CopyBar</span> תוכנן במיוחד לעברית ואנגלית, כולל זיהוי שפה אוטומטי ותמיכה ב-<span class="en" lang="en">RTL</span>.
           </div>
         </details>
         <details class="reveal">
-          <summary>מה ההבדל בין <span class="en">Personal</span> ל-<span class="en">Pro</span>?</summary>
+          <summary>מה ההבדל בין <span class="en" lang="en">Personal</span> ל-<span class="en" lang="en">Pro</span>?</summary>
           <div class="faq-answer">
-            <span class="en">Personal</span> מוגבל ל-200 בקשות בחודש, מספיק לרוב המשתמשים. <span class="en">Pro</span> נותן שימוש ללא הגבלה, מתאים למי שעובד עם טקסטים כל היום.
+            <span class="en" lang="en">Personal</span> מוגבל ל-200 בקשות בחודש, מספיק לרוב המשתמשים. <span class="en" lang="en">Pro</span> מציע שימוש ללא הגבלה, ומתאים לעבודה יומיומית עם טקסטים.
           </div>
         </details>
         <details class="reveal">
           <summary>האם אפשר לבטל בכל זמן?</summary>
           <div class="faq-answer">
-            כן, ללא התחייבות. אתה יכול לבטל את המנוי בכל רגע ולא תחויב יותר.
+            כן, ללא התחייבות. ניתן לבטל את המנוי בכל רגע ללא חיוב נוסף.
           </div>
         </details>
         <details class="reveal">
           <summary>על אילו מערכות הפעלה זה עובד?</summary>
           <div class="faq-answer">
-            כרגע <span class="en">Windows 10/11</span>. אפליקציות <span class="en">iOS</span> ו-<span class="en">Android</span> בפיתוח.
+            כרגע <span class="en" lang="en">Windows 10/11</span>. אפליקציות <span class="en" lang="en">iOS</span> ו-<span class="en" lang="en">Android</span> בפיתוח.
           </div>
         </details>
         <details class="reveal">
@@ -1216,16 +1264,18 @@
     </div>
   </section>
 
+  </main>
+
   <!-- ═══════════════════ FOOTER ═══════════════════ -->
   <footer class="footer">
     <div class="container">
       <div class="footer-inner">
         <div class="footer-brand">
-          <a href="#" class="logo" style="font-size:1.2rem">
+          <a href="/" class="logo" style="font-size:1.2rem" aria-label="CopyBar - עמוד הבית">
             <span class="logo-icon" style="width:24px;height:24px">
               <img src="copybar-logo.png" alt="CopyBar logo" width="24" height="24" style="border-radius:4px">
             </span>
-            <span class="en">CopyBar</span>
+            <span class="en" lang="en">CopyBar</span>
           </a>
           <span class="footer-tagline">הטקסט שלך, חכם יותר</span>
         </div>
@@ -1238,7 +1288,7 @@
         </ul>
       </div>
       <div class="footer-copy">
-        &copy; 2026 <span class="en">CopyBar</span>. כל הזכויות שמורות. &nbsp;|&nbsp; <span class="en">hello@copybar.net</span>
+        &copy; 2026 <span class="en" lang="en">CopyBar</span>. כל הזכויות שמורות. &nbsp;|&nbsp; <span class="en" lang="en">hello@copybar.net</span>
       </div>
     </div>
   </footer>
@@ -1251,6 +1301,8 @@
     hamburger.addEventListener('click', () => {
       navLinks.classList.toggle('open');
       hamburger.classList.toggle('active');
+      const expanded = navLinks.classList.contains('open');
+      hamburger.setAttribute('aria-expanded', expanded);
     });
 
     // Close menu on link click
@@ -1258,6 +1310,7 @@
       link.addEventListener('click', () => {
         navLinks.classList.remove('open');
         hamburger.classList.remove('active');
+        hamburger.setAttribute('aria-expanded', 'false');
       });
     });
 
