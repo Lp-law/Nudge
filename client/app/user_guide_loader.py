@@ -10,7 +10,7 @@ REQUIRED_LINE_KEYS = ("full_lines", "short_install_lines", "short_use_lines")
 FALLBACK_GUIDES: dict[str, dict[str, str]] = {
     "he": {
         "label": "עברית",
-        "title": "מדריך משתמש - Nudge",
+        "title": "מדריך משתמש - CopyBar",
         "layout": "rtl",
         "language_label": "שפה",
         "close_button": "סגירה",
@@ -22,7 +22,7 @@ FALLBACK_GUIDES: dict[str, dict[str, str]] = {
     },
     "en": {
         "label": "English",
-        "title": "Nudge User Guide",
+        "title": "CopyBar User Guide",
         "layout": "ltr",
         "language_label": "Language",
         "close_button": "Close",
@@ -34,7 +34,7 @@ FALLBACK_GUIDES: dict[str, dict[str, str]] = {
     },
     "ar": {
         "label": "العربية",
-        "title": "دليل Nudge",
+        "title": "دليل CopyBar",
         "layout": "rtl",
         "language_label": "اللغة",
         "close_button": "إغلاق",
@@ -46,7 +46,7 @@ FALLBACK_GUIDES: dict[str, dict[str, str]] = {
     },
     "ru": {
         "label": "Русский",
-        "title": "Руководство Nudge",
+        "title": "Руководство CopyBar",
         "layout": "ltr",
         "language_label": "Язык",
         "close_button": "Закрыть",
@@ -66,7 +66,7 @@ def _coerce_locale(locale_key: str, value: dict) -> dict[str, str] | None:
         return None
     return {
         "label": str(value.get("label") or locale_key),
-        "title": str(value.get("title") or "Nudge User Guide"),
+        "title": str(value.get("title") or "CopyBar User Guide"),
         "layout": "rtl" if str(value.get("layout") or "ltr").lower() == "rtl" else "ltr",
         "language_label": str(value.get("language_label") or "Language"),
         "close_button": str(value.get("close_button") or "Close"),

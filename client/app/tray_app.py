@@ -154,11 +154,11 @@ class TrayApp:
         version = (self.app.applicationVersion() or "").strip()
         channel = str(self.app.property("nudge_release_channel") or "stable").strip().lower()
         if version and channel == "stable":
-            self.tray.setToolTip(f"Nudge {version}")
+            self.tray.setToolTip(f"CopyBar {version}")
         elif version:
-            self.tray.setToolTip(f"Nudge {version} ({channel})")
+            self.tray.setToolTip(f"CopyBar {version} ({channel})")
         else:
-            self.tray.setToolTip("Nudge")
+            self.tray.setToolTip("CopyBar")
         menu = QMenu()
         self._tier_menu_action = menu.addAction(self._tier_display_label())
         self._tier_menu_action.setEnabled(False)
@@ -470,7 +470,7 @@ class TrayApp:
                 selected = TRIGGER_MODE_COPY_VALUE
                 if notify:
                     self.tray.showMessage(
-                        "Nudge",
+                        "CopyBar",
                         TRIGGER_MODE_DOUBLE_CTRL_UNAVAILABLE,
                         QSystemTrayIcon.MessageIcon.Warning,
                         2500,
@@ -801,7 +801,7 @@ class TrayApp:
         dialog.exec()
         if dialog.clickedButton() is copy_button:
             self.clipboard.setText(summary, mode=QClipboard.Clipboard)
-            self.tray.showMessage("Nudge", DIAGNOSTICS_COPIED_MESSAGE, QSystemTrayIcon.MessageIcon.Information, 1800)
+            self.tray.showMessage("CopyBar", DIAGNOSTICS_COPIED_MESSAGE, QSystemTrayIcon.MessageIcon.Information, 1800)
 
     def _maybe_show_onboarding(self) -> None:
         if self._is_shutting_down:
@@ -823,14 +823,14 @@ class TrayApp:
             on_error=self._on_onboarding_error,
         )
         if request_id < 0:
-            self.tray.showMessage("Nudge", ONBOARDING_ERROR_FAILED, QSystemTrayIcon.MessageIcon.Warning, 2200)
+            self.tray.showMessage("CopyBar", ONBOARDING_ERROR_FAILED, QSystemTrayIcon.MessageIcon.Warning, 2200)
 
     def _on_onboarding_success(self, _request_id: int, _result: str) -> None:
         self._preferences.setValue("onboarding_completed", "true")
         self._preferences.sync()
 
     def _on_onboarding_error(self, _request_id: int, _message: str) -> None:
-        self.tray.showMessage("Nudge", ONBOARDING_ERROR_FAILED, QSystemTrayIcon.MessageIcon.Warning, 2200)
+        self.tray.showMessage("CopyBar", ONBOARDING_ERROR_FAILED, QSystemTrayIcon.MessageIcon.Warning, 2200)
 
     def _confirm_cloud_send_for_text(self, text: str) -> bool:
         reasons = detect_sensitive_text(text)
@@ -1005,10 +1005,10 @@ class TrayApp:
 
     def _on_quota_warning(self, remaining: int) -> None:
         if self._session.tier == "personal":
-            self.tray.setToolTip(f"Nudge - {QUOTA_WARNING.format(remaining=remaining)}")
+            self.tray.setToolTip(f"CopyBar - {QUOTA_WARNING.format(remaining=remaining)}")
 
     def _on_quota_exceeded(self) -> None:
-        QMessageBox.warning(self.popup, "Nudge", QUOTA_EXCEEDED)
+        QMessageBox.warning(self.popup, "CopyBar", QUOTA_EXCEEDED)
 
     def _load_accessibility_mode(self) -> bool:
         persisted = self._preferences.value("accessibility_mode", None)

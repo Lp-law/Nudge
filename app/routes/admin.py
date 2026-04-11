@@ -283,7 +283,7 @@ async def admin_dashboard(request: Request, _admin: str = Depends(_verify_admin)
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Nudge Admin Dashboard</title>
+  <title>CopyBar Admin Dashboard</title>
   <style>
     body { font-family: Segoe UI, Arial, sans-serif; margin: 18px; background: #0f1524; color: #eaf0ff; }
     .cards { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 10px; margin-bottom: 14px; }
@@ -317,7 +317,7 @@ async def admin_dashboard(request: Request, _admin: str = Depends(_verify_admin)
   </style>
 </head>
 <body>
-  <h2>Nudge Admin Dashboard</h2>
+  <h2>CopyBar Admin Dashboard</h2>
   <div class="muted">Lead/user management only. No clipboard/OCR/user-content data is stored here.</div>
   <div style="display:flex; gap:8px; margin:10px 0 14px 0;">
     <button onclick="downloadBackup()">Backup (.zip)</button>
@@ -669,7 +669,7 @@ async def admin_logout(_admin: str = Depends(_verify_admin)) -> HTMLResponse:
     html = """
 <!doctype html>
 <html>
-<head><meta charset="utf-8" /><title>Nudge Admin Logout</title></head>
+<head><meta charset="utf-8" /><title>CopyBar Admin Logout</title></head>
 <body style="font-family:Segoe UI,Arial,sans-serif; margin:20px;">
   <h3>Logged out</h3>
   <div>Close this tab or open <a href="/admin">/admin</a> to sign in again.</div>
