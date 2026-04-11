@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Any, Callable
 
-from PySide6.QtCore import QByteArray, QObject, QTimer, QUrl
+from PySide6.QtCore import QObject, QTimer, QUrl
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 
 from .session_state import ClientSession
@@ -245,7 +245,8 @@ class ApiClient(QObject):
             ("X-Quota-Limit", "limit"),
             ("X-Quota-Remaining", "remaining"),
         ):
-            raw = bytes(reply.rawHeader(QByteArray(header_name.encode()))).decode("utf-8", errors="replace").strip()
+            header_val = reply.rawHeader(header_name)
+            raw = bytes(header_val).decode("utf-8", errors="replace").strip() if header_val else ""
             if raw.isdigit():
                 result[key] = int(raw)
         return result
