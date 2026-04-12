@@ -31,6 +31,9 @@ _CANCEL_TOKEN_TTL = 900  # 15 minutes
 
 _log = logging.getLogger(__name__)
 
+# Separate router for beta signup — always loaded, doesn't require PayPlus.
+beta_signup_router = APIRouter(prefix="/payments", tags=["beta"])
+
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 
@@ -306,7 +309,7 @@ def _beta_welcome_email_html(full_name: str, key: str) -> str:
 """
 
 
-@router.post("/beta/signup", response_model=BetaSignupResponse)
+@beta_signup_router.post("/beta/signup", response_model=BetaSignupResponse)
 async def beta_signup(payload: BetaSignupRequest, request: Request) -> BetaSignupResponse:
     """Self-service beta signup: generates a license key and emails it."""
     settings = get_settings()
