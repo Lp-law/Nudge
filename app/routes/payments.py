@@ -358,7 +358,12 @@ async def beta_signup(payload: BetaSignupRequest, request: Request) -> BetaSignu
     if settings.support_email_enabled:
         try:
             from app.services.graph_mail_client import GraphMailClient
-            mail_client = GraphMailClient(settings)
+            mail_client = GraphMailClient(
+                tenant_id=settings.support_graph_tenant_id or "",
+                client_id=settings.support_graph_client_id or "",
+                client_secret=settings.support_graph_client_secret or "",
+                mailbox=settings.support_mailbox or "",
+            )
             await mail_client.send_mail(
                 to=email,
                 subject="CopyBar Beta — מפתח ההפעלה שלך 🔑",
