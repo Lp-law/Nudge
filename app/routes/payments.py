@@ -300,7 +300,8 @@ def _beta_welcome_email_html(full_name: str, key: str) -> str:
     <!-- Key box -->
     <div style="background:#F5F3FF;border:2px solid #8B5CF6;border-radius:10px;padding:20px;text-align:center;margin:0 0 28px;">
       <p style="color:#666;font-size:13px;margin:0 0 8px;">מפתח ההפעלה שלך</p>
-      <p style="color:#8B5CF6;font-size:22px;font-weight:900;letter-spacing:2px;margin:0;direction:ltr;">{key}</p>
+      <p id="betaKey" style="color:#8B5CF6;font-size:22px;font-weight:900;letter-spacing:2px;margin:0 0 12px;direction:ltr;">{key}</p>
+      <a href="#" onclick="navigator.clipboard.writeText('{key}');this.textContent='✅ הועתק!';setTimeout(()=>this.textContent='📋 העתקת מפתח',2000);return false;" style="display:inline-block;padding:8px 20px;background:#8B5CF6;color:#fff;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;">📋 העתקת מפתח</a>
     </div>
 
     <!-- Steps -->
