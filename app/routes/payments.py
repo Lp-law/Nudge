@@ -282,75 +282,69 @@ _DOWNLOAD_URL = "https://github.com/Lp-law/Nudge/releases/download/v1.0.1-beta/C
 
 def _beta_welcome_email_html(full_name: str, key: str) -> str:
     return f"""
-<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;background:#09090B;color:#FAFAFA;">
-  <!-- Header with gradient bar -->
-  <div style="background:linear-gradient(135deg,#8B5CF6,#EC4899,#22D3EE);padding:4px;border-radius:16px 16px 0 0;">
-    <div style="background:#09090B;padding:32px 24px;border-radius:14px 14px 0 0;text-align:center;">
-      <img src="{_LOGO_URL}" alt="CopyBar" width="180" style="display:inline-block;" />
-      <p style="color:#A1A1AA;font-size:14px;margin:8px 0 0;">הטקסט שלך, חכם יותר</p>
-    </div>
+<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;">
+  <!-- Header bar -->
+  <div style="background:#8B5CF6;padding:24px;text-align:center;">
+    <img src="{_LOGO_URL}" alt="CopyBar" width="160" style="display:inline-block;" />
   </div>
 
   <!-- Body -->
-  <div style="background:#18181B;padding:32px 28px;border-left:1px solid #27272A;border-right:1px solid #27272A;">
-    <h2 style="color:#FAFAFA;font-size:22px;margin:0 0 16px;">שלום {full_name} 👋</h2>
-    <p style="color:#A1A1AA;font-size:15px;line-height:1.8;margin:0 0 24px;">
-      תודה שהצטרפת לגרסת הבטא של <strong style="color:#FAFAFA;">CopyBar</strong>!<br>
-      המפתח שלך מוכן — <strong style="color:#22D3EE;">10 ימים חינם לגמרי</strong>.
+  <div style="padding:32px 28px;background:#ffffff;">
+    <h2 style="color:#1a1a1a;font-size:22px;margin:0 0 12px;">שלום {full_name} 👋</h2>
+    <p style="color:#444;font-size:15px;line-height:1.8;margin:0 0 24px;">
+      תודה שהצטרפת לגרסת הבטא של <strong>CopyBar</strong>!<br>
+      המפתח שלך מוכן — <strong style="color:#8B5CF6;">10 ימים חינם לגמרי</strong>.
     </p>
 
     <!-- Key box -->
-    <div style="background:#09090B;border:2px solid #8B5CF6;border-radius:12px;padding:24px;text-align:center;margin:0 0 28px;">
-      <p style="color:#71717A;font-size:12px;margin:0 0 10px;text-transform:uppercase;letter-spacing:1px;">מפתח ההפעלה שלך</p>
-      <p style="background:linear-gradient(135deg,#8B5CF6,#EC4899,#22D3EE);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:24px;font-weight:900;letter-spacing:3px;margin:0;direction:ltr;">{key}</p>
+    <div style="background:#F5F3FF;border:2px solid #8B5CF6;border-radius:10px;padding:20px;text-align:center;margin:0 0 28px;">
+      <p style="color:#666;font-size:12px;margin:0 0 8px;">מפתח ההפעלה שלך</p>
+      <p style="color:#8B5CF6;font-size:22px;font-weight:900;letter-spacing:2px;margin:0;direction:ltr;">{key}</p>
     </div>
 
     <!-- Steps -->
-    <h3 style="color:#FAFAFA;font-size:17px;margin:0 0 16px;">איך מתחילים?</h3>
+    <h3 style="color:#1a1a1a;font-size:17px;margin:0 0 16px;">איך מתחילים?</h3>
     <table style="width:100%;border-collapse:collapse;" dir="rtl">
       <tr>
         <td style="width:36px;vertical-align:top;padding:0 0 14px;">
-          <div style="width:30px;height:30px;background:#8B5CF6;border-radius:50%;text-align:center;line-height:30px;font-weight:700;font-size:14px;color:#fff;">1</div>
+          <div style="width:28px;height:28px;background:#8B5CF6;border-radius:50%;text-align:center;line-height:28px;font-weight:700;font-size:13px;color:#fff;">1</div>
         </td>
-        <td style="vertical-align:top;padding:4px 12px 14px 0;color:#A1A1AA;font-size:15px;">
-          <a href="{_DOWNLOAD_URL}" style="color:#8B5CF6;font-weight:700;text-decoration:none;">להוריד את CopyBar</a> ולהתקין — התקנה רגילה של Windows
+        <td style="vertical-align:top;padding:3px 10px 14px 0;color:#444;font-size:15px;">
+          <a href="{_DOWNLOAD_URL}" style="color:#8B5CF6;font-weight:700;text-decoration:none;">להוריד את CopyBar</a> ולהתקין
         </td>
       </tr>
       <tr>
         <td style="width:36px;vertical-align:top;padding:0 0 14px;">
-          <div style="width:30px;height:30px;background:#EC4899;border-radius:50%;text-align:center;line-height:30px;font-weight:700;font-size:14px;color:#fff;">2</div>
+          <div style="width:28px;height:28px;background:#EC4899;border-radius:50%;text-align:center;line-height:28px;font-weight:700;font-size:13px;color:#fff;">2</div>
         </td>
-        <td style="vertical-align:top;padding:4px 12px 14px 0;color:#A1A1AA;font-size:15px;">
-          להפעיל את התוכנה ולהזין את <strong style="color:#FAFAFA;">המפתח שלמעלה</strong>
+        <td style="vertical-align:top;padding:3px 10px 14px 0;color:#444;font-size:15px;">
+          להפעיל את התוכנה ולהזין את <strong>המפתח שלמעלה</strong>
         </td>
       </tr>
       <tr>
         <td style="width:36px;vertical-align:top;padding:0;">
-          <div style="width:30px;height:30px;background:#22D3EE;border-radius:50%;text-align:center;line-height:30px;font-weight:700;font-size:14px;color:#09090B;">3</div>
+          <div style="width:28px;height:28px;background:#22D3EE;border-radius:50%;text-align:center;line-height:28px;font-weight:700;font-size:13px;color:#fff;">3</div>
         </td>
-        <td style="vertical-align:top;padding:4px 12px 0 0;color:#A1A1AA;font-size:15px;">
+        <td style="vertical-align:top;padding:3px 10px 0 0;color:#444;font-size:15px;">
           להעתיק טקסט (<span dir="ltr">Ctrl+C</span>) — ולהתחיל להשתמש! 🚀
         </td>
       </tr>
     </table>
 
     <!-- Features -->
-    <div style="background:#09090B;border:1px solid #27272A;border-radius:10px;padding:20px;margin:24px 0 0;text-align:center;">
-      <p style="color:#71717A;font-size:12px;margin:0 0 12px;text-transform:uppercase;letter-spacing:1px;">10 פעולות AI מובנות</p>
-      <p style="color:#A1A1AA;font-size:14px;line-height:2;margin:0;">
-        ✦ סיכום &nbsp; ✦ שיפור ניסוח &nbsp; ✦ הפוך למייל &nbsp; ✦ תשובה למייל<br>
-        ✦ תיקון שפה &nbsp; ✦ תרגום לעברית &nbsp; ✦ תרגום לאנגלית<br>
-        ✦ המרת מקלדת &nbsp; ✦ הסבר משמעות &nbsp; ✦ חילוץ טקסט (OCR)
+    <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:16px;margin:24px 0 0;text-align:center;">
+      <p style="color:#888;font-size:11px;margin:0 0 10px;text-transform:uppercase;letter-spacing:1px;">10 פעולות AI מובנות</p>
+      <p style="color:#555;font-size:13px;line-height:2;margin:0;">
+        סיכום · שיפור ניסוח · הפוך למייל · תשובה למייל · תיקון שפה<br>
+        תרגום לעברית · תרגום לאנגלית · המרת מקלדת · הסבר משמעות · OCR
       </p>
     </div>
   </div>
 
   <!-- Footer -->
-  <div style="background:#09090B;padding:20px 28px;border-radius:0 0 16px 16px;border:1px solid #27272A;border-top:none;text-align:center;">
-    <p style="color:#71717A;font-size:13px;margin:0 0 8px;">
-      שאלות? פשוט להשיב למייל הזה.
-    </p>
-    <a href="https://copybar.net" style="color:#8B5CF6;font-size:13px;text-decoration:none;">copybar.net</a>
+  <div style="background:#F9FAFB;padding:16px 28px;text-align:center;border-top:1px solid #E5E7EB;">
+    <p style="color:#999;font-size:12px;margin:0 0 4px;">שאלות? פשוט להשיב למייל הזה.</p>
+    <a href="https://copybar.net" style="color:#8B5CF6;font-size:12px;text-decoration:none;">copybar.net</a>
   </div>
 </div>
 """
