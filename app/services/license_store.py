@@ -538,4 +538,65 @@ class LicenseStore:
             return cursor.rowcount
 
 
+    def count_beta_licenses(self) -> int:
+        self.initialize()
+        with self._connect(readonly=True) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS c FROM licenses WHERE source = 'beta_signup'"
+            ).fetchone()
+            return int(row["c"] or 0)
+
+    def find_license_by_email(self, email: str) -> dict[str, object] | None:
+        self.initialize()
+        email_norm = (email or "").strip().lower()
+        with self._connect(readonly=True) as conn:
+            row = conn.execute(
+                """
+                SELECT l.*, a.email_normalized, a.full_name
+                FROM licenses l
+                JOIN accounts a ON a.account_id = l.account_id
+                WHERE a.email_normalized = ? AND l.source = 'beta_signup'
+                ORDER BY l.created_at DESC
+                LIMIT 1
+                """,
+                (email_norm,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def create_beta_license(
+        self, *, raw_key: str, email: str, full_name: str
+    ) -> dict[str, object]:
+        self.initialize()
+        with self._connect() as conn:
+            account_id = self._upsert_account(
+                conn,
+                email_normalized=email.strip().lower(),
+                full_name=full_name.strip(),
+                notes="beta_signup",
+            )
+            license_id = f"lic_{uuid4().hex}"
+            key_hash = _hash_key(raw_key)
+            conn.execute(
+                """
+                INSERT INTO licenses (
+                    license_id, account_id, key_hash, key_masked, kind, tier, status, principal,
+                    created_at, expires_at, max_devices, issued_by, revoked_at, revoked_reason, source
+                ) VALUES (?, ?, ?, ?, 'trial', 'trial', 'active', ?, ?, NULL, 1, NULL, NULL, NULL, 'beta_signup')
+                """,
+                (
+                    license_id,
+                    account_id,
+                    key_hash,
+                    _mask_key("trial", key_hash),
+                    _principal_from_hash(key_hash, "trial"),
+                    _now_iso(),
+                ),
+            )
+            created = conn.execute(
+                "SELECT * FROM licenses WHERE license_id = ?",
+                (license_id,),
+            ).fetchone()
+            return dict(created) if created else {}
+
+
 license_store = LicenseStore(get_settings().leads_db_path)

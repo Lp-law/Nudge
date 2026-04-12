@@ -1190,29 +1190,35 @@
         <div class="download-icon">
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         </div>
-        <h2 class="section-title" style="margin-bottom:12px">הורדת <span class="en" lang="en">CopyBar</span> — גרסת Beta</h2>
-        <a href="https://github.com/Lp-law/Nudge/releases/download/v1.0.0-beta/CopyBar-Setup-1.0.0.exe" id="downloadBtn" class="btn btn-primary btn-lg" style="margin-top:16px">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.45H0m10.949-9.596L24 0v11.4H10.949M0 12.6h9.75v9.45L0 20.699M10.949 12.6H24V24l-13.051-1.848"/></svg>
-          הורדה ל-<span class="en" lang="en">Windows 10/11</span>
-        </a>
-        <p class="download-meta" style="margin-top:12px;">גרסה 1.0.0 Beta &nbsp;|&nbsp; <span class="en" lang="en">Windows 10/11</span> &nbsp;|&nbsp; חינם לחודש</p>
+        <h2 class="section-title" style="margin-bottom:12px">הצטרפות לבטא — 2 צעדים</h2>
 
-        <div style="max-width:500px;margin:24px auto 0;text-align:right;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;">
-          <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:16px;color:var(--text);text-align:center;">איך מתחילים? 3 צעדים פשוטים</h3>
-          <div style="display:flex;flex-direction:column;gap:14px;">
-            <div style="display:flex;align-items:center;gap:12px;">
-              <span style="min-width:32px;height:32px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;color:#fff;">1</span>
-              <span style="color:var(--text);">להוריד ולהתקין — התקנה רגילה של <span class="en" lang="en">Windows</span></span>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;">
-              <span style="min-width:32px;height:32px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;color:#fff;">2</span>
-              <span style="color:var(--text);">להזין את מפתח ההפעלה שקיבלתם</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;">
-              <span style="min-width:32px;height:32px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;color:#fff;">3</span>
-              <span style="color:var(--text);">להעתיק טקסט ולהתחיל להשתמש!</span>
-            </div>
+        <!-- Step 1: Get Key -->
+        <div id="betaForm" style="max-width:460px;margin:20px auto 0;text-align:right;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;">
+          <h3 style="font-size:1.05rem;font-weight:700;margin-bottom:16px;color:var(--accent);text-align:center;">צעד 1: לקבל מפתח הפעלה חינם</h3>
+          <div style="margin-bottom:12px;">
+            <label for="betaName" style="font-size:0.9rem;color:var(--text-muted);display:block;margin-bottom:4px;">שם מלא</label>
+            <input type="text" id="betaName" placeholder="השם שלך" required style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.95rem;direction:rtl;" />
           </div>
+          <div style="margin-bottom:16px;">
+            <label for="betaEmail" style="font-size:0.9rem;color:var(--text-muted);display:block;margin-bottom:4px;">אימייל</label>
+            <input type="email" id="betaEmail" placeholder="your@email.com" required style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:0.95rem;direction:ltr;" />
+          </div>
+          <button onclick="submitBeta()" id="betaBtn" class="btn btn-primary" style="width:100%;padding:12px;font-size:1rem;">לקבלת מפתח הפעלה חינם</button>
+          <div id="betaMsg" style="margin-top:12px;text-align:center;font-size:0.9rem;display:none;"></div>
+          <div id="betaKey" style="margin-top:12px;padding:14px;background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:8px;text-align:center;display:none;">
+            <p style="color:var(--text-muted);font-size:0.85rem;margin:0 0 6px;">המפתח שלך:</p>
+            <p id="betaKeyValue" style="color:var(--accent);font-size:1.3rem;font-weight:bold;letter-spacing:2px;margin:0;direction:ltr;"></p>
+          </div>
+        </div>
+
+        <!-- Step 2: Download -->
+        <div style="max-width:460px;margin:20px auto 0;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;">
+          <h3 style="font-size:1.05rem;font-weight:700;margin-bottom:16px;color:var(--accent);">צעד 2: להוריד ולהתקין</h3>
+          <a href="https://github.com/Lp-law/Nudge/releases/download/v1.0.0-beta/CopyBar-Setup-1.0.0.exe" class="btn btn-primary btn-lg" style="width:100%;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.45H0m10.949-9.596L24 0v11.4H10.949M0 12.6h9.75v9.45L0 20.699M10.949 12.6H24V24l-13.051-1.848"/></svg>
+            הורדה ל-<span class="en" lang="en">Windows 10/11</span>
+          </a>
+          <p style="margin-top:10px;font-size:0.85rem;color:var(--text-dim);">להתקין → להפעיל → להזין את המפתח → להעתיק טקסט ולהתחיל!</p>
         </div>
 
         <p class="download-soon" style="margin-top:16px;">בקרוב: <span class="en" lang="en">iOS</span> &nbsp;|&nbsp; <span class="en" lang="en">Android</span></p>
@@ -1303,6 +1309,41 @@
   </footer>
 
   <script>
+    // ═══════════════════ Beta Signup ═══════════════════
+    const BETA_API = ''; // same origin on Render; for local dev use 'http://127.0.0.1:8000'
+    async function submitBeta() {
+      const name = document.getElementById('betaName').value.trim();
+      const email = document.getElementById('betaEmail').value.trim();
+      const btn = document.getElementById('betaBtn');
+      const msg = document.getElementById('betaMsg');
+      const keyDiv = document.getElementById('betaKey');
+      const keyVal = document.getElementById('betaKeyValue');
+      if (!name || name.length < 2) { msg.style.display='block'; msg.style.color='#F87171'; msg.textContent='נא להזין שם מלא'; return; }
+      if (!email || !email.includes('@')) { msg.style.display='block'; msg.style.color='#F87171'; msg.textContent='נא להזין אימייל תקין'; return; }
+      btn.disabled = true; btn.textContent = 'שולח...';
+      msg.style.display = 'none'; keyDiv.style.display = 'none';
+      try {
+        const resp = await fetch(BETA_API + '/payments/beta/signup', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({email, full_name: name})
+        });
+        const data = await resp.json();
+        msg.style.display = 'block';
+        if (data.success) {
+          msg.style.color = '#34D399';
+          msg.textContent = data.message;
+          if (data.key) { keyVal.textContent = data.key; keyDiv.style.display = 'block'; }
+        } else {
+          msg.style.color = '#F87171';
+          msg.textContent = data.message || 'שגיאה. נסו שוב.';
+        }
+      } catch(e) {
+        msg.style.display = 'block'; msg.style.color = '#F87171';
+        msg.textContent = 'שגיאת תקשורת. נסו שוב.';
+      }
+      btn.disabled = false; btn.textContent = 'לקבלת מפתח הפעלה חינם';
+    }
+
     // ═══════════════════ Mobile menu ═══════════════════
     const hamburger = document.getElementById('hamburger');
     const navLinks = document.getElementById('navLinks');
