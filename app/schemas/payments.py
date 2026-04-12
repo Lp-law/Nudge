@@ -43,3 +43,14 @@ class CancelConfirmResponse(BaseModel):
     success: bool
     effective_date: str = ""
     message: str = ""
+
+
+class BetaSignupRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=320)
+    full_name: str = Field(min_length=2, max_length=120)
+
+
+class BetaSignupResponse(BaseModel):
+    success: bool
+    message: str = ""
+    key: str = ""  # Only populated if email sending is disabled

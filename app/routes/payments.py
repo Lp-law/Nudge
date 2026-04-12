@@ -2,12 +2,16 @@ import hashlib
 import hmac
 import logging
 import time
+from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 
 from app.core.config import get_settings
+from app.core.security import create_rate_limiter, get_client_ip
 from app.schemas.payments import (
+    BetaSignupRequest,
+    BetaSignupResponse,
     CancelConfirmRequest,
     CancelConfirmResponse,
     CancelVerifyRequest,
@@ -252,3 +256,125 @@ async def cancel_confirm(payload: CancelConfirmRequest) -> CancelConfirmResponse
         effective_date=effective_at,
         message="המנוי בוטל בהצלחה. לא יבוצעו חיובים נוספים.",
     )
+
+
+_BETA_MAX = 100
+_beta_limiter = None
+
+
+def _get_beta_limiter():
+    global _beta_limiter
+    if _beta_limiter is None:
+        _beta_limiter = create_rate_limiter(get_settings())
+    return _beta_limiter
+
+
+def _generate_beta_key() -> str:
+    return f"BETA-{uuid4().hex[:8].upper()}-{uuid4().hex[:8].upper()}-{uuid4().hex[:8].upper()}"
+
+
+def _beta_welcome_email_html(full_name: str, key: str) -> str:
+    return f"""
+<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+  <div style="text-align:center;margin-bottom:24px;">
+    <h1 style="color:#8B5CF6;font-size:28px;margin:0;">CopyBar</h1>
+    <p style="color:#71717A;font-size:14px;">הטקסט שלך, חכם יותר</p>
+  </div>
+  <h2 style="color:#18181B;">שלום {full_name},</h2>
+  <p style="color:#27272A;font-size:15px;line-height:1.7;">
+    תודה שהצטרפת לגרסת הבטא של CopyBar! 🎉<br>
+    המפתח שלך מוכן — החודש הראשון חינם לגמרי.
+  </p>
+  <div style="background:#F4F4F5;border:2px solid #8B5CF6;border-radius:12px;padding:20px;text-align:center;margin:24px 0;">
+    <p style="color:#71717A;font-size:13px;margin:0 0 8px;">מפתח ההפעלה שלך:</p>
+    <p style="color:#8B5CF6;font-size:22px;font-weight:bold;letter-spacing:2px;margin:0;direction:ltr;">{key}</p>
+  </div>
+  <h3 style="color:#18181B;">איך מתחילים?</h3>
+  <ol style="color:#27272A;font-size:15px;line-height:2;">
+    <li><a href="https://github.com/Lp-law/Nudge/releases/download/v1.0.0-beta/CopyBar-Setup-1.0.0.exe" style="color:#8B5CF6;font-weight:bold;">להוריד את CopyBar</a> ולהתקין</li>
+    <li>להפעיל את התוכנה ולהזין את המפתח שלמעלה</li>
+    <li>להעתיק טקסט (Ctrl+C) — ולהתחיל להשתמש!</li>
+  </ol>
+  <p style="color:#27272A;font-size:15px;line-height:1.7;">
+    CopyBar יושב בשורת המשימות ומציע 10 פעולות AI: סיכום, שיפור ניסוח, תרגום, כתיבת מייל, ועוד — בלחיצה אחת.
+  </p>
+  <p style="color:#71717A;font-size:13px;margin-top:24px;">
+    שאלות? פשוט להשיב למייל הזה.<br>
+    <a href="https://copybar.net" style="color:#8B5CF6;">copybar.net</a>
+  </p>
+</div>
+"""
+
+
+@router.post("/beta/signup", response_model=BetaSignupResponse)
+async def beta_signup(payload: BetaSignupRequest, request: Request) -> BetaSignupResponse:
+    """Self-service beta signup: generates a license key and emails it."""
+    settings = get_settings()
+
+    # Rate limit: 5 per IP per hour
+    limiter = _get_beta_limiter()
+    client_ip = get_client_ip(request, settings)
+    decision = await limiter.allow(f"beta_signup:{client_ip}", 5, 3600)
+    if not decision.allowed:
+        return BetaSignupResponse(
+            success=False,
+            message="יותר מדי ניסיונות. אפשר לנסות שוב מאוחר יותר.",
+        )
+
+    license_store.initialize()
+
+    # Check beta cap
+    beta_count = license_store.count_beta_licenses()
+    if beta_count >= _BETA_MAX:
+        return BetaSignupResponse(
+            success=False,
+            message="הבטא מלאה! כל 100 המקומות נתפסו. השאירו מייל ונעדכן כשנפתח מקומות נוספים.",
+        )
+
+    email = payload.email.strip().lower()
+    full_name = payload.full_name.strip()
+
+    # Check if already signed up
+    existing = license_store.find_license_by_email(email)
+    if existing:
+        # Resend the same key info
+        masked = str(existing.get("key_masked", ""))
+        _log.info("Beta resend for existing email=%s", email)
+        return BetaSignupResponse(
+            success=True,
+            message=f"כבר נרשמת לבטא! המפתח שלך נשלח שוב למייל. (רמז: {masked})",
+        )
+
+    # Generate key and create license
+    key = _generate_beta_key()
+    license_store.create_beta_license(raw_key=key, email=email, full_name=full_name)
+    _log.info("Beta signup: email=%s key=%s", email, key[:12] + "...")
+
+    # Try to send email
+    email_sent = False
+    if settings.support_email_enabled:
+        try:
+            from app.services.graph_mail_client import GraphMailClient
+            mail_client = GraphMailClient(settings)
+            await mail_client.send_mail(
+                to=email,
+                subject="CopyBar Beta — מפתח ההפעלה שלך 🔑",
+                body_html=_beta_welcome_email_html(full_name, key),
+            )
+            email_sent = True
+            _log.info("Beta key emailed to %s", email)
+        except Exception:
+            _log.exception("Failed to email beta key to %s", email)
+
+    if email_sent:
+        return BetaSignupResponse(
+            success=True,
+            message="מעולה! מפתח ההפעלה נשלח למייל. בדקו את תיבת הדואר (גם בספאם).",
+        )
+    else:
+        # Fallback: return key directly
+        return BetaSignupResponse(
+            success=True,
+            message="נרשמת בהצלחה! הנה מפתח ההפעלה שלך (שמרו אותו):",
+            key=key,
+        )
