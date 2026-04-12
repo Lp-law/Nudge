@@ -282,58 +282,59 @@ _DOWNLOAD_URL = "https://github.com/Lp-law/Nudge/releases/download/v1.0.2-beta/C
 
 def _beta_welcome_email_html(full_name: str, key: str) -> str:
     return f"""
-<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;">
-  <!-- Header bar -->
-  <div style="background:#8B5CF6;padding:24px;text-align:center;">
-    <img src="{_LOGO_URL}" alt="CopyBar" width="160" style="display:inline-block;" />
+<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #E5E7EB;border-radius:12px;overflow:hidden;">
+
+  <!-- Header -->
+  <div style="padding:28px 32px 20px;text-align:center;border-bottom:1px solid #F3F4F6;">
+    <img src="{_LOGO_URL}" alt="CopyBar" width="140" style="display:inline-block;" />
   </div>
 
   <!-- Body -->
-  <div style="padding:32px 28px;background:#ffffff;">
-    <h2 style="color:#1a1a1a;font-size:22px;margin:0 0 12px;">שלום {full_name} 👋</h2>
-    <p style="color:#444;font-size:15px;line-height:1.8;margin:0 0 24px;">
-      תודה שהצטרפת לגרסת הבטא של <strong>CopyBar</strong>!<br>
+  <div style="padding:28px 32px;">
+    <p style="color:#1a1a1a;font-size:18px;font-weight:700;margin:0 0 6px;">שלום {full_name} 👋</p>
+    <p style="color:#333;font-size:15px;line-height:1.8;margin:0 0 24px;">
+      תודה שהצטרפת לגרסת הבטא של CopyBar!<br>
       המפתח שלך מוכן — <strong style="color:#8B5CF6;">10 ימים חינם לגמרי</strong>.
     </p>
 
     <!-- Key box -->
     <div style="background:#F5F3FF;border:2px solid #8B5CF6;border-radius:10px;padding:20px;text-align:center;margin:0 0 28px;">
-      <p style="color:#666;font-size:12px;margin:0 0 8px;">מפתח ההפעלה שלך</p>
+      <p style="color:#666;font-size:13px;margin:0 0 8px;">מפתח ההפעלה שלך</p>
       <p style="color:#8B5CF6;font-size:22px;font-weight:900;letter-spacing:2px;margin:0;direction:ltr;">{key}</p>
     </div>
 
     <!-- Steps -->
-    <h3 style="color:#1a1a1a;font-size:17px;margin:0 0 16px;">איך מתחילים?</h3>
+    <p style="color:#1a1a1a;font-size:16px;font-weight:700;margin:0 0 14px;">איך מתחילים?</p>
     <table style="width:100%;border-collapse:collapse;" dir="rtl">
       <tr>
-        <td style="width:36px;vertical-align:top;padding:0 0 14px;">
-          <div style="width:28px;height:28px;background:#8B5CF6;border-radius:50%;text-align:center;line-height:28px;font-weight:700;font-size:13px;color:#fff;">1</div>
+        <td style="width:32px;vertical-align:top;padding:0 0 12px;">
+          <div style="width:26px;height:26px;background:#8B5CF6;border-radius:50%;text-align:center;line-height:26px;font-weight:700;font-size:13px;color:#fff;">1</div>
         </td>
-        <td style="vertical-align:top;padding:3px 10px 14px 0;color:#444;font-size:15px;">
+        <td style="vertical-align:top;padding:3px 10px 12px 0;color:#333;font-size:15px;">
           <a href="{_DOWNLOAD_URL}" style="color:#8B5CF6;font-weight:700;text-decoration:none;">להוריד את CopyBar</a> ולהתקין
         </td>
       </tr>
       <tr>
-        <td style="width:36px;vertical-align:top;padding:0 0 14px;">
-          <div style="width:28px;height:28px;background:#EC4899;border-radius:50%;text-align:center;line-height:28px;font-weight:700;font-size:13px;color:#fff;">2</div>
+        <td style="width:32px;vertical-align:top;padding:0 0 12px;">
+          <div style="width:26px;height:26px;background:#8B5CF6;border-radius:50%;text-align:center;line-height:26px;font-weight:700;font-size:13px;color:#fff;">2</div>
         </td>
-        <td style="vertical-align:top;padding:3px 10px 14px 0;color:#444;font-size:15px;">
-          להפעיל את התוכנה ולהזין את <strong>המפתח שלמעלה</strong>
+        <td style="vertical-align:top;padding:3px 10px 12px 0;color:#333;font-size:15px;">
+          להפעיל את התוכנה ולהזין את המפתח שלמעלה
         </td>
       </tr>
       <tr>
-        <td style="width:36px;vertical-align:top;padding:0;">
-          <div style="width:28px;height:28px;background:#22D3EE;border-radius:50%;text-align:center;line-height:28px;font-weight:700;font-size:13px;color:#fff;">3</div>
+        <td style="width:32px;vertical-align:top;padding:0;">
+          <div style="width:26px;height:26px;background:#8B5CF6;border-radius:50%;text-align:center;line-height:26px;font-weight:700;font-size:13px;color:#fff;">3</div>
         </td>
-        <td style="vertical-align:top;padding:3px 10px 0 0;color:#444;font-size:15px;">
-          להעתיק טקסט (<span dir="ltr">Ctrl+C</span>) — ולהתחיל להשתמש! 🚀
+        <td style="vertical-align:top;padding:3px 10px 0 0;color:#333;font-size:15px;">
+          להעתיק טקסט (<span dir="ltr">Ctrl+C</span>) ולהתחיל להשתמש!
         </td>
       </tr>
     </table>
 
     <!-- Features -->
     <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:16px;margin:24px 0 0;text-align:center;">
-      <p style="color:#888;font-size:11px;margin:0 0 10px;text-transform:uppercase;letter-spacing:1px;">10 פעולות AI מובנות</p>
+      <p style="color:#666;font-size:13px;font-weight:600;margin:0 0 8px;">10 פעולות AI מובנות</p>
       <p style="color:#555;font-size:13px;line-height:2;margin:0;">
         סיכום · שיפור ניסוח · הפוך למייל · תשובה למייל · תיקון שפה<br>
         תרגום לעברית · תרגום לאנגלית · המרת מקלדת · הסבר משמעות · OCR
@@ -342,9 +343,11 @@ def _beta_welcome_email_html(full_name: str, key: str) -> str:
   </div>
 
   <!-- Footer -->
-  <div style="background:#F9FAFB;padding:16px 28px;text-align:center;border-top:1px solid #E5E7EB;">
-    <p style="color:#999;font-size:12px;margin:0 0 4px;">שאלות? פשוט להשיב למייל הזה.</p>
-    <a href="https://copybar.net" style="color:#8B5CF6;font-size:12px;text-decoration:none;">copybar.net</a>
+  <div style="padding:16px 32px;text-align:center;border-top:1px solid #F3F4F6;background:#FAFAFA;">
+    <p style="color:#888;font-size:13px;margin:0 0 4px;">שאלות? ניתן לפנות אלינו:</p>
+    <a href="mailto:hello@copybar.net" style="color:#8B5CF6;font-size:13px;text-decoration:none;font-weight:600;">hello@copybar.net</a>
+    <span style="color:#ccc;font-size:13px;"> · </span>
+    <a href="https://copybar.net" style="color:#8B5CF6;font-size:13px;text-decoration:none;">copybar.net</a>
   </div>
 </div>
 """
