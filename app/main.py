@@ -194,6 +194,10 @@ app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(updates_router)
 
+# Beta signup is always available (doesn't require PayPlus).
+from app.routes.payments import beta_signup_router
+app.include_router(beta_signup_router)
+
 # Register payments router only when PayPlus is fully configured.
 _settings_for_payments = get_settings()
 if (
