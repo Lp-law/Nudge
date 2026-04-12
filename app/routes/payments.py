@@ -296,7 +296,7 @@ def _beta_welcome_email_html(full_name: str, key: str) -> str:
     <h2 style="color:#FAFAFA;font-size:22px;margin:0 0 16px;">שלום {full_name} 👋</h2>
     <p style="color:#A1A1AA;font-size:15px;line-height:1.8;margin:0 0 24px;">
       תודה שהצטרפת לגרסת הבטא של <strong style="color:#FAFAFA;">CopyBar</strong>!<br>
-      המפתח שלך מוכן — <strong style="color:#22D3EE;">החודש הראשון חינם לגמרי</strong>.
+      המפתח שלך מוכן — <strong style="color:#22D3EE;">10 ימים חינם לגמרי</strong>.
     </p>
 
     <!-- Key box -->

@@ -564,9 +564,11 @@ class LicenseStore:
             return dict(row) if row else None
 
     def create_beta_license(
-        self, *, raw_key: str, email: str, full_name: str
+        self, *, raw_key: str, email: str, full_name: str, beta_days: int = 10
     ) -> dict[str, object]:
         self.initialize()
+        from datetime import timedelta
+        expires_at = (datetime.now(UTC) + timedelta(days=beta_days)).isoformat(timespec="seconds")
         with self._connect() as conn:
             account_id = self._upsert_account(
                 conn,
@@ -581,7 +583,7 @@ class LicenseStore:
                 INSERT INTO licenses (
                     license_id, account_id, key_hash, key_masked, kind, tier, status, principal,
                     created_at, expires_at, max_devices, issued_by, revoked_at, revoked_reason, source
-                ) VALUES (?, ?, ?, ?, 'trial', 'trial', 'active', ?, ?, NULL, 1, NULL, NULL, NULL, 'beta_signup')
+                ) VALUES (?, ?, ?, ?, 'trial', 'trial', 'active', ?, ?, ?, 1, NULL, NULL, NULL, 'beta_signup')
                 """,
                 (
                     license_id,
@@ -590,6 +592,7 @@ class LicenseStore:
                     _mask_key("trial", key_hash),
                     _principal_from_hash(key_hash, "trial"),
                     _now_iso(),
+                    expires_at,
                 ),
             )
             created = conn.execute(
