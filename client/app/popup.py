@@ -226,7 +226,7 @@ class ActionPopup(QWidget):
             button.setMinimumHeight(38)
             button.setIcon(self._icon_for_action(action))
             button.setIconSize(self.ACTION_ICON_SIZE)
-            button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+            button.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
             button.setAccessibleName(f"פעולה: {button.text()}")
