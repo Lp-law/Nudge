@@ -436,7 +436,7 @@ class ActionPopup(QWidget):
         self.buttons["summarize"].setFocus(Qt.FocusReason.ActiveWindowFocusReason)
 
     def _load_popup_icon(self) -> QPixmap | None:
-        icon_path = resource_path("assets", "nudge.ico")
+        icon_path = resource_path("assets", "copybar.ico")
         if not icon_path.exists():
             return None
         pixmap = QPixmap(str(icon_path))

@@ -573,7 +573,7 @@ class TrayApp:
         )
 
     def _load_tray_icon(self) -> QIcon:
-        icon_path = resource_path("assets", "nudge.ico")
+        icon_path = resource_path("assets", "copybar.ico")
         if icon_path.exists():
             custom_icon = QIcon(str(icon_path))
             if not custom_icon.isNull():

@@ -6,7 +6,7 @@ a = Analysis(
     pathex=["."],
     binaries=[],
     datas=[
-        ("assets/nudge.ico", "assets"),
+        ("assets/copybar.ico", "assets"),
         ("app/user_guide_content.json", "app"),
         ("release/version.json", "release"),
         ("release/release_metadata.example.json", "release"),
