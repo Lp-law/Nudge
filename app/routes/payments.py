@@ -277,7 +277,7 @@ def _generate_beta_key() -> str:
 
 
 _LOGO_URL = "https://copybar.net/copybar-logo.png"
-_DOWNLOAD_URL = "https://github.com/Lp-law/Nudge/releases/download/v1.0.1-beta/CopyBar-Setup-1.0.1.exe"
+_DOWNLOAD_URL = "https://github.com/Lp-law/Nudge/releases/download/v1.0.2-beta/CopyBar-Setup-1.0.2.exe"
 
 
 def _beta_welcome_email_html(full_name: str, key: str) -> str:
