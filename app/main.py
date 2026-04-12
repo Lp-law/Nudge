@@ -175,6 +175,20 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="CopyBar MVP Backend", version="0.1.0", lifespan=lifespan)
+
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://copybar.net",
+        "https://www.copybar.net",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ],
+    allow_methods=["POST", "GET", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
+)
+
 app.include_router(ai_router)
 app.include_router(auth_router)
 app.include_router(admin_router)
