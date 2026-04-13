@@ -18,7 +18,8 @@ OutputBaseFilename=CopyBar-Setup-{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayIcon={app}\{#MyAppExeName}
+SetupIconFile=..\assets\copybar.ico
+UninstallDisplayIcon={app}\copybar.ico
 ArchitecturesInstallIn64BitMode=x64
 
 [Languages]
@@ -30,11 +31,12 @@ Name: "startup"; Description: "Start CopyBar when I sign in"; GroupDescription: 
 
 [Files]
 Source: "..\dist\CopyBar\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+Source: "..\assets\copybar.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\CopyBar"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\CopyBar"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
-Name: "{userstartup}\CopyBar"; Filename: "{app}\{#MyAppExeName}"; Tasks: startup
+Name: "{autoprograms}\CopyBar"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\copybar.ico"
+Name: "{autodesktop}\CopyBar"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\copybar.ico"; Tasks: desktopicon
+Name: "{userstartup}\CopyBar"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\copybar.ico"; Tasks: startup
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch CopyBar"; Flags: nowait postinstall skipifsilent
